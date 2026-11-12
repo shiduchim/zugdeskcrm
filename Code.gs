@@ -13,7 +13,7 @@ const C_HEADERS = ['ID','Name','City','Sector','Specialty','Languages','Symbol',
   'EmailStatus','EmailSentAt','EmailFollowupAt','EmailThreadIds','EmailLastSeen','Lang','Boost','CrossedOut','InZugDesk','Notes',
   'AskedReferralsAt','Type'];
 const S_HEADERS = ['When','FromID','FromName','Name','Phone','Phone2','Email','Text','Status','ContactID'];
-const SCHEMA = '3';
+const SCHEMA = '4';
 
 /** Adds new tabs/columns/settings to an older sheet without touching existing data. */
 function schema_() {
@@ -29,6 +29,22 @@ function schema_() {
     const r = ct.getRange(2, ti + 1, last - 1, 1);
     const ids = ct.getRange(2, 1, last - 1, 1).getValues();
     r.setValues(r.getValues().map((v, i) => [v[0] || (ids[i][0] ? 'Shadchan' : '')]));
+  }
+  // v4: the insert sheet "שדכנים חדשים" is part of the book → Source 'Book' (old wording kept in SourceRef).
+  const si = head.indexOf('Source'), ri = head.indexOf('SourceRef');
+  if (si >= 0 && ri >= 0 && last > 1) {
+    const sr = ct.getRange(2, si + 1, last - 1, 1), rr = ct.getRange(2, ri + 1, last - 1, 1);
+    const sv = sr.getValues(), rv = rr.getValues();
+    let changed = false;
+    sv.forEach((v, i) => {
+      const src = String(v[0] || '');
+      if (!/^book\b/i.test(src) && /insert|שדכנים חדשים/i.test(src)) {
+        const ref = String(rv[i][0] || '');
+        rv[i][0] = ref ? (ref.indexOf(src) >= 0 ? ref : src + ' · ' + ref) : src;
+        v[0] = 'Book'; changed = true;
+      }
+    });
+    if (changed) { sr.setValues(sv); rr.setValues(rv); }
   }
   const st = ss_().getSheetByName('Settings');
   st.getRange(1, 2, st.getMaxRows(), 1).setNumberFormat('@');
