@@ -11,18 +11,35 @@ const LABEL = 'zugdeskcrm';
 const C_HEADERS = ['ID','Name','City','Sector','Specialty','Languages','Symbol','Hours','Phone1','Phone2','Email','Other',
   'Source','SourceRef','ReferredBy','Status','CloseReason','NextDate','Attempts','LastContact','LastChannel','NeedsReply',
   'EmailStatus','EmailSentAt','EmailFollowupAt','EmailThreadIds','EmailLastSeen','Lang','Boost','CrossedOut','InZugDesk','Notes',
-  'AskedReferralsAt'];
+  'AskedReferralsAt','Type'];
 const S_HEADERS = ['When','FromID','FromName','Name','Phone','Phone2','Email','Text','Status','ContactID'];
+const SCHEMA = '3';
 
-/** Adds new tabs/columns to an older sheet without touching data. */
+/** Adds new tabs/columns/settings to an older sheet without touching existing data. */
 function schema_() {
   const p = PropertiesService.getScriptProperties();
-  if (p.getProperty('schema') === '2') return;
-  ensureSheet_('Contacts', C_HEADERS);
+  if (p.getProperty('schema') === SCHEMA) return;
+  const ct = ensureSheet_('Contacts', C_HEADERS);
   const sh = ensureSheet_('Suggested', S_HEADERS);
   sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).setNumberFormat('@');
-  p.setProperty('schema', '2');
+  // v3: Type column. Everyone already in the list came from shadchan directories → 'Shadchan'.
+  const head = ct.getRange(1, 1, 1, ct.getLastColumn()).getValues()[0].map(String);
+  const ti = head.indexOf('Type'), last = ct.getLastRow();
+  if (ti >= 0 && last > 1) {
+    const r = ct.getRange(2, ti + 1, last - 1, 1);
+    const ids = ct.getRange(2, 1, last - 1, 1).getValues();
+    r.setValues(r.getValues().map((v, i) => [v[0] || (ids[i][0] ? 'Shadchan' : '')]));
+  }
+  const st = ss_().getSheetByName('Settings');
+  st.getRange(1, 2, st.getMaxRows(), 1).setNumberFormat('@');
+  const s = settings_();
+  if (s.SKIP_DATES === undefined) st.appendRow(['SKIP_DATES', '', 'Dates with no automatic emails (Yom Tov, fast days), e.g. 2026-12-25, 2027-03-23']);
+  if (s.EMAILS_PER_DAY === '20') setSetting_('EMAILS_PER_DAY', '5');   // start slowly; raise over 2–3 weeks
+  p.setProperty('schema', SCHEMA);
 }
+
+/** Only real shadchanim get outreach (later: Connector, Family… must never get autopilot emails). */
+function isShadchan_(c) { return c.Type === 'Shadchan'; }
 
 /* ------------------------------------------------------------------ */
 /* Web app entry                                                       */
@@ -55,7 +72,8 @@ function setup() {
   receivedFolder_();
   GmailApp.getUserLabelByName(LABEL) || GmailApp.createLabel(LABEL);
   ensureTrigger_();
-  PropertiesService.getScriptProperties().setProperty('schema', '2');
+  PropertiesService.getScriptProperties().deleteProperty('schema');
+  schema_();
   return 'Setup done. Now deploy as a web app (Execute as: Me, Who has access: Only myself).';
 }
 
@@ -408,9 +426,12 @@ function api_askEmail(id) {
   const s = settings_(), db = loadContacts_();
   const c = db.rows.find(r => r.ID === id);
   if (!validEmail_(c.Email)) throw new Error('No email address for this person');
+  if (c.Status === 'Closed' || blocked_(c, dnc_())) throw new Error('This person is closed or on the Do-not-contact list');
+  if (!isShadchan_(c)) throw new Error('Only shadchanim get this email');
   if (c.EmailStatus === 'Bounced') throw new Error('Email to this address failed before — ask by WhatsApp or phone');
   const lang = pickLang_(c, s);
   const body = fill_(s['ASK_EMAIL_' + lang] || s.ASK_EMAIL_HE, { sender: s.SENDER_NAME });
+  if (body.trim().length < 20) throw new Error('ASK_EMAIL_' + lang + ' is empty — check the Settings tab');
   const opts = { name: s.SENDER_NAME, htmlBody: toHtml_(body, lang) };
   let theirs = null;
   (c.EmailThreadIds || '').split(',').filter(Boolean).forEach(tid => {
@@ -447,7 +468,7 @@ function buildPlan_(db, s, dnc) {
   db.rows.forEach(c => { if (c.Status && c.Status !== 'New') phonesOf_(c).forEach(p => touched.add(p.intl)); });
 
   const pool = db.rows
-    .filter(c => (c.Status || 'New') === 'New' && !blocked_(c, dnc))
+    .filter(c => (c.Status || 'New') === 'New' && isShadchan_(c) && !blocked_(c, dnc))
     .filter(c => phonesOf_(c).length && !phonesOf_(c).some(p => touched.has(p.intl)))
     // when the email autopilot is on, people with an email get the email first
     .filter(c => !(autoEmail && validEmail_(c.Email) && !c.EmailStatus))
@@ -660,7 +681,7 @@ function api_addReferral(byId, data) {
     const id = nextId_(db);
     const row = C_HEADERS.map(h => ({
       ID: id, Name: data.name || '', City: data.city || '', Phone1: p1 ? p1.local : (data.phone || ''), Phone2: data.phone2 || '', Email: data.email || '',
-      Specialty: data.note || '', Languages: data.languages || '', Source: 'Referral', ReferredBy: byName, Status: 'New'
+      Specialty: data.note || '', Languages: data.languages || '', Source: 'Referral', ReferredBy: byName, Status: 'New', Type: 'Shadchan'
     })[h] || '');
     db.sh.appendRow(row);
     log_({ ID: id, Name: data.name }, 'Referral', 'Added', 'recommended by ' + byName);
@@ -751,6 +772,8 @@ function composeEmail_(c, s, lang, followup) {
   const map = { source_line: sourceLine_(c, s, lang), profile: s['PROFILE_' + lang] || s.PROFILE_HE, contact_line: contact, sender: s.SENDER_NAME };
   const subject = fill_(s['EMAIL_SUBJECT_' + lang] || s.EMAIL_SUBJECT_HE, map);
   const body = fill_(followup ? (s['EMAIL_FOLLOWUP_' + lang] || s.EMAIL_FOLLOWUP_HE) : (s['EMAIL_BODY_' + lang] || s.EMAIL_BODY_HE), map);
+  if (subject.trim().length < 5 || body.trim().length < 40)
+    throw new Error('Email template is empty or too short (' + (followup ? 'EMAIL_FOLLOWUP_' : 'EMAIL_BODY_') + lang + ' / EMAIL_SUBJECT_' + lang + ') — check the Settings tab');
   return { subject: followup ? 'Re: ' + subject : subject, body: body };
 }
 
@@ -761,6 +784,7 @@ function sendBatch_() {
   const day = Utilities.formatDate(now, TZ, 'EEE');          // Sun, Mon, ...
   const hour = parseInt(Utilities.formatDate(now, TZ, 'H'), 10);
   if (list_(s, 'EMAIL_DAYS').indexOf(day) < 0) return;
+  if (list_(s, 'SKIP_DATES').indexOf(today_()) >= 0) return;   // Yom Tov / fast days
   if (hour < num_(s, 'EMAIL_START_HOUR', 9) || hour >= num_(s, 'EMAIL_END_HOUR', 19)) return;
 
   const props = PropertiesService.getScriptProperties();
@@ -786,10 +810,10 @@ function sendBatch_() {
   const fuDays = num_(s, 'FOLLOWUP_DAYS', 8);
 
   // 1) one gentle follow-up to people who haven't written back
-  const followups = db.rows.filter(c => c.EmailStatus === 'Sent' && c.Status !== 'Closed' && c.NeedsReply !== 'YES'
+  const followups = db.rows.filter(c => c.EmailStatus === 'Sent' && c.Status === 'Contacted' && c.LastChannel === 'Email' && c.NeedsReply !== 'YES' && isShadchan_(c)
     && c.EmailSentAt && c.EmailSentAt.slice(0, 10) <= addDays_(-fuDays) && !blocked_(c, dnc) && validEmail_(c.Email));
   // 2) new emails, best leads first
-  const fresh = db.rows.filter(c => (c.Status || 'New') === 'New' && !c.EmailStatus && validEmail_(c.Email) && !blocked_(c, dnc)
+  const fresh = db.rows.filter(c => (c.Status || 'New') === 'New' && isShadchan_(c) && !c.EmailStatus && validEmail_(c.Email) && !blocked_(c, dnc)
     && !(String(s.SKIP_ZUGDESK).toUpperCase() === 'YES' && c.InZugDesk === 'YES'))
     .map(c => ({ c: c, sc: scoreContact(c, s).score })).sort((a, b) => b.sc - a.sc).map(x => x.c);
 

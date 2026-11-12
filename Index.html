@@ -247,6 +247,7 @@ async function acceptSug(row){
 async function ignoreSug(row){ try{ await run('api_ignoreSuggestion', row); $('#s-'+row).remove(); }catch(e){ fail(e); } }
 
 function askButtons(c){
+  if (c.status==='Closed') return '<span class="meta">Closed — no messages.</span>';
   return (c.askWaUrl?`<a class="btn primary" href="${c.askWaUrl}" target="_blank">Ask on WhatsApp</a>`:'')
     + (c.email && c.emailStatus!=='Bounced'?`<button class="btn ${c.askWaUrl?'':'primary'}" onclick="askEmail('${c.id}')">Ask by email</button>`:'')
     + `<button class="btn" onclick="askMark('${c.id}','WhatsApp')">Asked</button>`
