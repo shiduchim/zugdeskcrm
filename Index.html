@@ -498,6 +498,7 @@ let DIR = null, dirReq = null, cSrc = 'all', cShown = 60, qTimer = null;
 const cTags = new Set();
 function srcGroup(src){
   let g = String(src||'').split(/\s[–—-]\s|[:(]/)[0].replace(/\s*(p\.?|page|עמ['׳]?)?\s*\d[\d\s,.-]*$/i,'').trim();
+  if (/^(insert|book)\b|שדכנים חדשים|ספר/i.test(g)) return 'Book';  // the insert sheet is part of the book
   return g || 'Other';
 }
 function hydrate(c){
