@@ -774,7 +774,8 @@ function planImport_(rows, existing, dnc) {
     if ((em && seenE[em]) || ph.some(p => seenP[p.intl])) return out.skipped.push({ name: name || em, why: 'twice in this list' });
     if (em) seenE[em] = 1; ph.forEach(p => (seenP[p.intl] = 1));
     out.add.push({ Name: name || em, City: String(r.city || '').trim(), Phone1: ph[0] ? ph[0].local : '', Phone2: ph[1] ? ph[1].local : '',
-      Email: em, Notes: String(r.notes || '').trim(), Specialty: String(r.specialty || '').trim(), Languages: String(r.languages || '').trim() });
+      Email: em, Notes: String(r.notes || '').trim(), Specialty: String(r.specialty || '').trim(), Languages: String(r.languages || '').trim(),
+      Lang: ['HE', 'RU', 'EN'].indexOf(String(r.lang || '').trim().toUpperCase()) >= 0 ? String(r.lang).trim().toUpperCase() : '' });
   });
   return out;
 }
@@ -809,6 +810,38 @@ function api_import(rows, source, type, commit) {
       plan.blocked.length + ' do-not-contact, ' + plan.skipped.length + ' skipped');
     res.done = true; return res;
   } finally { lock.releaseLock(); }
+}
+
+/** Drive folder "zugdeskcrm – Import inbox": each CSV named "Source__Type.csv" is imported once, then renamed "Imported …". */
+function importInbox_() {
+  const it = DriveApp.getFoldersByName('zugdeskcrm – Import inbox');
+  if (!it.hasNext()) return;
+  const files = it.next().getFiles();
+  while (files.hasNext()) {
+    const f = files.next(), name = f.getName();
+    if (/^Imported /.test(name) || !/\.csv$/i.test(name)) continue;
+    const parts = name.replace(/\.csv$/i, '').split('__');
+    try {
+      const res = api_import(csvRows_(f.getBlob().getDataAsString('UTF-8')), parts[0], parts[1] || 'Other', true);
+      f.setName('Imported ' + today_() + ' – ' + name + ' – ' + res.add + ' added, ' + res.known + ' known, ' + res.blocked + ' blocked, ' + res.skipped + ' skipped');
+    } catch (e) { log_(null, 'Import', 'Import inbox error', name + ': ' + e); }
+  }
+}
+
+/** Pure: CSV text (with header row) → array of objects with lower-case keys. */
+function csvRows_(text) {
+  const t = String(text).replace(/^﻿/, ''), out = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i];
+    if (q) { if (ch === '"') { if (t[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ',') { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && t[i + 1] === '\n') i++; row.push(cell); cell = ''; if (row.some(Boolean)) out.push(row); row = []; }
+    else cell += ch;
+  }
+  row.push(cell); if (row.some(Boolean)) out.push(row);
+  const head = (out.shift() || []).map(h => h.trim().toLowerCase());
+  return out.map(r => { const o = {}; head.forEach((h, i) => (o[h] = r[i] || '')); return o; });
 }
 
 function nextId_(db) {
@@ -873,7 +906,10 @@ function api_checkNow() { runJob_(scanReplies_); return api_status(); }
 /* ------------------------------------------------------------------ */
 
 function hourlyJob() {
-  runJob_(() => { scanReplies_(); sendBatch_(); });
+  runJob_(() => {
+    try { importInbox_(); } catch (e) { log_(null, 'Import', 'Import inbox error', String(e)); }
+    scanReplies_(); sendBatch_();
+  });
 }
 
 /** Runs Gmail work at most once at a time, WITHOUT the script lock (taps in the app use that lock). */
@@ -1090,4 +1126,4 @@ function scanBounces_(db) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_ };
+if (typeof module !== 'undefined') module.exports = { scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };

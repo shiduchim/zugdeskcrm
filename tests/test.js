@@ -54,4 +54,10 @@ t('planImport_: matches only by exact phone/email, respects do-not-contact, skip
   assert.strictEqual(p.known.length, 2); assert.strictEqual(p.add.length, 1); assert.strictEqual(p.add[0].Phone1, '052-9999999');
   assert.strictEqual(p.blocked.length, 1); assert.strictEqual(p.skipped.length, 2);
 });
+t('csvRows_ + planImport_: quoted commas, BOM, Lang kept only if HE/RU/EN', () => {
+  const r = A.csvRows_('﻿name,email,lang,notes\r\n"Cohen, R",r@x.com,EN,"a ""b"""\nX,x@x.com,yi,\n');
+  assert.strictEqual(r.length, 2); assert.strictEqual(r[0].name, 'Cohen, R'); assert.strictEqual(r[0].notes, 'a "b"');
+  const p = A.planImport_(r, [], { emails: new Set(), phones: new Set() });
+  assert.strictEqual(p.add[0].Lang, 'EN'); assert.strictEqual(p.add[1].Lang, '');
+});
 console.log(n + ' checks passed');
