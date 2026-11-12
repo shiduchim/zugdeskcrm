@@ -39,4 +39,19 @@ t('isAutoReply_: header or subject', () => {
 });
 t('addr_ pulls the address out of a From line', () => assert.strictEqual(A.addr_('Rivka <Rivka@Example.com>'), 'rivka@example.com'));
 
+
+t('planImport_: matches only by exact phone/email, respects do-not-contact, skips no-contact and repeats', () => {
+  const ex = [{ ID: 'C0001', Name: 'רחל', Phone1: '050-1234567', Email: 'a@x.com' }];
+  const dnc = { emails: new Set(['stop@x.com']), phones: new Set() };
+  const p = A.planImport_([
+    { name: 'Rachel K', phone: '+972 50 123 4567' },     // same phone → known
+    { name: 'רחל', phone: '052-9999999' },               // same name, other phone → new (never merge by name)
+    { name: 'B', email: 'A@X.com ' },                    // same email → known
+    { name: 'Stop', email: 'stop@x.com' },               // blocked
+    { name: 'NoContact', city: 'צפת' },                  // skipped
+    { name: 'Dup', phone: '0529999999' },                // twice in this list
+  ], ex, dnc);
+  assert.strictEqual(p.known.length, 2); assert.strictEqual(p.add.length, 1); assert.strictEqual(p.add[0].Phone1, '052-9999999');
+  assert.strictEqual(p.blocked.length, 1); assert.strictEqual(p.skipped.length, 2);
+});
 console.log(n + ' checks passed');

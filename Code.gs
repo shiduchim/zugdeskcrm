@@ -751,6 +751,66 @@ function api_addReferral(byId, data) {
   } finally { lock.releaseLock(); }
 }
 
+/* ------------------------------------------------------------------ */
+/* Import a list (file or pasted table). Match only by exact phone/email. */
+/* ------------------------------------------------------------------ */
+
+/** Pure: sorts incoming rows into new / already in list / do-not-contact / skipped. */
+function planImport_(rows, existing, dnc) {
+  const byPhone = {}, byEmail = {};
+  existing.forEach(c => {
+    phonesOf_(c).forEach(p => (byPhone[p.intl] = byPhone[p.intl] || c));
+    const e = String(c.Email || '').trim().toLowerCase(); if (e) byEmail[e] = byEmail[e] || c;
+  });
+  const out = { add: [], known: [], blocked: [], skipped: [] }, seenP = {}, seenE = {};
+  rows.forEach(r => {
+    const ph = [r.phone, r.phone2].map(normPhone_).filter(Boolean);
+    const em = validEmail_(r.email) ? String(r.email).trim().toLowerCase() : '';
+    const name = String(r.name || '').trim();
+    if (!ph.length && !em) return out.skipped.push({ name: name || '(no name)', why: 'no phone or email' });
+    if ((em && dnc.emails.has(em)) || ph.some(p => dnc.phones.has(p.intl))) return out.blocked.push({ name: name || em });
+    const hit = (em && byEmail[em]) || ph.map(p => byPhone[p.intl]).find(Boolean);
+    if (hit) return out.known.push({ id: hit.ID, name: hit.Name, theirName: name });
+    if ((em && seenE[em]) || ph.some(p => seenP[p.intl])) return out.skipped.push({ name: name || em, why: 'twice in this list' });
+    if (em) seenE[em] = 1; ph.forEach(p => (seenP[p.intl] = 1));
+    out.add.push({ Name: name || em, City: String(r.city || '').trim(), Phone1: ph[0] ? ph[0].local : '', Phone2: ph[1] ? ph[1].local : '',
+      Email: em, Notes: String(r.notes || '').trim(), Specialty: String(r.specialty || '').trim(), Languages: String(r.languages || '').trim() });
+  });
+  return out;
+}
+
+/** commit=false → preview only. type: Shadchan / Connector / Other (only Shadchan ever gets outreach). */
+function api_import(rows, source, type, commit) {
+  source = String(source || '').trim() || 'Import';
+  type = ['Shadchan', 'Connector', 'Other'].indexOf(type) >= 0 ? type : 'Other';
+  const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    const db = loadContacts_(), plan = planImport_(rows || [], db.rows, dnc_());
+    const res = { add: plan.add.length, known: plan.known.length, blocked: plan.blocked.length, skipped: plan.skipped.length,
+      sampleAdd: plan.add.slice(0, 8).map(r => r.Name), sampleKnown: plan.known.slice(0, 8).map(k => k.name),
+      sampleSkipped: plan.skipped.slice(0, 8).map(k => k.name + ' – ' + k.why) };
+    if (!commit) return res;
+    const date = today_();
+    let n = parseInt(nextId_(db).slice(1), 10);
+    const out = plan.add.map(r => {
+      const o = Object.assign({}, r, { ID: 'C' + String(n++).padStart(4, '0'), Source: source, SourceRef: 'Imported ' + date, Status: 'New', Type: type });
+      return db.head.map(h => o[h] || '');
+    });
+    if (out.length) {
+      const start = db.sh.getLastRow() + 1;
+      db.sh.getRange(start, 1, out.length, db.head.length).setNumberFormat('@').setValues(out);
+    }
+    plan.known.forEach(k => {
+      const c = db.rows.find(x => x.ID === k.id);
+      if (c && String(c.SourceRef || '').indexOf(source) < 0)
+        patchContact_(db, c, { SourceRef: c.SourceRef ? c.SourceRef + ' · also in ' + source : 'Also in ' + source });
+    });
+    log_(null, 'Import', 'Imported list', source + ' (' + type + '): ' + out.length + ' added, ' + plan.known.length + ' already in list, ' +
+      plan.blocked.length + ' do-not-contact, ' + plan.skipped.length + ' skipped');
+    res.done = true; return res;
+  } finally { lock.releaseLock(); }
+}
+
 function nextId_(db) {
   const n = db.rows.map(c => parseInt(String(c.ID).replace(/\D/g, ''), 10) || 0).reduce((a, b) => Math.max(a, b), 0);
   return 'C' + String(n + 1).padStart(4, '0');
@@ -1030,4 +1090,4 @@ function scanBounces_(db) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_ };
+if (typeof module !== 'undefined') module.exports = { scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_ };

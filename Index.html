@@ -211,8 +211,113 @@ function openSettings(){
     <div class="card"><div class="seg">${b('auto','Auto')}${b('light','Light')}${b('dark','Dark')}</div>
       <div class="meta" style="margin-top:8px">Auto follows your phone or computer. Saved on this device.</div></div>
     <h2>Look</h2>
-    <div class="card"><div class="seg">${lb('zd','ZugDesk')}${lb('classic','Classic')}</div></div>`;
+    <div class="card"><div class="seg">${lb('zd','ZugDesk')}${lb('classic','Classic')}</div></div>
+    <h2>Contacts</h2>
+    <div class="card"><div class="meta">Add many people at once from a file or a copied table. Nobody is added twice.</div>
+      <div class="row"><button class="btn primary" onclick="openImport()">Import contacts</button></div></div>`;
   $('#sheet').classList.add('open'); $('#sheet').scrollTop = 0;
+}
+
+/* ---------- import a list ---------- */
+let IMP = null;
+function openImport(){
+  sheetId = null; histReq++; IMP = null;
+  const srcs = DIR ? [...new Set(DIR.ids.map(id=>srcGroup((CARDS[id]||{}).source)))].filter(g=>g!=='Other') : [];
+  $('#sheetInner').innerHTML = `
+    <div class="top"><button class="btn" onclick="openSettings()">Back</button><span class="status">Import contacts</span></div>
+    <h2>1 · The list</h2>
+    <div class="card">
+      <label for="i-file">A file (CSV or TXT; from Excel: File → Save as → CSV UTF-8)</label>
+      <input type="file" id="i-file" accept=".csv,.tsv,.txt,text/csv,text/plain" onchange="readImportFile(this)">
+      <label for="i-text">Or paste the rows here (copy them from a spreadsheet)</label>
+      <textarea id="i-text" dir="auto" rows="6" placeholder="Name, phone, email, city…"></textarea>
+    </div>
+    <h2>2 · Where they came from</h2>
+    <div class="card">
+      <label for="i-src">Source (becomes a bubble in Contacts)</label>
+      <input id="i-src" list="i-srcs" dir="auto" placeholder="e.g. Web search, ZugDesk survey, Gmail">
+      <datalist id="i-srcs">${srcs.map(g=>`<option value="${esc(g)}">`).join('')}</datalist>
+      <label for="i-type">Who are they?</label>
+      <select id="i-type"><option value="Shadchan">Shadchanim</option><option value="Connector">People who know shadchanim</option><option value="Other">Other (never contacted automatically)</option></select>
+    </div>
+    <div class="row"><button class="btn primary" onclick="checkImport()">Check the list</button></div>
+    <div id="i-out"></div>`;
+  $('#sheet').classList.add('open'); $('#sheet').scrollTop = 0;
+}
+function readImportFile(inp){
+  const f = inp.files && inp.files[0]; if (!f) return;
+  const r = new FileReader(); r.onload = () => { $('#i-text').value = String(r.result).replace(/^﻿/,''); toast('File loaded — '+f.name); }; r.readAsText(f, 'utf-8');
+}
+function splitTable(text){
+  const lines = text.replace(/\r\n?/g,'\n').split('\n').filter(l=>l.trim());
+  if (!lines.length) return [];
+  const f = lines.join('\n'), cnt = c => f.split(c).length - 1;
+  const d = cnt('\t') ? '\t' : (cnt(';') > cnt(',') ? ';' : ',');
+  return lines.map(l => { const out=[]; let cur='', q=false;
+    for (let i=0;i<l.length;i++){ const ch=l[i];
+      if (q){ if (ch==='"' && l[i+1]==='"'){ cur+='"'; i++; } else if (ch==='"') q=false; else cur+=ch; }
+      else if (ch==='"' && !cur.trim()) q=true; else if (ch===d){ out.push(cur.trim()); cur=''; } else cur+=ch; }
+    out.push(cur.trim()); return out; });
+}
+const IMP_COLS = [['email',/e-?mail|mail|אימייל|מייל|דוא"?ל|почта/i],['phone',/phone|mobile|cell|tel|טלפון|נייד|פלאפון|телефон/i],
+  ['city',/city|town|location|עיר|ישוב|יישוב|город/i],['notes',/note|comment|about|detail|remark|הער|заметк|коммент/i],
+  ['specialty',/specialt|sector|focus|מגזר|התמחות|קהל/i],['languages',/lang|שפ|язык/i],['name',/name|שם|имя|фио|фамил/i]];
+function parseImport(text){
+  const t = splitTable(text); if (!t.length) return [];
+  const isData = c => /@/.test(c) || c.replace(/\D/g,'').length >= 9;
+  const map = t[0].map(h => { const m = IMP_COLS.find(([,re])=>re.test(h)); return m ? m[0] : null; });
+  const hasHead = map.some(Boolean) && !t[0].some(isData);
+  const body = hasHead ? t.slice(1) : t;
+  return body.map(cells => {
+    // one loose line, e.g. "Sarah Levi 054-1234567 sarah@x.com": pull out email and phones, the rest is the name
+    if (!hasHead && cells.length === 1){
+      let v = cells[0]; const em = (v.match(/[^\s@,;<>()]+@[^\s@,;<>()]+\.[^\s@,;<>()]+/)||[''])[0];
+      v = v.replace(em,' '); const ph = v.match(/\+?\d[\d\s().-]{7,}\d/g) || [];
+      ph.forEach(x => v = v.replace(x,' '));
+      cells = [v.replace(/[<>()|;,:]+/g,' ').replace(/\s+[–-]+(?=\s|$)|^\s*[–-]+/g,' ').replace(/\s+/g,' ').trim(), em].concat(ph).filter(Boolean);
+    }
+    const r = {name:'',phone:'',phone2:'',email:'',city:'',notes:'',specialty:'',languages:''}, extra = [];
+    cells.forEach((v, j) => { if (!v) return;
+      let k = hasHead ? map[j] : null;
+      if (!k) k = /@/.test(v) && !r.email ? 'email' : (v.replace(/\D/g,'').length >= 9 && v.replace(/[\d\s()+.-]/g,'').length < 3 ? 'phone' : (!hasHead && !r.name ? 'name' : null));
+      if (k==='phone' && r.phone) k = 'phone2';
+      if (k==='email' && !/@/.test(v)) k = null;
+      if (!k) return extra.push(v);
+      if (k==='name' && r.name) r.name += ' ' + v; else if (k==='phone2' && r.phone2) extra.push(v); else r[k] = v;
+    });
+    if (extra.length) r.notes = [r.notes].concat(extra).filter(Boolean).join(' · ');
+    return r;
+  }).filter(r => Object.values(r).some(Boolean));
+}
+async function checkImport(commit){
+  if (!commit){
+    const rows = parseImport($('#i-text').value), src = $('#i-src').value.trim();
+    if (!rows.length) return toast('Choose a file or paste the list first');
+    if (!src) return toast('Write where they came from');
+    IMP = { rows, src, type: $('#i-type').value };
+  }
+  if (!IMP) return;
+  const out = $('#i-out'); out.innerHTML = '<div class="loading">'+(commit?'Adding…':'Checking against your contacts…')+'</div>';
+  try{
+    const r = await run('api_import', IMP.rows, IMP.src, IMP.type, !!commit);
+    const li = a => a.length ? `<div class="meta" dir="auto">${a.map(esc).join(' · ')}${a.length===8?' …':''}</div>` : '';
+    if (r.done){
+      out.innerHTML = `<div class="card"><b>Added ${r.add} ${r.add===1?'person':'people'} from “${esc(IMP.src)}”.</b>
+        <div class="meta">${r.known} ${r.known===1?"was":"were"} already in your list (marked “also in ${esc(IMP.src)}”).</div>
+        <div class="row"><button class="btn primary" onclick="closeSheet();show('contacts')">See them in Contacts</button></div></div>`;
+      IMP = null; DIR = null; ensureDir(true).catch(()=>{}); toast('Imported');
+      return;
+    }
+    out.innerHTML = `<h2>3 · Check before adding</h2><div class="card">
+      <div class="spec"><b>${r.add}</b> new — will be added${li(r.sampleAdd)}</div>
+      <div class="spec"><b>${r.known}</b> already in your list (same phone or email) — not added again${li(r.sampleKnown)}</div>
+      ${r.blocked?`<div class="spec"><b>${r.blocked}</b> on Do not contact — skipped</div>`:''}
+      ${r.skipped?`<div class="spec"><b>${r.skipped}</b> skipped${li(r.sampleSkipped)}</div>`:''}
+      <div class="meta" style="margin-top:8px">Read ${IMP.rows.length} rows.</div>
+      <div class="row">${r.add?`<button class="btn primary" onclick="checkImport(true)">Add ${r.add} ${r.add===1?'contact':'contacts'}</button>`:''}
+        <button class="btn quiet" onclick="$('#i-out').innerHTML=''">Change something</button></div></div>`;
+    out.scrollIntoView({block:'start', behavior:'smooth'});
+  }catch(e){ out.innerHTML=''; fail(e); }
 }
 
 /* ---------- navigation ---------- */
