@@ -161,7 +161,9 @@ function toHtml_(text, lang) {
   const rtl = lang === 'HE';
   const esc = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/\*([^*\n]+)\*/g, '<b>$1</b>')
-    .replace(/https?:\/\/[^\s<]+/g, u => '<a href="' + u + '" dir="ltr">' + u + '</a>');
+    .replace(/https?:\/\/[^\s<]+/g, u => '<a href="' + u + '" dir="ltr">' + u + '</a>')
+    .replace(/(^|[^\d-])(1-[2-9]\d{2}-\d{3}-\d{4}|05\d-\d{7})(?![\d-])/g, (m, pre, ph) =>   // phone → tap opens WhatsApp chat
+      pre + '<a href="https://wa.me/' + (ph.startsWith('1-') ? ph.replace(/\D/g, '') : '972' + ph.replace(/\D/g, '').slice(1)) + '" dir="ltr">' + ph + '</a>');
   return '<div dir="' + (rtl ? 'rtl' : 'ltr') + '" style="direction:' + (rtl ? 'rtl' : 'ltr') + ';text-align:' + (rtl ? 'right' : 'left') +
     ';font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6">' + esc.replace(/\n/g, '<br>') + '</div>';
 }
@@ -775,7 +777,7 @@ function runJob_(fn) {
 
 function composeEmail_(c, s, lang, followup) {
   const rawPhone = String(s.MY_PHONE || '').trim(), np = normPhone_(rawPhone);
-  const myPhone = np ? (np.intl.startsWith('1') ? np.local : '+' + np.intl.slice(0, 3) + ' ' + np.local.slice(1)) : rawPhone;   // readable, works from Israel and abroad
+  const myPhone = np ? (np.intl.startsWith('1') ? '1-' + np.local.slice(3) : np.local) : rawPhone;   // no plus signs; in the email it becomes a tap-to-WhatsApp link
   const contact = {
     HE: myPhone ? 'אפשר להשיב למייל הזה או לכתוב לי בוואטסאפ: ' + myPhone : 'אפשר פשוט להשיב למייל הזה.',
     RU: myPhone ? 'Можно ответить на это письмо или написать мне в WhatsApp: ' + myPhone : 'Можно просто ответить на это письмо.',
