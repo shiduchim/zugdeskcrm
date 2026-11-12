@@ -18,4 +18,5 @@ Original plan:
 - Dropped: parsing call hours (4 — hours already shown), WhatsApp/SMS import (10).
 
 ## Notes / blockers
+- User does NOT want to re-upload to Drive for future list updates: add an "Import file" button in the app (file picker → merge by exact phone/email, no duplicates). Build it with the Gmail import (12).
 - Nothing has run inside Google yet; everything Google-side must be tested by the user.
