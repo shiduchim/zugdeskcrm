@@ -6,7 +6,6 @@ Combined plan from the two reviews (Opus + Fable), approved by the user:
 Steps 1–4 DONE (code in repo + renamed, safety fixes, reliability fixes, tests).
 First run done 2026-11-12: Sheet (renamed zugdeskcrm, in the shidduchim account), setup(), deploy, PC + phone (Samsung Internet), call/WhatsApp buttons, test email HE+RU all OK.
 Next: user pastes the updated Code.gs (phone shown without plus + WhatsApp link) and deploys a new version; then turns on autopilot. Then Easy mode + WhatsApp send mode.
-Cosmetic to fix: on wide PC screens the header and bottom tabs stretch to the edges (keep them inside the 720px column).
 
 Original plan:
 1. Code into the repo, renamed to zugdeskcrm.

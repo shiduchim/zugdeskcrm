@@ -31,3 +31,4 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - "Message sent" / "Didn't reach" never moves a Talking contact back or closes it.
 - "Ask by email" refuses Closed / Do-not-contact people.
 - `MY_PHONE` shows in emails without a plus (1-612-888-5778 / 050-1234567) and is a tap-to-WhatsApp link (wa.me), even if Sheets turned it into bare digits.
+- On a wide PC screen the title and bottom tabs stay inside the centered column.
