@@ -5,11 +5,12 @@
 - Tests: `node tests/test.js` (phones, ranking, finding names in text, cleaning replies, auto-reply detection)
 
 ## Manual — first run inside Google (only you can do these)
-- [ ] `setup()` runs without errors; Contacts has a `Type` column filled with "Shadchan"; Settings has `SKIP_DATES`; `EMAILS_PER_DAY` is 5
-- [ ] Web app opens on PC and phone; Today shows 1 call + up to 10 WhatsApp
-- [ ] On the phone, "Call …" opens the dialer and "Open WhatsApp" opens WhatsApp with the message
+_Phone: multiple Google accounts → use Samsung Internet (or another browser) logged in only to the shidduchim account. Firefox on Android fails with an internet filter unless "Use third party CA certificates" is on._
+- [x] `setup()` runs without errors; Contacts has a `Type` column filled with "Shadchan"; Settings has `SKIP_DATES`; `EMAILS_PER_DAY` is 5
+- [x] Web app opens on PC and phone; Today shows 1 call + up to 10 WhatsApp
+- [x] On the phone, "Call …" opens the dialer and "Open WhatsApp" opens WhatsApp with the message
 - [ ] Type `0501234567` in `MY_PHONE` → the test email shows it with the 0
-- [ ] "Send test email to me" → Hebrew is right-to-left, Russian is fine
+- [x] "Send test email to me" → Hebrew is right-to-left, Russian is fine
 - [ ] Autopilot on → after an hour, Email screen shows "last check" and sent count ≤ 5/day
 - [ ] Reply to one of the test-style emails from another address → appears in "Wrote back to you" within an hour
 - [ ] Follow-up (after 8 days) arrives inside the first email's thread, not as a separate email

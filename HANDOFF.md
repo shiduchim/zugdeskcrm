@@ -4,7 +4,9 @@ _Last updated: 2026-11-12_
 ## In progress
 Combined plan from the two reviews (Opus + Fable), approved by the user:
 Steps 1–4 DONE (code in repo + renamed, safety fixes, reliability fixes, tests).
-Next: user does the first-run checklist in TESTS.md and reports problems. Then Easy mode + WhatsApp send mode.
+First run done 2026-11-12: Sheet (renamed zugdeskcrm, in the shidduchim account), setup(), deploy, PC + phone (Samsung Internet), call/WhatsApp buttons, test email HE+RU all OK.
+Next: user pastes the updated Code.gs (phone shown without plus + WhatsApp link) and deploys a new version; then turns on autopilot. Then Easy mode + WhatsApp send mode.
+Cosmetic to fix: on wide PC screens the header and bottom tabs stretch to the edges (keep them inside the 720px column).
 
 Original plan:
 1. Code into the repo, renamed to zugdeskcrm.
@@ -18,5 +20,6 @@ Original plan:
 - Dropped: parsing call hours (4 — hours already shown), WhatsApp/SMS import (10).
 
 ## Notes / blockers
+- Google Drive + Gmail connectors are connected to the shidduchim account: Claude can read the Sheet (export) and Gmail directly. Drive connector cannot edit Sheet cells.
 - User does NOT want to re-upload to Drive for future list updates: add an "Import file" button in the app (file picker → merge by exact phone/email, no duplicates). Build it with the Gmail import (12).
 - Nothing has run inside Google yet; everything Google-side must be tested by the user.
