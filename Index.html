@@ -375,7 +375,7 @@ async function openContact(id){
         <label for="x-what">What did they send?</label><input id="x-what" placeholder="e.g. photo of a list, Excel file, 5 names" dir="auto">
         <label for="x-ch">How</label><select id="x-ch"><option>WhatsApp</option><option>Email</option><option>Phone</option></select>
         <label for="x-link">Link to the file in Drive (optional)</label><input id="x-link">
-        <div class="row"><button class="btn primary" onclick="addReceived('${c.id}','${esc(c.name).replace(/'/g,'')}')">Save</button></div>
+        <div class="row"><button class="btn primary" onclick="addReceived('${c.id}')">Save</button></div>
       </div>
 
       <h2>History</h2>
@@ -399,8 +399,8 @@ async function addReferral(byId){
     openContact(byId);
   }catch(e){ fail(e); }
 }
-async function addReceived(id, name){
-  const d={contactId:id, from:name, channel:$('#x-ch').value, what:$('#x-what').value.trim(), link:$('#x-link').value.trim()};
+async function addReceived(id){
+  const d={contactId:id, from:$('#sheetInner .name').textContent, channel:$('#x-ch').value, what:$('#x-what').value.trim(), link:$('#x-link').value.trim()};
   if(!d.what) return toast('Describe what they sent');
   try{ await run('api_addReceived', d); toast('Saved to Received'); openContact(id); }catch(e){ fail(e); }
 }

@@ -1,12 +1,31 @@
 # Tests & checks
 
-## Automatic
-- Build: `<command>`
-- Tests: `<command>`
+## Automatic (Claude runs these)
+- Syntax: `cp Code.gs /tmp/c.js && node --check /tmp/c.js`
+- Tests: `node tests/test.js` (phones, ranking, finding names in text, cleaning replies, auto-reply detection)
 
-## Manual (must be checked by me, e.g. inside Revit)
-- [ ] App loads; ribbon button appears
-- [ ] <main feature> works on a sample model
+## Manual — first run inside Google (only you can do these)
+- [ ] `setup()` runs without errors; Contacts has a `Type` column filled with "Shadchan"; Settings has `SKIP_DATES`; `EMAILS_PER_DAY` is 5
+- [ ] Web app opens on PC and phone; Today shows 1 call + up to 10 WhatsApp
+- [ ] On the phone, "Call …" opens the dialer and "Open WhatsApp" opens WhatsApp with the message
+- [ ] Type `0501234567` in `MY_PHONE` → the test email shows it with the 0
+- [ ] "Send test email to me" → Hebrew is right-to-left, Russian is fine
+- [ ] Autopilot on → after an hour, Email screen shows "last check" and sent count ≤ 5/day
+- [ ] Reply to one of the test-style emails from another address → appears in "Wrote back to you" within an hour
+- [ ] Follow-up (after 8 days) arrives inside the first email's thread, not as a separate email
+- [ ] Out-of-office reply does NOT show as "Wrote back"
+- [ ] Tapping buttons while "Check for replies now" runs still works
 
-## Regression (add one line per fixed bug or approved feature)
-- 
+## Regression (one line per fixed bug or approved feature)
+- Follow-up emails only go to people reached by email alone (Status Contacted + LastChannel Email).
+- Only `Type = Shadchan` gets emails, WhatsApp plan or "ask" emails.
+- Blank/short email template → nothing is sent, Email screen shows why.
+- No automatic emails on dates in `SKIP_DATES`.
+- A Gmail error stops the batch; nobody is marked "Error" (except a truly invalid address).
+- Reply check = one Gmail search (last 3 days), not one per contact.
+- Gmail work never holds the app's lock (taps don't fail while it runs).
+- Auto-replies are not counted as replies.
+- `MY_PHONE` keeps its leading 0.
+- Names with an apostrophe (ג') don't break "They sent a list or file".
+- "Message sent" / "Didn't reach" never moves a Talking contact back or closes it.
+- "Ask by email" refuses Closed / Do-not-contact people.

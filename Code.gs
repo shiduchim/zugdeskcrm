@@ -194,6 +194,7 @@ function settings_() {
   const vals = sh.getDataRange().getValues();
   const s = {};
   vals.slice(1).forEach(r => { if (r[0]) s[String(r[0]).trim()] = r[1] instanceof Date ? str_(r[1]) : String(r[1]); });
+  if (/^[2-9]\d{7,8}$/.test(String(s.MY_PHONE || '').trim())) s.MY_PHONE = '0' + String(s.MY_PHONE).trim();   // Sheets dropped the 0
   return s;
 }
 function setSetting_(key, value) {
@@ -601,8 +602,11 @@ function api_result(id, action, channel, note, nextDate) {
     if (!c) throw new Error('Contact not found: ' + id);
     const r = RESULTS[action]; if (!r) throw new Error('Unknown action ' + action);
     const patch = { Status: r.status, LastContact: now_(), LastChannel: channel || c.LastChannel || '' };
-    if (r.attempt) patch.Attempts = (parseInt(c.Attempts, 10) || 0) + 1;
-    if (action === 'noreach' && patch.Attempts >= num_(s, 'MAX_ATTEMPTS', 3)) { patch.Status = 'Closed'; patch.CloseReason = 'Not reached'; }
+    // someone you're already talking with stays "Talking" (no attempts counted, never auto-closed)
+    const keep = c.Status === 'Talking' && (action === 'sent' || action === 'noreach');
+    if (keep) patch.Status = 'Talking';
+    if (r.attempt && !keep) patch.Attempts = (parseInt(c.Attempts, 10) || 0) + 1;
+    if (action === 'noreach' && !keep && patch.Attempts >= num_(s, 'MAX_ATTEMPTS', 3)) { patch.Status = 'Closed'; patch.CloseReason = 'Not reached'; }
     if (r.close) patch.CloseReason = r.close;
     if (r.needsReply) patch.NeedsReply = 'YES';
     if (r.clearReply || r.close) patch.NeedsReply = '';
@@ -673,8 +677,8 @@ function api_addReferral(byId, data) {
     const p1 = normPhone_(data.phone), em = String(data.email || '').trim().toLowerCase();
     const dup = db.rows.find(c => (p1 && phonesOf_(c).some(p => p.intl === p1.intl)) || (em && String(c.Email).toLowerCase() === em));
     if (dup) {
-      const refs = dup.ReferredBy ? dup.ReferredBy + ', ' + byName : byName;
-      patchContact_(db, dup, { ReferredBy: refs });
+      if (byName && (dup.ReferredBy || '').indexOf(byName) < 0)
+        patchContact_(db, dup, { ReferredBy: dup.ReferredBy ? dup.ReferredBy + ', ' + byName : byName });
       log_(dup, 'Referral', 'Also recommended', 'by ' + byName);
       return { status: 'linked', id: dup.ID, name: dup.Name };
     }
@@ -720,7 +724,7 @@ function api_status() {
     sentToday: parseInt(props.getProperty('sent_' + t) || '0', 10),
     perDay: num_(s, 'EMAILS_PER_DAY', 20), days: s.EMAIL_DAYS, hours: s.EMAIL_START_HOUR + ':00–' + s.EMAIL_END_HOUR + ':00',
     queue: queue, sent: by('Sent'), followedUp: by('Followed up'), replied: by('Replied'), bounced: by('Bounced'),
-    bouncesToday: parseInt(props.getProperty('bounce_' + t) || '0', 10), pausedReason: props.getProperty('paused_reason') || '',
+    bouncesToday: parseInt(props.getProperty('bounce_' + t) || '0', 10), pausedReason: props.getProperty('paused_reason') || props.getProperty('send_problem') || '',
     lastRun: props.getProperty('last_run') || '', me: me_(), sheetUrl: ss_().getUrl()
   };
 }
@@ -745,21 +749,28 @@ function api_testEmail() {
   return 'Two test emails (Hebrew and Russian) sent to ' + me;
 }
 
-function api_checkNow() { scanReplies_(); return api_status(); }
+function api_checkNow() { runJob_(scanReplies_); return api_status(); }
 
 /* ------------------------------------------------------------------ */
 /* Email autopilot (hourly trigger)                                    */
 /* ------------------------------------------------------------------ */
 
 function hourlyJob() {
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(30000)) return;
+  runJob_(() => { scanReplies_(); sendBatch_(); });
+}
+
+/** Runs Gmail work at most once at a time, WITHOUT the script lock (taps in the app use that lock). */
+function runJob_(fn) {
+  const p = PropertiesService.getScriptProperties();
+  const started = parseInt(p.getProperty('job_running') || '0', 10);
+  if (started && Date.now() - started < 10 * 60e3) return false;   // another run is still busy
+  p.setProperty('job_running', String(Date.now()));
   try {
     schema_();
-    PropertiesService.getScriptProperties().setProperty('last_run', now_());
-    scanReplies_();
-    sendBatch_();
-  } finally { lock.releaseLock(); }
+    p.setProperty('last_run', now_());
+    fn();
+    return true;
+  } finally { p.deleteProperty('job_running'); }
 }
 
 function composeEmail_(c, s, lang, followup) {
@@ -775,6 +786,19 @@ function composeEmail_(c, s, lang, followup) {
   if (subject.trim().length < 5 || body.trim().length < 40)
     throw new Error('Email template is empty or too short (' + (followup ? 'EMAIL_FOLLOWUP_' : 'EMAIL_BODY_') + lang + ' / EMAIL_SUBJECT_' + lang + ') — check the Settings tab');
   return { subject: followup ? 'Re: ' + subject : subject, body: body };
+}
+
+/** Follow-up as a reply inside the first email's thread. Returns the sent message, or null to fall back to a new email. */
+function replyInThread_(c, m, lang, s) {
+  const tid = (c.EmailThreadIds || '').split(',').filter(Boolean)[0];
+  if (!tid) return null;
+  try {
+    const msgs = GmailApp.getThreadById(tid).getMessages();
+    const d = msgs[msgs.length - 1].createDraftReplyAll(m.body, { name: s.SENDER_NAME, htmlBody: toHtml_(m.body, lang) });
+    if (String(d.getMessage().getTo()).toLowerCase().indexOf(c.Email.trim().toLowerCase()) >= 0) return d.send();
+    d.deleteDraft();
+  } catch (e) {}
+  return null;
 }
 
 function sendBatch_() {
@@ -823,7 +847,8 @@ function sendBatch_() {
     const c = item.c, lang = pickLang_(c, s);
     try {
       const m = composeEmail_(c, s, lang, item.fu);
-      const msg = GmailApp.createDraft(c.Email.trim(), m.subject, m.body, { name: s.SENDER_NAME, htmlBody: toHtml_(m.body, lang) }).send();
+      const msg = (item.fu && replyInThread_(c, m, lang, s)) ||
+        GmailApp.createDraft(c.Email.trim(), m.subject, m.body, { name: s.SENDER_NAME, htmlBody: toHtml_(m.body, lang) }).send();
       const th = msg.getThread(); th.addLabel(label);
       const ids = c.EmailThreadIds ? c.EmailThreadIds.split(',') : [];
       if (ids.indexOf(th.getId()) < 0) ids.push(th.getId());
@@ -836,9 +861,14 @@ function sendBatch_() {
         log_(c, 'Email', 'Email sent', lang);
       }
       sentToday++; budget--; props.setProperty(key, String(sentToday));
+      props.deleteProperty('send_problem');
     } catch (e) {
-      patchContact_(db, c, { EmailStatus: 'Error' });
-      log_(c, 'Email', 'Send error', String(e).slice(0, 200));
+      const err = String(e);
+      log_(c, 'Email', 'Send error', err.slice(0, 200));
+      if (/invalid (email|argument)/i.test(err)) { patchContact_(db, c, { EmailStatus: 'Error' }); continue; }   // only this address is bad
+      // quota, Gmail outage or a Settings problem: stop now, nobody is marked, next hour tries again
+      props.setProperty('send_problem', 'Sending stopped on ' + now_() + ': ' + err.slice(0, 160) + ' — it will try again next hour.');
+      break;
     }
   }
 }
@@ -850,38 +880,54 @@ function bumpBounce_() {
   p.setProperty(k, String((parseInt(p.getProperty(k) || '0', 10)) + 1));
 }
 
+/** Out-of-office / automatic replies (pure; tested with node). */
+function isAutoReply_(headers, subject) {
+  if (/auto-replied|auto-generated|^yes$/i.test(String(headers || '').trim())) return true;
+  return /out of office|automatic reply|auto.?reply|autoreply|vacation|מענה אוטומטי|תשובה אוטומטית|אני לא נמצא|Автоответ|Автоматический ответ/i.test(String(subject || ''));
+}
+function addr_(from) { const m = String(from).match(/<([^>]+)>/); return (m ? m[1] : String(from)).trim().toLowerCase(); }
+
 function scanReplies_() {
   const db = loadContacts_(), s = settings_();
   const me = me_();
-  const folder = receivedFolder_();
-  const recv = ss_().getSheetByName('Received');
-  const cutoff = addDays_(-45);
-
-  db.rows.filter(c => c.EmailThreadIds && ['Sent', 'Followed up', 'Replied', 'Asked'].indexOf(c.EmailStatus) >= 0
-      && [c.EmailSentAt || '', c.AskedReferralsAt || '', c.EmailLastSeen || ''].sort().pop().slice(0, 10) >= cutoff)
-    .forEach(c => {
-      // replies that arrive as a brand-new email instead of in our thread
-      if (['Sent', 'Followed up'].indexOf(c.EmailStatus) >= 0 && validEmail_(c.Email)) {
-        const since = (c.EmailSentAt || today_()).slice(0, 10).replace(/-/g, '/');
-        try {
-          const extra = GmailApp.search('from:' + c.Email.trim() + ' after:' + since, 0, 3).map(t => t.getId());
-          const ids = c.EmailThreadIds.split(',');
-          const add = extra.filter(id => ids.indexOf(id) < 0);
-          if (add.length) patchContact_(db, c, { EmailThreadIds: ids.concat(add).join(',') });
-        } catch (e) {}
+  const watch = db.rows.filter(c => c.EmailThreadIds && ['Sent', 'Followed up', 'Replied', 'Asked'].indexOf(c.EmailStatus) >= 0);
+  const byThread = {}, byEmail = {};
+  watch.forEach(c => {
+    c.EmailThreadIds.split(',').filter(Boolean).forEach(t => (byThread[t] = c));
+    if (validEmail_(c.Email)) byEmail[c.Email.trim().toLowerCase()] = c;
+  });
+  if (watch.length) {
+    // one search: everything from other people in the last 3 days (covers replies in our threads AND brand-new emails)
+    const threads = GmailApp.search('newer_than:3d -from:me', 0, 200);
+    const all = threads.length ? GmailApp.getMessagesForThreads(threads) : [];
+    const found = new Map();
+    threads.forEach((th, i) => {
+      const tid = th.getId();
+      let c = byThread[tid];
+      if (!c) {
+        const m = all[i].find(x => byEmail[addr_(x.getFrom())]);
+        if (!m) return;
+        c = byEmail[addr_(m.getFrom())];
+        patchContact_(db, c, { EmailThreadIds: c.EmailThreadIds + ',' + tid });
+        byThread[tid] = c;
       }
-      let lastSeen = c.EmailLastSeen || c.EmailSentAt || '';
-      let newest = lastSeen, gotReply = false, bounced = false, stopHint = false, preview = '';
-      c.EmailThreadIds.split(',').forEach(tid => {
-        let th; try { th = GmailApp.getThreadById(tid); } catch (e) { return; }
-        if (!th) return;
-        th.getMessages().forEach(m => {
+      if (!found.has(c)) found.set(c, []);
+      found.get(c).push.apply(found.get(c), all[i]);
+    });
+    if (found.size) {
+      const folder = receivedFolder_(), recv = ss_().getSheetByName('Received');
+      found.forEach((msgs, c) => {
+        const lastSeen = c.EmailLastSeen || c.EmailSentAt || '';
+        let newest = lastSeen, gotReply = false, bounced = false, stopHint = false, preview = '';
+        msgs.forEach(m => {
           const when = Utilities.formatDate(m.getDate(), TZ, 'yyyy-MM-dd HH:mm');
           if (when <= lastSeen) return;
           const from = m.getFrom().toLowerCase();
           if (from.indexOf(me) >= 0) return;
           if (when > newest) newest = when;
           if (/mailer-daemon|postmaster/.test(from)) { bounced = true; return; }
+          let h = ''; try { h = m.getHeader('Auto-Submitted') || m.getHeader('X-Autoreply') || ''; } catch (e) {}
+          if (isAutoReply_(h, m.getSubject())) return;   // out-of-office is not a real answer
           gotReply = true;
           const own = ownText_(m.getPlainBody() || '', s);
           preview = own.slice(0, 200);
@@ -892,17 +938,19 @@ function scanReplies_() {
             recv.appendRow([now_(), c.ID, c.Name, 'Email', 'Attachment: ' + a.getName(), f.getUrl(), '', '']);
           });
         });
+        if (bounced && !gotReply) {
+          bumpBounce_();
+          patchContact_(db, c, { EmailStatus: 'Bounced', EmailLastSeen: newest, Status: c.Status === 'Contacted' ? 'New' : c.Status });
+          log_(c, 'Email', 'Email bounced', 'moved back to phone/WhatsApp list');
+        } else if (gotReply) {
+          patchContact_(db, c, { EmailStatus: 'Replied', EmailLastSeen: newest, NeedsReply: 'YES', Status: 'Talking', NextDate: today_() });
+          log_(c, 'Email', stopHint ? 'Wrote back – may be asking to stop' : 'Wrote back', preview);
+        } else if (newest > lastSeen) {
+          patchContact_(db, c, { EmailLastSeen: newest });
+        }
       });
-      if (bounced && !gotReply) {
-        // back into the phone/WhatsApp pool
-        bumpBounce_();
-        patchContact_(db, c, { EmailStatus: 'Bounced', EmailLastSeen: newest, Status: c.Status === 'Contacted' ? 'New' : c.Status });
-        log_(c, 'Email', 'Email bounced', 'moved back to phone/WhatsApp list');
-      } else if (gotReply) {
-        patchContact_(db, c, { EmailStatus: 'Replied', EmailLastSeen: newest, NeedsReply: 'YES', Status: 'Talking', NextDate: today_() });
-        log_(c, 'Email', stopHint ? 'Wrote back – may be asking to stop' : 'Wrote back', preview);
-      }
-    });
+    }
+  }
   scanBounces_(db);
 }
 
@@ -924,4 +972,4 @@ function scanBounces_(db) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople };
+if (typeof module !== 'undefined') module.exports = { scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_ };

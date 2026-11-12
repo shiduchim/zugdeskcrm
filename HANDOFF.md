@@ -3,7 +3,11 @@ _Last updated: 2026-11-12_
 
 ## In progress
 Combined plan from the two reviews (Opus + Fable), approved by the user:
-1. Code into the repo, renamed to zugdeskcrm — done.
+Steps 1–4 DONE (code in repo + renamed, safety fixes, reliability fixes, tests).
+Next: user does the first-run checklist in TESTS.md and reports problems. Then Easy mode + WhatsApp send mode.
+
+Original plan:
+1. Code into the repo, renamed to zugdeskcrm.
 2. Safety fixes: follow up only people not reached another way; `Type` column (email only `Shadchan`); refuse blank emails; Ask-by-email respects Do-Not-Contact; `SKIP_DATES` (Yom Tov / fasts); start at 5 emails/day.
 3. Reliability fixes: send first, then one Gmail search for replies; stop at the first send error (don't mark "Error"); don't block UI taps; follow-up inside the original thread; ignore auto-replies; keep MY_PHONE leading 0; apostrophe bug in "They sent a list"; statuses never go backwards.
 4. Tests in TESTS.md + Node checks; first-run checklist for the user (incl. tel: links on phone).

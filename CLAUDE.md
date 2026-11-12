@@ -42,7 +42,9 @@ Updates later: Deploy → Manage deployments → Edit → New version.
 
 ## Data model
 
-**Contacts** columns: `ID, Name, City, Sector, Specialty, Languages, Symbol, Hours, Phone1, Phone2, Email, Other, Source, SourceRef, ReferredBy, Status, CloseReason, NextDate, Attempts, LastContact, LastChannel, NeedsReply, EmailStatus, EmailSentAt, EmailFollowupAt, EmailThreadIds, EmailLastSeen, Lang, Boost, CrossedOut, InZugDesk, Notes, AskedReferralsAt`
+**Contacts** columns: `ID, Name, City, Sector, Specialty, Languages, Symbol, Hours, Phone1, Phone2, Email, Other, Source, SourceRef, ReferredBy, Status, CloseReason, NextDate, Attempts, LastContact, LastChannel, NeedsReply, EmailStatus, EmailSentAt, EmailFollowupAt, EmailThreadIds, EmailLastSeen, Lang, Boost, CrossedOut, InZugDesk, Notes, AskedReferralsAt, Type`
+
+- `Type`: `Shadchan` (all book/insert/referral rows). **Only `Shadchan` gets emails or the daily WhatsApp plan.** Future imports (Gmail, connectors, families) must set another Type.
 
 - IDs `C0001…C0517` — stable, never reuse/renumber. New IDs = max+1.
 - `Status`: New → Contacted → Talking / Later / Closed. `CloseReason`: Not reached, Wrong number, Do not contact.
@@ -70,11 +72,11 @@ Top leads on day 1: call קיי אסתר (Tzfat, Russian speakers); WhatsApp ס�
 
 **WhatsApp**: `api.whatsapp.com/send?phone=…&text=…` links with the intro (HE/RU/EN) + profile prefilled (`WA_INCLUDE_PROFILE`; if WhatsApp truncates long text set NO and use the Copy profile button). Regular WhatsApp only — **no WhatsApp Business, no unofficial syncing** (account-ban risk).
 
-**Email autopilot** (hourly trigger `hourlyJob`): Sun–Thu, 9:00–19:00, up to 20/day spread over the day, best leads first, one follow-up after 8 days, HTML with correct direction (RTL for Hebrew), label `zugdeskcrm`. Reply detection in threads + replies sent as new emails; bounces (in-thread and mailer-daemon search) move the contact back to the phone/WhatsApp pool; autopilot auto-pauses after 5 bounces/day. Opt-out words detected only in the person's own text (quoted history and our template lines are stripped by `ownText_`). Attachments → Drive + Received. Test email button. Starts OFF.
+**Email autopilot** (hourly trigger `hourlyJob`): Sun–Thu, 9:00–19:00, skips `SKIP_DATES`, starts at 5/day (raise slowly), spread over the day, best leads first, one follow-up after 8 days inside the same thread (only if not reached another way), HTML with correct direction (RTL for Hebrew), label `zugdeskcrm`. Reply detection = one Gmail search per run (last 3 days), matched by thread or sender; auto-replies ignored; a Gmail error stops the batch without marking anyone; bounces (in-thread and mailer-daemon search) move the contact back to the phone/WhatsApp pool; autopilot auto-pauses after 5 bounces/day. Opt-out words detected only in the person's own text (quoted history and our template lines are stripped by `ownText_`). Attachments → Drive + Received. Test email button. Starts OFF.
 
 **Referrals**: polite ask messages (`ASK_WA_*`, `ASK_EMAIL_*`, `ASK_SUBJECT_*`) sent at the right moment; email ask replies inside the person's own thread. `extractPeople()` finds names + Israeli/US phones + emails in replies and pasted text (tested HE/RU/EN, multiple people per line, email on next line, excludes sender's/own numbers). Known contacts → linked as "recommended by"; new → Suggested for one-tap add. Referred contacts get +5 and their intro says who referred them.
 
-**Other**: daily Drive backup at 03:00 (keeps 30), schema auto-upgrade (`schema_()`), LockService on writes, UI buttons lock during saves, contact sheet with history/notes/next date/language, contacts search + filters, Received screen, Email status screen.
+**Other**: the hourly job uses its own running flag (not the script lock) so app taps never wait; statuses never move backwards (Talking stays Talking); daily Drive backup at 03:00 (keeps 30), schema auto-upgrade (`schema_()`), LockService on writes, UI buttons lock during saves, contact sheet with history/notes/next date/language, contacts search + filters, Received screen, Email status screen.
 
 ---
 
