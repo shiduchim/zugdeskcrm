@@ -36,6 +36,9 @@ h2{font-size:15px;font-weight:600;color:var(--muted);margin:22px 4px 8px}
 .call .name{font-size:24px}
 .meta{color:var(--muted);font-size:14px;margin-top:2px}
 .spec{font-size:14px;margin-top:6px}
+.notebox{display:flex;gap:8px;margin-top:12px;align-items:center}
+.notebox input{flex:1;min-width:0;margin:0}
+.notebox .btn{flex:none}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .chip{font-size:12.5px;padding:3px 9px;border-radius:999px;background:var(--blue-soft);color:var(--ink)}
 .chip.warn{background:var(--amber-soft)}
@@ -182,6 +185,7 @@ function callCard(c){
     <div class="row">${c.phones.map(p=>`<a class="btn primary big" href="${p.tel}">Call ${esc(p.local)}</a>`).join('')}</div>
     <div class="row"><button class="btn quiet" onclick="this.parentNode.nextElementSibling.classList.toggle('open')">What to say</button></div>
     <div class="script" dir="auto">${esc(T && T.callScript || '')}</div>
+    ${noteBox(c.id)}
     <div class="row">
       <button class="btn good" onclick="act('${c.id}','spoke','Call')">Spoke</button>
       <button class="btn" onclick="act('${c.id}','noreach','Call')">Didn’t reach</button>
@@ -220,6 +224,7 @@ function card(c, kind){
     <div class="meta" dir="auto">${metaLine(c)}</div>${last}
     ${chips(c)}
     <div class="row">${main}</div>
+    ${noteBox(c.id)}
     <div class="row">${results}</div>
     <div class="row more" id="m-${c.id}">
       <button class="btn" onclick="act('${c.id}','later','')">Later</button>
@@ -283,6 +288,8 @@ async function act(id, action, channel, note){
   if (busy) return; busy=true;
   document.querySelectorAll('button.btn').forEach(b=>b.disabled=true);
   try{
+    const nb = $('#n-'+id);
+    if (!note && nb) note = nb.value.trim();
     await run('api_result', id, action, channel, note||'', '');
     const labels={sent:'Marked as sent',spoke:'Saved — spoke',noreach:'Saved — will try again',later:'Moved to later',wrong:'Closed — wrong number',stop:'Added to Do not contact',answered:'Saved',wroteback:'Saved — they wrote back',reopen:'Reopened'};
     toast(labels[action]||'Saved');
@@ -290,6 +297,14 @@ async function act(id, action, channel, note){
     if ($('#sheet').classList.contains('open')) openContact(id);
   }catch(e){ fail(e); }
   finally{ busy=false; document.querySelectorAll('button.btn').forEach(b=>b.disabled=false); }
+}
+function noteBox(id){
+  return `<div class="notebox"><input id="n-${id}" dir="auto" placeholder="Note (optional)" title="Saved with the result you tap" aria-label="Note">
+    <button class="btn quiet" onclick="saveNote('${id}')">Save note</button></div>`;
+}
+async function saveNote(id){
+  const nb=$('#n-'+id), t=nb && nb.value.trim(); if(!t) return toast('Type a note first');
+  try{ await run('api_addNote', id, t); nb.value=''; toast('Note saved'); }catch(e){ fail(e); }
 }
 function stop(id, channel){ if(confirm('Never contact this person again (phone, WhatsApp and email)?')) act(id,'stop',channel); }
 

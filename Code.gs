@@ -669,6 +669,19 @@ function api_saveContact(id, patch) {
   } finally { lock.releaseLock(); }
 }
 
+/** Add a dated note without changing the status (note box on Today cards). */
+function api_addNote(id, note) {
+  note = String(note || '').trim(); if (!note) return null;
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const db = loadContacts_(); const c = db.rows.find(r => r.ID === id);
+    if (!c) throw new Error('Contact not found: ' + id);
+    patchContact_(db, c, { Notes: (c.Notes ? c.Notes + '\n' : '') + today_() + ': ' + note });
+    log_(c, '', 'Note', note);
+    return true;
+  } finally { lock.releaseLock(); }
+}
+
 /** Add a recommended shadchan. Duplicates (same phone or email) are linked, not added twice. */
 function api_addReferral(byId, data) {
   const lock = LockService.getScriptLock(); lock.waitLock(20000);
