@@ -4,7 +4,7 @@ Personal shadchan-outreach CRM for **Eliyahu Kahanovich** (41, single, Kohen, Ch
 Goal: **spend the least time per useful shadchan conversation, and keep growing the list of shadchanim.**
 It must feel easy enough for a 12-year-old.
 
-Status: **designed and coded, not yet deployed or tested inside Google.** Logic for ranking, daily plan, reply-text cleaning and referral extraction was unit-tested with Node against the real data. Nothing has run in Apps Script yet — expect small first-run fixes.
+Status: **deployed and running in the shidduchim Google account (first run OK 2026-11-12); autopilot still OFF.** Logic for ranking, daily plan, reply-text cleaning and referral extraction was unit-tested with Node against the real data. Nothing has run in Apps Script yet — expect small first-run fixes.
 
 ---
 
@@ -36,7 +36,9 @@ Status: **designed and coded, not yet deployed or tested inside Google.** Logic 
 4. Deploy → New deployment → Web app (Me / Only myself). Open link on PC and phone (add to home screen).
 5. Settings tab: fill `MY_PHONE`.
 6. App → Email → Send test email to me → check HE + RU → Turn on autopilot.
-Updates later: Deploy → Manage deployments → Edit → New version.
+**Updates are automatic:** pushing a change to `Code.gs` / `Index.html` / `appsscript.json` on `main` or the working branch runs `.github/workflows/deploy.yml` → syntax check + `node tests/test.js` → `clasp push` + update of the existing web-app deployment (same link). Needs repo secret `CLASPRC_JSON` (clasp login of the shidduchim account). Never ask the user to paste code. Settings-tab text (messages, profile) is data, not code: the user edits it in the Sheet.
+- Script ID and web-app deployment ID are in `.clasp.json` / the workflow. `.claspignore` uploads only the 3 app files.
+- Phone: user has several Google accounts → the app opens in Samsung Internet logged in only to the shidduchim account (home-screen icon). PC: dedicated Chrome profile.
 
 ---
 

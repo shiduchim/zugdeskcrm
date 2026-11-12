@@ -1,0 +1,30 @@
+# Uploads the app to Google Apps Script and updates the live web app (same link).
+# Needs the repository secret CLASPRC_JSON (clasp login file for the shidduchim account).
+name: Deploy to Apps Script
+on:
+  push:
+    branches: [main, claude/elegant-heisenberg-tapenz]
+    paths: [Code.gs, Index.html, appsscript.json, .github/workflows/deploy.yml]
+  workflow_dispatch:
+concurrency: deploy
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DEPLOYMENT_ID: AKfycbwKXLx6YKq_-qmba1SN6xXC8Ay1M8y4Wc_-Nf1iB_xYA4w8SsbgCDU07arL2tljUm8U
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Checks (stop if anything fails)
+        run: |
+          cp Code.gs /tmp/c.js && node --check /tmp/c.js
+          node tests/test.js
+      - name: Upload and update the web app
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          if [ -z "$CLASPRC_JSON" ]; then echo "Secret CLASPRC_JSON not set yet - skipping upload"; exit 0; fi
+          printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
+          npx -y @google/clasp@3.4.1 push -f
+          npx -y @google/clasp@3.4.1 create-deployment -i "$DEPLOYMENT_ID" -d "${GITHUB_SHA::7} $(git log -1 --format=%s | cut -c1-80)"
