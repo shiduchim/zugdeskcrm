@@ -2,9 +2,9 @@
 <html>
 <head>
 <base target="_top">
-<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;var l=localStorage.getItem("look");}catch(e){}document.documentElement.dataset.look=(l==="classic"?"classic":"zd");</script>
 <meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Rubik:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#E9EEF3; --surface:#FFFFFF; --ink:#1B2733; --muted:#5B6B7B; --line:#D3DCE5;
@@ -119,6 +119,32 @@ label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
   .crow.sel{background:var(--blue-soft);box-shadow:inset 3px 0 0 var(--blue)}
   .toast{left:calc(var(--lw)/2)}
 }
+/* ZugDesk look (default): warm paper, black buttons, Inter; Classic is in Settings */
+:root[data-look=zd]{--bg:#FAF8F3; --surface:#FFFFFF; --ink:#1F1F1E; --muted:#66655F; --line:#E4E1D9; --blue:#1F1F1E; --blue-ink:#FFFFFF; --blue-soft:#EFEBE1; --green:#2E6B3A; --green-soft:#EAF3EC; --amber:#8A5A00; --amber-soft:#FBF2DE; --red:#B3261E; --red-soft:#FBEDEB; --link:#2F56B0; --surface-2:#F3F1EA; --shadow:0 1px 2px rgba(31,31,30,.06),0 1px 1px rgba(31,31,30,.04); color-scheme:light;}
+@media (prefers-color-scheme:dark){:root[data-look=zd]:not([data-theme=light]){--bg:#1C1B1A; --surface:#262523; --ink:#ECEAE4; --muted:#A6A398; --line:#3D3B37; --blue:#ECEAE4; --blue-ink:#1C1B1A; --blue-soft:#36332E; --green:#7CC48C; --green-soft:#1F3324; --amber:#E3B55C; --amber-soft:#3A2F1A; --red:#F08A80; --red-soft:#3A2422; --link:#8DB0F2; --surface-2:#302E2B; --shadow:0 1px 2px rgba(0,0,0,.35); color-scheme:dark;}}
+:root[data-look=zd][data-theme=dark]{--bg:#1C1B1A; --surface:#262523; --ink:#ECEAE4; --muted:#A6A398; --line:#3D3B37; --blue:#ECEAE4; --blue-ink:#1C1B1A; --blue-soft:#36332E; --green:#7CC48C; --green-soft:#1F3324; --amber:#E3B55C; --amber-soft:#3A2F1A; --red:#F08A80; --red-soft:#3A2422; --link:#8DB0F2; --surface-2:#302E2B; --shadow:0 1px 2px rgba(0,0,0,.35); color-scheme:dark;}
+[data-look=zd] body{font-family:Inter,Rubik,"Segoe UI",Arial,sans-serif}
+[data-look=zd] header h1{font-size:18px;letter-spacing:-.01em}
+[data-look=zd] h2{font-family:"JetBrains Mono",Consolas,monospace;font-weight:400;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;margin:24px 4px 8px}
+[data-look=zd] .card{border-radius:12px;box-shadow:var(--shadow)}
+[data-look=zd] .card.call{border:1px solid var(--ink);box-shadow:var(--shadow),inset 4px 0 0 var(--ink)}
+[data-look=zd] .btn{border-radius:8px;font-size:15px}
+[data-look=zd] .btn.primary:hover{opacity:.88}
+[data-look=zd] .btn.good{background:var(--green-soft);color:var(--green)}
+[data-look=zd] .chip{background:var(--surface-2);border:1px solid var(--line);font-size:12.5px}
+[data-look=zd] .chip.warn{background:var(--amber-soft);border-color:transparent;color:var(--amber)}
+[data-look=zd] .status{font-family:"JetBrains Mono",Consolas,monospace;font-size:11.5px;letter-spacing:.04em}
+[data-look=zd] #clist{background:var(--surface);box-shadow:var(--shadow)}
+[data-look=zd] .crow{border-inline-start:3px solid transparent;background:var(--surface)}
+[data-look=zd] .crow:hover{background:var(--surface-2)}
+[data-look=zd] .crow.sel{background:var(--blue-soft);box-shadow:none;border-inline-start-color:var(--ink)}
+[data-look=zd] .crow .tg i{background:var(--surface-2);border:1px solid var(--line)}
+[data-look=zd] nav button.on{color:var(--ink);box-shadow:inset 0 3px 0 var(--ink)}
+[data-look=zd] .tabs button.on{color:var(--ink);border-bottom-color:var(--ink)}
+[data-look=zd] .sheet .inner .name{letter-spacing:-.01em}
+[data-look=zd] a{color:var(--link)}
+[data-look=zd] a.btn{color:var(--ink)}
+[data-look=zd] a.btn.primary{color:var(--blue-ink)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -174,14 +200,18 @@ function setTheme(t){
   if (t==='auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
   openSettings();
 }
+function setLook(l){ try{ localStorage.setItem('look', l); }catch(e){} document.documentElement.dataset.look = l; openSettings(); }
 function openSettings(){
   sheetId = null; histReq++;
+  const lk = document.documentElement.dataset.look, lb = (v,l) => `<button class="btn ${lk===v?'on':''}" onclick="setLook('${v}')">${l}</button>`;
   const t = getTheme(), b = (v,l) => `<button class="btn ${t===v?'on':''}" onclick="setTheme('${v}')">${l}</button>`;
   $('#sheetInner').innerHTML = `
     <div class="top"><button class="btn" onclick="closeSheet()">Back</button><span class="status">Settings</span></div>
     <h2>Theme</h2>
     <div class="card"><div class="seg">${b('auto','Auto')}${b('light','Light')}${b('dark','Dark')}</div>
-      <div class="meta" style="margin-top:8px">Auto follows your phone or computer. Saved on this device.</div></div>`;
+      <div class="meta" style="margin-top:8px">Auto follows your phone or computer. Saved on this device.</div></div>
+    <h2>Look</h2>
+    <div class="card"><div class="seg">${lb('zd','ZugDesk')}${lb('classic','Classic')}</div></div>`;
   $('#sheet').classList.add('open'); $('#sheet').scrollTop = 0;
 }
 
