@@ -2,11 +2,13 @@
 _Last updated: 2026-11-12_
 
 ## In progress
-Combined plan from the two reviews (Opus + Fable), approved by the user:
-Steps 1–4 DONE (code in repo + renamed, safety fixes, reliability fixes, tests).
-First run done 2026-11-12: Sheet (renamed zugdeskcrm, in the shidduchim account), setup(), deploy, PC + phone (Samsung Internet), call/WhatsApp buttons, test email HE+RU all OK.
-Auto-deploy via GitHub Actions + clasp works (tested: live web app @3). Phone fix and wide-screen layout fix are live.
-Next: ask the user whether to turn on email autopilot now (5/day) or first use the call/WhatsApp plan for a day. Then Easy mode + WhatsApp send mode.
+Done and live: steps 1–4, first run, auto-deploy, Book grouping + v4 migration, Settings (Theme, Look), card Basic/Details tabs, PC layout, ZugDesk look, Import button.
+Waiting on the user:
+1. Send the ChatGPT web-search list in chat → Claude cleans it to a CSV in the scratchpad (never the repo), Source "Web search", Type Shadchan only for real shadchanim → user imports it (first real Import save = the live test; start small).
+2. Confirm: ZugDesk look OK on phone + PC; insert contacts show under Book; Samsung home-screen icon.
+3. Make the GitHub repo private (walk through one step at a time; check deploy still works after).
+4. Decide: email autopilot on now (5/day) or a day of call/WhatsApp first.
+Later imports: ZugDesk survey list (Source "ZugDesk survey"), then Gmail (non-shadchanim must not be Type Shadchan).
 
 Original plan:
 1. Code into the repo, renamed to zugdeskcrm.
@@ -21,5 +23,4 @@ Original plan:
 
 ## Notes / blockers
 - Google Drive + Gmail connectors are connected to the shidduchim account: Claude can read the Sheet (export) and Gmail directly. Drive connector cannot edit Sheet cells.
-- User does NOT want to re-upload to Drive for future list updates: add an "Import file" button in the app (file picker → merge by exact phone/email, no duplicates). Build it with the Gmail import (12).
 - The app runs in Google (first run OK 2026-11-12); Google-side features are tested by the user. First real Import save not yet confirmed.
