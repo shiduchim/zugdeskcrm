@@ -524,7 +524,8 @@ function card_(c, s) {
     asked: c.AskedReferralsAt || '',
     gmailUrl: threadUrl_((c.EmailThreadIds || '').split(',').filter(Boolean).pop()),
     waUrl: mob ? 'https://api.whatsapp.com/send?phone=' + mob.intl + '&text=' + encodeURIComponent(waText_(c, s, lang)) : '',
-    doneToday: (c.LastContact || '').slice(0, 10) === today_()
+    doneToday: (c.LastContact || '').slice(0, 10) === today_(),
+    source: c.Source, closeReason: c.CloseReason, attempts: c.Attempts
   };
 }
 
@@ -604,6 +605,7 @@ function api_result(id, action, channel, note, nextDate) {
     if (!c) throw new Error('Contact not found: ' + id);
     const r = RESULTS[action]; if (!r) throw new Error('Unknown action ' + action);
     const patch = { Status: r.status, LastContact: now_(), LastChannel: channel || c.LastChannel || '' };
+    if (action === 'reopen') { delete patch.LastContact; delete patch.LastChannel; }
     // someone you're already talking with stays "Talking" (no attempts counted, never auto-closed)
     const keep = c.Status === 'Talking' && (action === 'sent' || action === 'noreach');
     if (keep) patch.Status = 'Talking';
@@ -630,7 +632,8 @@ function api_contacts(q, filter, offset) {
   const s = settings_(), db = loadContacts_(), dnc = dnc_();
   q = String(q || '').trim().toLowerCase();
   let rows = db.rows.map(c => ({ c: c, sc: scoreContact(c, s) }));
-  const f = filter || 'best';
+  // a search looks through everyone unless a specific filter was picked
+  const f = (q && (!filter || filter === 'best')) ? 'all' : (filter || 'best');
   rows = rows.filter(x => {
     const c = x.c, st = c.Status || 'New';
     if (q && (c.Name + ' ' + c.City + ' ' + c.Phone1 + ' ' + c.Phone2 + ' ' + c.Email + ' ' + c.Specialty).toLowerCase().indexOf(q) < 0) return false;
@@ -651,18 +654,22 @@ function api_contact(id) {
   const s = settings_(), db = loadContacts_();
   const c = db.rows.find(r => r.ID === id);
   if (!c) throw new Error('Contact not found');
-  const log = ss_().getSheetByName('Log').getDataRange().getValues().slice(1)
-    .filter(r => String(r[1]) === id).map(r => ({ when: str_(r[0]), channel: str_(r[3]), action: str_(r[4]), details: str_(r[5]) })).reverse();
   const card = card_(c, s);
-  card.history = log;
-  card.source = c.Source; card.closeReason = c.CloseReason; card.attempts = c.Attempts;
+  card.history = api_history(id);
   return card;
+}
+
+/** History of one contact (newest first). Reads only the Log sheet, so a card opens fast. */
+function api_history(id) {
+  return ss_().getSheetByName('Log').getDataRange().getValues().slice(1)
+    .filter(r => String(r[1]) === id).map(r => ({ when: str_(r[0]), channel: str_(r[3]), action: str_(r[4]), details: str_(r[5]) })).reverse();
 }
 
 function api_saveContact(id, patch) {
   const lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
     const db = loadContacts_(); const c = db.rows.find(r => r.ID === id);
+    if (!c) throw new Error('Contact not found: ' + id);
     const allowed = {}; ['Notes', 'NextDate', 'Lang', 'Email', 'Boost'].forEach(k => { if (patch[k] !== undefined) allowed[k] = patch[k]; });
     patchContact_(db, c, allowed);
     return api_contact(id);
@@ -678,7 +685,7 @@ function api_addNote(id, note) {
     if (!c) throw new Error('Contact not found: ' + id);
     patchContact_(db, c, { Notes: (c.Notes ? c.Notes + '\n' : '') + today_() + ': ' + note });
     log_(c, '', 'Note', note);
-    return true;
+    return card_(c, settings_());
   } finally { lock.releaseLock(); }
 }
 

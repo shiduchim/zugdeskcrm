@@ -33,3 +33,8 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - `MY_PHONE` shows in emails without a plus (1-612-888-5778 / 050-1234567) and is a tap-to-WhatsApp link (wa.me), even if Sheets turned it into bare digits.
 - On a wide PC screen the title and bottom tabs stay inside the centered column.
 - Today card note box: type a note, tap a result → note saved with date in Notes + Log. "Save note" saves without a result.
+- Card opens instantly from loaded data; history fills in ~1 s (api_history).
+- Tapping a result updates only that card: no full Today reload, scroll position and typed notes kept; "Check in again" item disappears after a result.
+- Search in Contacts finds everyone (also people already contacted/closed) when the filter is "Best first".
+- Note added from Today while the card is open is not wiped by "Save changes".
+- "Back to new" does not mark the contact as contacted today.

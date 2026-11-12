@@ -111,6 +111,7 @@ let T = null;              // today data
 let profiles = {};
 let callScript = '';
 
+function todayStr(){ return new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Jerusalem'}); }
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2600); }
 function fail(e){ toast('Something went wrong: ' + (e && e.message || e)); console.error(e); }
 
@@ -119,7 +120,7 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.da
 function show(v){
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.v===v));
   ['today','contacts','received','email'].forEach(x => $('#v-'+x).hidden = x!==v);
-  if (v==='today') loadToday();
+  if (v==='today'){ if (!T || Date.now()-T.loadedAt > 10*60000 || T.date !== todayStr()) loadToday(); }
   if (v==='contacts' && !$('#clist').dataset.loaded) loadContacts(true);
   if (v==='received') loadReceived();
   if (v==='email') loadEmail();
@@ -129,7 +130,7 @@ function show(v){
 /* ---------- Today ---------- */
 async function loadToday(rebuild){
   try{
-    T = await run('api_today', !!rebuild);
+    T = await run('api_today', !!rebuild); T.loadedAt = Date.now();
     profiles = T.profiles;
     $('#date').textContent = new Date(T.date+'T12:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
     renderToday();
@@ -137,6 +138,9 @@ async function loadToday(rebuild){
 }
 
 function renderToday(){
+  const typed = {}; document.querySelectorAll('#v-today .notebox input').forEach(i=>{ if(i.value) typed[i.id]=i.value; });
+  const y = window.scrollY;
+  [T.call,T.wa,T.replies,T.checkins,T.asks].forEach(l=>l.forEach(remember));
   const items = [...T.call, ...T.wa];
   const done = items.filter(c=>c.doneToday).length;
   const pct = items.length ? Math.round(done/items.length*100) : 0;
@@ -163,6 +167,8 @@ function renderToday(){
   }
   h += `<div class="row" style="margin-top:20px"><button class="btn quiet" onclick="rebuild()">Pick new people for today</button></div>`;
   $('#v-today').innerHTML = h;
+  Object.keys(typed).forEach(k=>{ const i=document.getElementById(k); if(i) i.value=typed[k]; });
+  if (!$('#v-today').hidden) window.scrollTo(0, y);
 }
 
 function rebuild(){ if(confirm('Replace today’s call and message list with a fresh selection?')) loadToday(true); }
@@ -272,7 +278,10 @@ async function askEmail(id){
 async function askMark(id, how){
   try{ await run('api_askMark', id, how); toast(how==='skip'?'OK, not now':'Saved'); refreshAfterAsk(id); }catch(e){ fail(e); }
 }
-function refreshAfterAsk(id){ if(!$('#v-today').hidden) loadToday(); if($('#sheet').classList.contains('open')) openContact(id); }
+function refreshAfterAsk(id){
+  if (T){ T.asks = T.asks.filter(x=>x.id!==id); if (CARDS[id]) CARDS[id].asked = todayStr(); renderToday(); }
+  if (sheetId===id) openContact(id);
+}
 async function pasteExtract(id){
   const t=$('#p-text').value.trim(); if(!t) return toast('Paste their message first');
   try{ const r=await run('api_extractFromText', id, t);
@@ -290,11 +299,11 @@ async function act(id, action, channel, note){
   try{
     const nb = $('#n-'+id);
     if (!note && nb) note = nb.value.trim();
-    await run('api_result', id, action, channel, note||'', '');
+    const c = remember(await run('api_result', id, action, channel, note||'', ''));
     const labels={sent:'Marked as sent',spoke:'Saved — spoke',noreach:'Saved — will try again',later:'Moved to later',wrong:'Closed — wrong number',stop:'Added to Do not contact',answered:'Saved',wroteback:'Saved — they wrote back',reopen:'Reopened'};
     toast(labels[action]||'Saved');
-    if (!$('#v-today').hidden) loadToday();
-    if ($('#sheet').classList.contains('open')) openContact(id);
+    updateTodayCard(c);
+    if (sheetId===id) openContact(id);
   }catch(e){ fail(e); }
   finally{ busy=false; document.querySelectorAll('button.btn').forEach(b=>b.disabled=false); }
 }
@@ -304,7 +313,18 @@ function noteBox(id){
 }
 async function saveNote(id){
   const nb=$('#n-'+id), t=nb && nb.value.trim(); if(!t) return toast('Type a note first');
-  try{ await run('api_addNote', id, t); nb.value=''; toast('Note saved'); }catch(e){ fail(e); }
+  try{ const c = remember(await run('api_addNote', id, t)); nb.value=''; toast('Note saved');
+    if (sheetId===id) openContact(id); }catch(e){ fail(e); }
+}
+/* After a tap: change only this person's place in Today, without asking the server again. */
+function updateTodayCard(c){
+  if (!T || !c) return;
+  const swap = list => list.map(x => x.id===c.id ? c : x);
+  T.call = swap(T.call); T.wa = swap(T.wa);
+  T.replies = c.needsReply ? (T.replies.some(x=>x.id===c.id) ? swap(T.replies) : [c, ...T.replies]) : T.replies.filter(x=>x.id!==c.id);
+  T.checkins = c.doneToday ? T.checkins.filter(x=>x.id!==c.id) : swap(T.checkins);
+  T.asks = c.status==='Talking' && !c.asked && !c.needsReply ? swap(T.asks) : T.asks.filter(x=>x.id!==c.id);
+  renderToday();
 }
 function stop(id, channel){ if(confirm('Never contact this person again (phone, WhatsApp and email)?')) act(id,'stop',channel); }
 
@@ -325,12 +345,35 @@ async function copyProfile(lang){
 }
 
 /* ---------- Contact sheet ---------- */
+/* Cards already loaded (Today, Contacts, results) are kept here so a contact opens instantly. */
+const CARDS = {}, HIST = {};
+let sheetId = null, histReq = 0;
+function remember(c){ if (c && c.id) CARDS[c.id] = c; return c; }
+function histHtml(h){
+  if (!h) return '<div class="loading">Loading history…</div>';
+  return h.length ? h.map(x=>`<div class="hist" dir="auto"><b>${esc(x.when)}</b> · ${esc(x.channel)} · ${esc(x.action)}${x.details?'<br>'+esc(x.details):''}</div>`).join('') : '<div class="empty">Nothing yet.</div>';
+}
 async function openContact(id){
+  const sameOpen = sheetId===id && $('#sheet').classList.contains('open');
+  sheetId = id;
   $('#sheet').classList.add('open');
-  $('#sheetInner').innerHTML = '<div class="loading">Loading…</div>';
+  const req = ++histReq;
+  if (CARDS[id]) renderSheet(CARDS[id], sameOpen);
+  else $('#sheetInner').innerHTML = '<div class="loading">Loading…</div>';
   try{
-    const c = await run('api_contact', id);
-    const mob = c.phones.find(p=>p.mobile);
+    if (CARDS[id]){
+      const h = await run('api_history', id);
+      if (req!==histReq) return;
+      HIST[id] = h; const box=$('#histBox'); if (box) box.innerHTML = histHtml(h);
+    } else {
+      const c = await run('api_contact', id);
+      if (req!==histReq) return;
+      HIST[id] = c.history; remember(c); renderSheet(c);
+    }
+  }catch(e){ fail(e); }
+}
+function renderSheet(c, keepScroll){
+    const y = $('#sheet').scrollTop;
     $('#sheetInner').innerHTML = `
       <div class="top"><button class="btn" onclick="closeSheet()">Back</button><span class="status">${esc(c.status)}${c.closeReason?' — '+esc(c.closeReason):''}</span></div>
       <p class="name" dir="auto" style="font-size:24px">${esc(c.name)}</p>
@@ -394,15 +437,16 @@ async function openContact(id){
       </div>
 
       <h2>History</h2>
-      ${c.history.length?c.history.map(h=>`<div class="hist" dir="auto"><b>${esc(h.when)}</b> · ${esc(h.channel)} · ${esc(h.action)}${h.details?'<br>'+esc(h.details):''}</div>`).join(''):'<div class="empty">Nothing yet.</div>'}
+      <div id="histBox">${histHtml(HIST[c.id])}</div>
     `;
-  }catch(e){ fail(e); }
+    $('#sheet').scrollTop = keepScroll ? y : 0;
 }
-function closeSheet(){ $('#sheet').classList.remove('open'); }
+function closeSheet(){ $('#sheet').classList.remove('open'); sheetId = null; histReq++; }
 async function saveContact(id){
   try{
-    await run('api_saveContact', id, {NextDate:$('#f-next').value, Lang:$('#f-lang').value, Notes:$('#f-notes').value});
-    toast('Saved'); openContact(id);
+    const c = await run('api_saveContact', id, {NextDate:$('#f-next').value, Lang:$('#f-lang').value, Notes:$('#f-notes').value});
+    toast('Saved'); HIST[id] = c.history; remember(c); updateTodayCard(c);
+    if (sheetId===id) renderSheet(c, true);
   }catch(e){ fail(e); }
 }
 async function addReferral(byId){
@@ -432,6 +476,7 @@ async function loadContacts(reset){
   if(reset){ coff=0; $('#clist').innerHTML='<div class="loading">Loading…</div>'; }
   try{
     const r = await run('api_contacts', $('#q').value, cf, coff);
+    r.items.forEach(remember);
     const html = r.items.map(c=>`<div class="card" onclick="openContact('${c.id}')" style="cursor:pointer">
       <p class="name" dir="auto">${esc(c.name)}</p><div class="meta" dir="auto">${metaLine(c)}</div>
       <div class="status">${esc(c.status)}${c.nextDate?' • next '+esc(c.nextDate):''}</div>${chips(c)}</div>`).join('');
