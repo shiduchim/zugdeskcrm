@@ -509,7 +509,7 @@ function getPlan_(db, s, dnc, rebuild) {
   return p;
 }
 
-function card_(c, s) {
+function card_(c, s, lean) {
   const lang = pickLang_(c, s);
   const sc = scoreContact(c, s);
   const phones = phonesOf_(c);
@@ -520,12 +520,12 @@ function card_(c, s) {
     needsReply: c.NeedsReply === 'YES', emailStatus: c.EmailStatus, referredBy: c.ReferredBy, notes: c.Notes,
     lastContact: c.LastContact, lastChannel: c.LastChannel, lang: lang, why: sc.why,
     phones: phones.map(p => ({ local: p.local, tel: 'tel:+' + p.intl, mobile: p.mobile })),
-    askWaUrl: mob ? 'https://api.whatsapp.com/send?phone=' + mob.intl + '&text=' + encodeURIComponent(fill_(s['ASK_WA_' + lang] || s.ASK_WA_HE, {})) : '',
+    askWaUrl: mob && !lean ? 'https://api.whatsapp.com/send?phone=' + mob.intl + '&text=' + encodeURIComponent(fill_(s['ASK_WA_' + lang] || s.ASK_WA_HE, {})) : '',
     asked: c.AskedReferralsAt || '',
     gmailUrl: threadUrl_((c.EmailThreadIds || '').split(',').filter(Boolean).pop()),
-    waUrl: mob ? 'https://api.whatsapp.com/send?phone=' + mob.intl + '&text=' + encodeURIComponent(waText_(c, s, lang)) : '',
+    waUrl: mob && !lean ? 'https://api.whatsapp.com/send?phone=' + mob.intl + '&text=' + encodeURIComponent(waText_(c, s, lang)) : '',
     doneToday: (c.LastContact || '').slice(0, 10) === today_(),
-    source: c.Source, closeReason: c.CloseReason, attempts: c.Attempts
+    source: c.Source, sourceRef: c.SourceRef, closeReason: c.CloseReason, attempts: c.Attempts, rank: sc.score
   };
 }
 
@@ -648,6 +648,25 @@ function api_contacts(q, filter, offset) {
   }).sort((a, b) => b.sc.score - a.sc.score);
   const start = offset || 0;
   return { total: rows.length, items: rows.slice(start, start + 40).map(x => card_(x.c, s)) };
+}
+
+/**
+ * Everyone, once, in a light form for the Contacts screen (filter/sort/search happen on the device).
+ * WhatsApp links are built on the device from `wa` / `ask` texts (only referred people need their own text).
+ */
+function api_directory() {
+  const s = settings_(), db = loadContacts_(), dnc = dnc_();
+  const wa = {}, ask = {};
+  ['HE', 'RU', 'EN'].forEach(l => { wa[l] = waText_({}, s, l); ask[l] = fill_(s['ASK_WA_' + l] || s.ASK_WA_HE, {}); });
+  const items = db.rows.map(c => {
+    const card = card_(c, s, true);
+    card.blocked = blocked_(c, dnc);
+    card.ru = (c.Languages || '').indexOf('ר') >= 0 || /רוס/.test(c.Specialty || '');
+    card.type = c.Type || '';
+    if (c.ReferredBy) card.waText = waText_(c, s, card.lang);
+    return card;
+  });
+  return { wa: wa, ask: ask, items: items, at: now_() };
 }
 
 function api_contact(id) {

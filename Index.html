@@ -61,6 +61,20 @@ textarea{min-height:80px}
 .filters button{flex:none;min-height:38px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
 .filters button.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
 .list .card{padding:12px}
+.crow{display:block;width:100%;text-align:start;background:var(--surface);border:0;border-bottom:1px solid var(--line);padding:10px 14px;min-height:56px;font:inherit;color:var(--ink);cursor:pointer}
+.crow:first-child{border-radius:12px 12px 0 0}.crow:last-child{border-radius:0 0 12px 12px;border-bottom:0}
+.crow:only-child{border-radius:12px}
+.crow:hover{background:var(--blue-soft)}
+.crow .nm{display:block;font-weight:600;font-size:16px}
+.crow .sub{display:block;color:var(--muted);font-size:13.5px;margin-top:1px}
+.crow .tg{display:flex;gap:6px;margin-top:5px}
+.crow .tg i{font-style:normal;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--blue-soft)}
+#clist{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+#clist:has(.empty){border:0}
+.ctools{display:flex;gap:8px;margin-top:2px}
+#ctags{padding-top:6px}#ctags button{min-height:34px}
+.ctools select{flex:1;min-width:0}
+.filters button b{font-weight:500;opacity:.65;margin-inline-start:6px}
 .status{font-size:12.5px;color:var(--muted)}
 .sheet{position:fixed;inset:0;z-index:20;background:var(--bg);overflow:auto;display:none}
 .sheet.open{display:block}
@@ -86,10 +100,21 @@ label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
 <main>
   <section id="v-today"><div class="loading">Loading today…</div></section>
   <section id="v-contacts" hidden>
-    <input id="q" placeholder="Search name, city, phone…" autocomplete="off">
-    <div class="filters" id="filters"></div>
+    <input id="q" placeholder="Search anyone: name, city, phone, email…" autocomplete="off" dir="auto" aria-label="Search">
+    <div class="filters" id="srcs" aria-label="Where they came from"></div>
+    <div class="ctools">
+      <select id="cshow" aria-label="Show">
+        <option value="ready">Ready to contact</option><option value="talking">Talking</option><option value="contacted">Contacted</option>
+        <option value="later">Later</option><option value="closed">Closed</option><option value="all">Everyone</option>
+      </select>
+      <select id="csort" aria-label="Sort">
+        <option value="best">Best first</option><option value="name">Name</option><option value="last">Last contact</option><option value="next">Next date</option>
+      </select>
+    </div>
+    <div class="filters" id="ctags"><button data-t="ru">Russian speakers</button><button data-t="chabad">Chabad</button></div>
+    <div class="status" id="ccount" style="margin:2px 4px 8px"></div>
     <div class="list" id="clist"></div>
-    <div class="row"><button class="btn" id="moreBtn" hidden>Show more</button></div>
+    <div id="cmore" class="loading" hidden>Loading more…</div>
   </section>
   <section id="v-received" hidden></section>
   <section id="v-email" hidden></section>
@@ -121,7 +146,7 @@ function show(v){
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.v===v));
   ['today','contacts','received','email'].forEach(x => $('#v-'+x).hidden = x!==v);
   if (v==='today'){ if (!T || Date.now()-T.loadedAt > 10*60000 || T.date !== todayStr()) loadToday(); }
-  if (v==='contacts' && !$('#clist').dataset.loaded) loadContacts(true);
+  if (v==='contacts') ensureDir();
   if (v==='received') loadReceived();
   if (v==='email') loadEmail();
   window.scrollTo(0,0);
@@ -131,6 +156,7 @@ function show(v){
 async function loadToday(rebuild){
   try{
     T = await run('api_today', !!rebuild); T.loadedAt = Date.now();
+    if (!DIR && !dirReq) setTimeout(()=>ensureDir().catch(()=>{}), 1500);
     profiles = T.profiles;
     $('#date').textContent = new Date(T.date+'T12:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
     renderToday();
@@ -351,7 +377,7 @@ async function copyProfile(lang){
 /* Cards already loaded (Today, Contacts, results) are kept here so a contact opens instantly. */
 const CARDS = {}, HIST = {};
 let sheetId = null, histReq = 0;
-function remember(c){ if (c && c.id) CARDS[c.id] = c; return c; }
+function remember(c){ if (c && c.id){ const old = CARDS[c.id]; if (old && old.rank !== undefined && c.rank === undefined) c.rank = old.rank; CARDS[c.id] = hydrate(c); } return c; }
 function histHtml(h){
   if (!h) return '<div class="loading">Loading history…</div>';
   return h.length ? h.map(x=>`<div class="hist" dir="auto"><b>${esc(x.when)}</b> · ${esc(x.channel)} · ${esc(x.action)}${x.details?'<br>'+esc(x.details):''}</div>`).join('') : '<div class="empty">Nothing yet.</div>';
@@ -467,28 +493,93 @@ async function addReceived(id){
   try{ await run('api_addReceived', d); toast('Saved to Received'); openContact(id); }catch(e){ fail(e); }
 }
 
-/* ---------- Contacts ---------- */
-const FILTERS=[['best','Best first'],['russian','Russian'],['chabad','Chabad'],['talking','Talking'],['contacted','Contacted'],['later','Later'],['closed','Closed'],['all','All']];
-let cf='best', coff=0, qTimer=null;
-$('#filters').innerHTML = FILTERS.map(f=>`<button data-f="${f[0]}" class="${f[0]===cf?'on':''}">${f[1]}</button>`).join('');
-$('#filters').onclick = e => { const b=e.target.closest('button'); if(!b) return; cf=b.dataset.f;
-  document.querySelectorAll('#filters button').forEach(x=>x.classList.toggle('on',x===b)); loadContacts(true); };
-$('#q').oninput = () => { clearTimeout(qTimer); qTimer=setTimeout(()=>loadContacts(true),300); };
-$('#moreBtn').onclick = () => loadContacts(false);
-async function loadContacts(reset){
-  if(reset){ coff=0; $('#clist').innerHTML='<div class="loading">Loading…</div>'; }
-  try{
-    const r = await run('api_contacts', $('#q').value, cf, coff);
-    r.items.forEach(remember);
-    const html = r.items.map(c=>`<div class="card" onclick="openContact('${c.id}')" style="cursor:pointer">
-      <p class="name" dir="auto">${esc(c.name)}</p><div class="meta" dir="auto">${metaLine(c)}</div>
-      <div class="status">${esc(c.status)}${c.nextDate?' • next '+esc(c.nextDate):''}</div>${chips(c)}</div>`).join('');
-    $('#clist').innerHTML = (reset?'':$('#clist').innerHTML) + (html || '<div class="empty">No one here.</div>');
-    $('#clist').dataset.loaded=1;
-    coff += r.items.length;
-    $('#moreBtn').hidden = coff >= r.total;
-  }catch(e){ fail(e); }
+/* ---------- Contacts (everyone loaded once; filter/sort/search on the device) ---------- */
+let DIR = null, dirReq = null, cSrc = 'all', cShown = 60, qTimer = null;
+const cTags = new Set();
+function srcGroup(src){
+  let g = String(src||'').split(/\s[–—-]\s|[:(]/)[0].replace(/\s*(p\.?|page|עמ['׳]?)?\s*\d[\d\s,.-]*$/i,'').trim();
+  return g || 'Other';
 }
+function hydrate(c){
+  if (DIR && c && !c.waUrl){
+    const m = (c.phones||[]).find(p=>p.mobile);
+    if (m){ const intl = m.tel.replace(/\D/g,'');
+      c.waUrl = 'https://api.whatsapp.com/send?phone='+intl+'&text='+encodeURIComponent(c.waText || DIR.wa[c.lang] || DIR.wa.HE);
+      c.askWaUrl = 'https://api.whatsapp.com/send?phone='+intl+'&text='+encodeURIComponent(DIR.ask[c.lang] || DIR.ask.HE); }
+  }
+  return c;
+}
+async function ensureDir(force){
+  if (DIR && !force && Date.now()-DIR.loadedAt < 10*60000){ renderContacts(); return; }
+  if (!DIR) $('#clist').innerHTML = '<div class="loading">Loading contacts…</div>';
+  if (!dirReq) dirReq = run('api_directory').then(d=>{
+    d.loadedAt = Date.now(); d.ids = d.items.map(c=>c.id);
+    DIR = d; d.items.forEach(remember);
+    delete d.items; dirReq = null;
+  }, e=>{ dirReq = null; throw e; });
+  try{ await dirReq; if (!$('#v-contacts').hidden) renderContacts(); }catch(e){ fail(e); }
+}
+function showOk(c, show){
+  const st = c.status || 'New';
+  if (show==='ready') return st==='New' && !c.blocked && (!c.type || c.type==='Shadchan');
+  if (show==='closed') return st==='Closed' || c.blocked;
+  if (show==='all') return true;
+  return st.toLowerCase()===show && !c.blocked;
+}
+function tagOk(c){
+  if (cTags.has('ru') && !c.ru) return false;
+  if (cTags.has('chabad') && (c.why||[]).indexOf('Chabad')<0) return false;
+  return true;
+}
+function renderContacts(){
+  if (!DIR) return;
+  const q = $('#q').value.trim().toLowerCase(), show = $('#cshow').value, sort = $('#csort').value;
+  const all = DIR.ids.map(id=>CARDS[id]).filter(Boolean);
+  let base;
+  if (q){
+    const qd = q.replace(/\D/g,'');
+    base = all.filter(c => (c.name+' '+(c.city||'')+' '+(c.email||'')+' '+(c.specialty||'')+' '+(c.referredBy||'')).toLowerCase().indexOf(q)>=0
+      || (qd.length>=3 && (c.phones||[]).some(p=>p.local.replace(/\D/g,'').indexOf(qd.replace(/^972/,'0'))>=0)));
+  } else base = all.filter(c => showOk(c, show) && tagOk(c));
+  // source bubbles: counts follow the current Show / search
+  const counts = {}; base.forEach(c=>{ const g=srcGroup(c.source); counts[g]=(counts[g]||0)+1; });
+  const groups = Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+  if (cSrc!=='all' && !counts[cSrc] && !groups.length) cSrc='all';
+  $('#srcs').innerHTML = [`<button data-s="all" class="${cSrc==='all'?'on':''}">Everyone<b>${base.length}</b></button>`]
+    .concat(groups.map(g=>`<button data-s="${esc(g)}" class="${cSrc===g?'on':''}" dir="auto">${esc(g)}<b>${counts[g]}</b></button>`)).join('');
+  let list = cSrc==='all' ? base : base.filter(c=>srcGroup(c.source)===cSrc);
+  const by = {
+    best: (a,b)=>(b.rank||0)-(a.rank||0),
+    name: (a,b)=>String(a.name).localeCompare(String(b.name),'he'),
+    last: (a,b)=>String(b.lastContact||'').localeCompare(String(a.lastContact||'')),
+    next: (a,b)=>(a.nextDate?0:1)-(b.nextDate?0:1) || String(a.nextDate||'').localeCompare(String(b.nextDate||''))
+  };
+  list = list.slice().sort(by[sort]||by.best);
+  $('#ctags').style.display = q ? 'none' : '';
+  $('#ccount').textContent = q ? `Searching everyone — ${list.length} found` : `${list.length} ${list.length===1?'person':'people'} here · ${all.length} contacts in total`;
+  $('#clist').innerHTML = list.slice(0, cShown).map(rowHtml).join('')
+    || `<div class="empty">${q?'No one matches that search.':'No one here right now.'}</div>`;
+  $('#cmore').hidden = list.length <= cShown;
+}
+/* compact directory row (like ZugDesk): name, then city · status · last contact */
+function rowHtml(c){
+  const st = c.blocked && c.status!=='Closed' ? 'Do not contact' : c.status + (c.closeReason?' — '+c.closeReason:'');
+  const bits = [c.city, st, c.lastContact && 'last '+String(c.lastContact).slice(0,10), c.nextDate && 'next '+c.nextDate].filter(Boolean).map(esc).join(' · ');
+  const top = (c.why||[]).filter(w=>!/Age limit|Crossed|Only other/.test(w)).slice(0,2);
+  return `<button class="crow" dir="${/^[^A-Za-zА-яЁё]*[\u0590-\u05FF]/.test(c.name)?'rtl':'ltr'}" onclick="openContact('${c.id}')" data-id="${c.id}">
+    <span class="nm" dir="auto">${esc(c.name)}</span>
+    <span class="sub" dir="auto">${bits}</span>
+    ${top.length?`<span class="tg">${top.map(w=>`<i dir="auto">${esc(w)}</i>`).join('')}</span>`:''}
+  </button>`;
+}
+/* load more automatically when the end of the list comes into view */
+new IntersectionObserver(es=>{ if (es[0].isIntersecting && !$('#cmore').hidden){ cShown += 60; renderContacts(); } }, {rootMargin:'600px'}).observe($('#cmore'));
+function resetPaging(){ cShown = 60; renderContacts(); }
+$('#srcs').onclick = e => { const b=e.target.closest('button'); if(!b) return; cSrc=b.dataset.s; resetPaging(); };
+$('#ctags').onclick = e => { const b=e.target.closest('button'); if(!b) return; const t=b.dataset.t;
+  cTags.has(t)?cTags.delete(t):cTags.add(t); b.classList.toggle('on', cTags.has(t)); resetPaging(); };
+$('#cshow').onchange = resetPaging; $('#csort').onchange = resetPaging;
+$('#q').oninput = () => { clearTimeout(qTimer); qTimer=setTimeout(resetPaging,150); };
 
 /* ---------- Received ---------- */
 async function loadReceived(){

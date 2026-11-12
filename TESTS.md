@@ -39,3 +39,5 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - Note added from Today while the card is open is not wiped by "Save changes".
 - "Back to new" does not mark the contact as contacted today.
 - WhatsApp cards on Today have Call too; More has Spoke / Didn't reach (logged as Call).
+- Contacts: source bubbles with counts ("Book p. 12" and "Book" = one bubble); Show / Sort menus; Russian / Chabad toggles; count line "N people here · total"; search finds everyone incl. by phone digits.
+- Contacts list loads more by itself while scrolling (no "Show more" button); opening a contact from the list is instant and WhatsApp link is built on the device.
