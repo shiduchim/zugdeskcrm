@@ -38,3 +38,4 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - Search in Contacts finds everyone (also people already contacted/closed) when the filter is "Best first".
 - Note added from Today while the card is open is not wiped by "Save changes".
 - "Back to new" does not mark the contact as contacted today.
+- WhatsApp cards on Today have Call too; More has Spoke / Didn't reach (logged as Call).

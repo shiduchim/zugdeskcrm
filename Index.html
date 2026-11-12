@@ -207,7 +207,8 @@ function card(c, kind){
   let main = '', results = '';
   if (kind==='wa'){
     main = c.waUrl ? `<a class="btn primary" href="${c.waUrl}" target="_blank" onclick="opened('${c.id}')">Open WhatsApp</a>` : '';
-    main += `<button class="btn" onclick="copyProfile('${c.lang}')">Copy profile</button>`;
+    if (tel) main += `<a class="btn" href="${tel.tel}">Call ${esc(tel.local)}</a>`;
+    main += `<button class="btn quiet" onclick="copyProfile('${c.lang}')">Copy profile</button>`;
     results = `<button class="btn good" onclick="act('${c.id}','sent','WhatsApp')">Sent</button>
       <button class="btn quiet" onclick="moreToggle('${c.id}')">More</button>`;
   } else if (kind==='reply'){
@@ -233,6 +234,8 @@ function card(c, kind){
     ${noteBox(c.id)}
     <div class="row">${results}</div>
     <div class="row more" id="m-${c.id}">
+      ${kind==='wa'?`<button class="btn good" onclick="act('${c.id}','spoke','Call')">Spoke</button>
+      <button class="btn" onclick="act('${c.id}','noreach','Call')">Didn’t reach</button>`:''}
       <button class="btn" onclick="act('${c.id}','later','')">Later</button>
       <button class="btn" onclick="act('${c.id}','wrong','')">Wrong number</button>
       <button class="btn danger" onclick="stop('${c.id}','')">Do not contact</button>
