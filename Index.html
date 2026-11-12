@@ -88,6 +88,15 @@ textarea{min-height:80px}
 .ctools{display:flex;gap:8px;margin-top:2px}
 #ctags{padding-top:6px}#ctags button{min-height:34px}
 .ctools select{flex:1;min-width:0}
+.fdrop{position:relative;margin:8px 0 4px}
+.fdrop summary{list-style:none;display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);cursor:pointer;font-size:15px}
+.fdrop summary::-webkit-details-marker{display:none}
+.fdrop summary::after{content:"▾";margin-inline-start:8px;opacity:.6}
+.fdrop summary b{font-weight:500;margin-inline-start:6px;opacity:.7}
+.fpanel{position:absolute;z-index:20;inset-inline-start:0;top:calc(100% + 4px);min-width:240px;padding:8px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:0 6px 24px rgba(0,0,0,.15);display:grid;gap:2px}
+.fpanel label{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 8px;border-radius:8px;cursor:pointer}
+.fpanel input{width:20px;height:20px}
+.fpanel button{min-height:44px;margin-top:4px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2,var(--surface));color:var(--ink);font:inherit;cursor:pointer}
 .filters button b{font-weight:500;opacity:.65;margin-inline-start:6px}
 .status{font-size:12.5px;color:var(--muted)}
 .sheet{position:fixed;inset:0;z-index:20;background:var(--bg);overflow:auto;display:none}
@@ -164,7 +173,13 @@ label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
         <option value="best">Best first</option><option value="name">Name</option><option value="last">Last contact</option><option value="next">Next date</option>
       </select>
     </div>
-    <div class="filters" id="ctags"><button data-t="ru">Russian speakers</button><button data-t="chabad">Chabad</button></div>
+    <details class="fdrop" id="ctags"><summary>Filter<b id="ctagn"></b></summary><div class="fpanel">
+      <label><input type="checkbox" value="ru">Russian speakers</label><label><input type="checkbox" value="chabad">Chabad</label>
+      <label><input type="checkbox" value="bt">Baalei teshuva</label><label><input type="checkbox" value="en">English</label>
+      <label><input type="checkbox" value="il">In Israel</label><label><input type="checkbox" value="abroad">Abroad</label>
+      <label><input type="checkbox" value="near">Near Tzfat</label>
+      <label><input type="checkbox" value="wa">Has WhatsApp</label><label><input type="checkbox" value="mail">Has email</label>
+      <button type="button" id="ctagclear">Clear</button></div></details>
     <div class="status" id="ccount" style="margin:2px 4px 8px"></div>
     <div class="list" id="clist"></div>
     <div id="cmore" class="loading" hidden>Loading more…</div>
@@ -747,7 +762,15 @@ function showOk(c, show){
 }
 function tagOk(c){
   if (cTags.has('ru') && !c.ru) return false;
-  if (cTags.has('chabad') && (c.why||[]).indexOf('Chabad')<0) return false;
+  const w = c.why||[], ph = c.phones||[], il = ph.some(p=>/^tel:\+972/.test(p.tel));
+  if (cTags.has('chabad') && w.indexOf('Chabad')<0) return false;
+  if (cTags.has('bt') && w.indexOf('Baalei teshuva')<0) return false;
+  if (cTags.has('en') && c.lang!=='EN') return false;
+  if (cTags.has('il') && !il) return false;
+  if (cTags.has('abroad') && (il || !ph.length)) return false;
+  if (cTags.has('near') && !w.some(x=>x==='Nearby'||/^In /.test(x))) return false;
+  if (cTags.has('wa') && !ph.some(p=>p.mobile)) return false;
+  if (cTags.has('mail') && !c.email) return false;
   return true;
 }
 function renderContacts(){
@@ -795,8 +818,11 @@ function rowHtml(c){
 new IntersectionObserver(es=>{ if (es[0].isIntersecting && !$('#cmore').hidden){ cShown += 60; renderContacts(); } }, {rootMargin:'600px'}).observe($('#cmore'));
 function resetPaging(){ cShown = 60; renderContacts(); }
 $('#srcs').onclick = e => { const b=e.target.closest('button'); if(!b) return; cSrc=b.dataset.s; resetPaging(); };
-$('#ctags').onclick = e => { const b=e.target.closest('button'); if(!b) return; const t=b.dataset.t;
-  cTags.has(t)?cTags.delete(t):cTags.add(t); b.classList.toggle('on', cTags.has(t)); resetPaging(); };
+function syncTags(){ cTags.clear(); $('#ctags').querySelectorAll('input:checked').forEach(i=>cTags.add(i.value));
+  $('#ctagn').textContent = cTags.size ? '· '+cTags.size : ''; resetPaging(); }
+$('#ctags').onchange = syncTags;
+$('#ctagclear').onclick = () => { $('#ctags').querySelectorAll('input').forEach(i=>i.checked=false); $('#ctags').open=false; syncTags(); };
+document.addEventListener('click', e => { if (!e.target.closest('#ctags')) $('#ctags').open = false; });
 $('#cshow').onchange = resetPaging; $('#csort').onchange = resetPaging;
 $('#q').oninput = () => { clearTimeout(qTimer); qTimer=setTimeout(resetPaging,150); };
 
