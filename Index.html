@@ -2,6 +2,7 @@
 <html>
 <head>
 <base target="_top">
+<script>try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
 <meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -11,16 +12,29 @@
   --amber:#9A6A12; --amber-soft:#F6EBD3; --red:#A23B32; --red-soft:#F5DEDB;
   color-scheme:light;
 }
-@media (prefers-color-scheme:dark){:root{
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
   --bg:#121A22; --surface:#1B2631; --ink:#E6EDF3; --muted:#9AAABA; --line:#2C3A48;
   --blue:#5B9BE0; --blue-ink:#0E1620; --blue-soft:#1E3247; --green:#6BC28F; --green-soft:#1C3328;
   --amber:#E0B35E; --amber-soft:#3A2F1A; --red:#E58A80; --red-soft:#3D2522; color-scheme:dark;
 }}
+:root[data-theme=dark]{
+  --bg:#121A22; --surface:#1B2631; --ink:#E6EDF3; --muted:#9AAABA; --line:#2C3A48;
+  --blue:#5B9BE0; --blue-ink:#0E1620; --blue-soft:#1E3247; --green:#6BC28F; --green-soft:#1C3328;
+  --amber:#E0B35E; --amber-soft:#3A2F1A; --red:#E58A80; --red-soft:#3D2522; color-scheme:dark;
+}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Rubik,"Segoe UI",Arial,sans-serif;font-size:16px;line-height:1.45}
 header{position:sticky;top:0;z-index:5;background:var(--bg);padding:14px max(16px,calc((100% - 720px)/2 + 12px)) 8px;display:flex;align-items:baseline;justify-content:space-between}
 header h1{margin:0;font-size:20px;font-weight:600;letter-spacing:.2px}
 header .date{color:var(--muted);font-size:14px}
+header .hr{display:flex;align-items:center;gap:10px}
+header .gear{min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
+.seg{display:flex;gap:6px}.seg button{flex:1}.seg button.on{background:var(--blue);color:var(--blue-ink);border-color:var(--blue)}
+.tabs{display:flex;gap:6px;margin:12px 0 4px;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;min-height:44px;border:0;background:none;color:var(--muted);font:inherit;font-size:15px;cursor:pointer;border-bottom:3px solid transparent}
+.tabs button.on{color:var(--blue);font-weight:600;border-bottom-color:var(--blue)}
+.sheet[data-tab=basic] .t-details,.sheet[data-tab=details] .t-basic{display:none}
+.morehist{margin-top:4px}
 main{max-width:720px;margin:0 auto;padding:0 12px 96px}
 nav{position:fixed;bottom:0;left:0;right:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);display:flex;padding:0 max(0px,calc((100% - 720px)/2)) env(safe-area-inset-bottom)}
 nav button{flex:1;min-height:56px;border:0;background:none;color:var(--muted);font:inherit;font-size:14px;cursor:pointer}
@@ -96,7 +110,7 @@ label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
 </style>
 </head>
 <body>
-<header><h1>zugdeskcrm</h1><span class="date" id="date"></span></header>
+<header><h1>zugdeskcrm</h1><span class="hr"><span class="date" id="date"></span><button class="gear" onclick="openSettings()">Settings</button></span></header>
 <main>
   <section id="v-today"><div class="loading">Loading today…</div></section>
   <section id="v-contacts" hidden>
@@ -139,6 +153,24 @@ let callScript = '';
 function todayStr(){ return new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Jerusalem'}); }
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2600); }
 function fail(e){ toast('Something went wrong: ' + (e && e.message || e)); console.error(e); }
+
+/* ---------- settings (stored on this device) ---------- */
+function getTheme(){ try{ return localStorage.getItem('theme')||'auto'; }catch(e){ return 'auto'; } }
+function setTheme(t){
+  try{ localStorage.setItem('theme', t); }catch(e){}
+  if (t==='auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+  openSettings();
+}
+function openSettings(){
+  sheetId = null; histReq++;
+  const t = getTheme(), b = (v,l) => `<button class="btn ${t===v?'on':''}" onclick="setTheme('${v}')">${l}</button>`;
+  $('#sheetInner').innerHTML = `
+    <div class="top"><button class="btn" onclick="closeSheet()">Back</button><span class="status">Settings</span></div>
+    <h2>Theme</h2>
+    <div class="card"><div class="seg">${b('auto','Auto')}${b('light','Light')}${b('dark','Dark')}</div>
+      <div class="meta" style="margin-top:8px">Auto follows your phone or computer. Saved on this device.</div></div>`;
+  $('#sheet').classList.add('open'); $('#sheet').scrollTop = 0;
+}
 
 /* ---------- navigation ---------- */
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.v));
@@ -326,7 +358,7 @@ async function act(id, action, channel, note){
   if (busy) return; busy=true;
   document.querySelectorAll('button.btn').forEach(b=>b.disabled=true);
   try{
-    const nb = $('#n-'+id);
+    const nb = noteEl(id);
     if (!note && nb) note = nb.value.trim();
     const c = remember(await run('api_result', id, action, channel, note||'', ''));
     const labels={sent:'Marked as sent',spoke:'Saved — spoke',noreach:'Saved — will try again',later:'Moved to later',wrong:'Closed — wrong number',stop:'Added to Do not contact',answered:'Saved',wroteback:'Saved — they wrote back',reopen:'Reopened'};
@@ -336,12 +368,14 @@ async function act(id, action, channel, note){
   }catch(e){ fail(e); }
   finally{ busy=false; document.querySelectorAll('button.btn').forEach(b=>b.disabled=false); }
 }
-function noteBox(id){
-  return `<div class="notebox"><input id="n-${id}" dir="auto" placeholder="Note (optional)" title="Saved with the result you tap" aria-label="Note">
+function noteBox(id, pre){ pre = pre||'n-';
+  return `<div class="notebox"><input id="${pre}${id}" dir="auto" placeholder="Note (optional)" title="Saved with the result you tap" aria-label="Note">
     <button class="btn quiet" onclick="saveNote('${id}')">Save note</button></div>`;
 }
+/* The note box for this person: the open card's one first, else the Today card's. */
+function noteEl(id){ return (sheetId===id && $('#sheet').classList.contains('open') && $('#sn-'+id)) || $('#n-'+id); }
 async function saveNote(id){
-  const nb=$('#n-'+id), t=nb && nb.value.trim(); if(!t) return toast('Type a note first');
+  const nb=noteEl(id), t=nb && nb.value.trim(); if(!t) return toast('Type a note first');
   try{ const c = remember(await run('api_addNote', id, t)); nb.value=''; toast('Note saved');
     if (sheetId===id) openContact(id); }catch(e){ fail(e); }
 }
@@ -378,6 +412,12 @@ async function copyProfile(lang){
 const CARDS = {}, HIST = {};
 let sheetId = null, histReq = 0;
 function remember(c){ if (c && c.id){ const old = CARDS[c.id]; if (old && old.rank !== undefined && c.rank === undefined) c.rank = old.rank; CARDS[c.id] = hydrate(c); } return c; }
+function fillHist(h){
+  const box=$('#histBox'); if (box) box.innerHTML = histHtml(h);
+  const top=$('#histTop'); if (top) top.innerHTML = histHtml(h && h.slice(0,3)) + (h && h.length>3 ? `<button class="btn quiet morehist" onclick="setTab('details')">All history (${h.length})</button>` : '');
+}
+let sheetTab = 'basic';
+function setTab(t){ sheetTab=t; $('#sheet').dataset.tab=t; document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on', b.dataset.t===t)); $('#sheet').scrollTop=0; }
 function histHtml(h){
   if (!h) return '<div class="loading">Loading history…</div>';
   return h.length ? h.map(x=>`<div class="hist" dir="auto"><b>${esc(x.when)}</b> · ${esc(x.channel)} · ${esc(x.action)}${x.details?'<br>'+esc(x.details):''}</div>`).join('') : '<div class="empty">Nothing yet.</div>';
@@ -393,7 +433,7 @@ async function openContact(id){
     if (CARDS[id]){
       const h = await run('api_history', id);
       if (req!==histReq) return;
-      HIST[id] = h; const box=$('#histBox'); if (box) box.innerHTML = histHtml(h);
+      HIST[id] = h; fillHist(h);
     } else {
       const c = await run('api_contact', id);
       if (req!==histReq) return;
@@ -403,71 +443,89 @@ async function openContact(id){
 }
 function renderSheet(c, keepScroll){
     const y = $('#sheet').scrollTop;
+    if (!keepScroll) sheetTab = 'basic';
     $('#sheetInner').innerHTML = `
       <div class="top"><button class="btn" onclick="closeSheet()">Back</button><span class="status">${esc(c.status)}${c.closeReason?' — '+esc(c.closeReason):''}</span></div>
       <p class="name" dir="auto" style="font-size:24px">${esc(c.name)}</p>
       <div class="meta" dir="auto">${metaLine(c)}</div>
-      ${c.hours?`<div class="meta" dir="auto">Hours: ${esc(c.hours)}</div>`:''}
-      ${c.specialty?`<div class="spec" dir="auto">${esc(c.specialty)}</div>`:''}
-      ${c.other?`<div class="spec" dir="auto">${esc(c.other)}</div>`:''}
-      ${c.referredBy?`<div class="spec" dir="auto">Recommended by ${esc(c.referredBy)}</div>`:''}
-      <div class="status">${esc(c.source||'')}${c.emailStatus?' • Email: '+esc(c.emailStatus):''}</div>
-      ${chips(c)}
-      <div class="row">
-        ${c.phones.map(p=>`<a class="btn primary" href="${p.tel}">Call ${esc(p.local)}</a>`).join('')}
-        ${c.waUrl?`<a class="btn primary" href="${c.waUrl}" target="_blank">WhatsApp with message</a>`:''}
-        ${c.email?`<a class="btn" href="mailto:${esc(c.email)}">Email ${esc(c.email)}</a>`:''}
-        <button class="btn" onclick="copyProfile('${c.lang}')">Copy profile</button>
-      </div>
-      <label>Result</label>
-      <div class="row" style="margin-top:0">
-        <button class="btn good" onclick="act('${c.id}','sent','WhatsApp')">Message sent</button>
-        <button class="btn good" onclick="act('${c.id}','spoke','Call')">Spoke</button>
-        <button class="btn" onclick="act('${c.id}','wroteback','')">Wrote back</button>
-        <button class="btn" onclick="act('${c.id}','answered','')">I answered</button>
-        <button class="btn" onclick="act('${c.id}','noreach','')">Didn’t reach</button>
-        <button class="btn" onclick="act('${c.id}','later','')">Later</button>
-        <button class="btn" onclick="act('${c.id}','wrong','')">Wrong number</button>
-        <button class="btn danger" onclick="stop('${c.id}','')">Do not contact</button>
-        ${c.status!=='New'?`<button class="btn quiet" onclick="act('${c.id}','reopen','')">Back to new</button>`:''}
-      </div>
-      <label for="f-next">Next step date</label>
-      <input type="date" id="f-next" value="${esc(c.nextDate||'')}">
-      <label for="f-lang">Message language</label>
-      <select id="f-lang">${['HE','RU','EN'].map(l=>`<option ${c.lang===l?'selected':''}>${l}</option>`).join('')}</select>
-      <label for="f-notes">Notes</label>
-      <textarea id="f-notes" dir="auto">${esc(c.notes||'')}</textarea>
-      <div class="row"><button class="btn primary" onclick="saveContact('${c.id}')">Save changes</button></div>
+      <div class="tabs" role="tablist"><button data-t="basic" onclick="setTab('basic')">Basic</button><button data-t="details" onclick="setTab('details')">Details</button></div>
 
-      <h2>Ask for more shadchanim</h2>
-      <div class="card">
-        <div class="meta">${c.asked?('Asked: '+esc(c.asked)):'Best after a good conversation.'}</div>
-        <div class="row">${askButtons(c)}</div>
-        <label for="p-text">They answered on WhatsApp? Paste their message here</label>
-        <textarea id="p-text" dir="auto" placeholder="Paste the message with names and numbers"></textarea>
-        <div class="row"><button class="btn primary" onclick="pasteExtract('${c.id}')">Find shadchanim in this text</button></div>
+      <div class="t-basic">
+        ${c.hours?`<div class="meta" dir="auto">Hours: ${esc(c.hours)}</div>`:''}
+        ${c.specialty?`<div class="spec" dir="auto">${esc(c.specialty)}</div>`:''}
+        ${c.referredBy?`<div class="spec" dir="auto">Recommended by ${esc(c.referredBy)}</div>`:''}
+        ${chips(c)}
+        <div class="row">
+          ${c.phones.map(p=>`<a class="btn primary" href="${p.tel}">Call ${esc(p.local)}</a>`).join('')}
+          ${c.waUrl?`<a class="btn primary" href="${c.waUrl}" target="_blank">WhatsApp with message</a>`:''}
+          ${c.email?`<a class="btn" href="mailto:${esc(c.email)}">Email</a>`:''}
+          <button class="btn" onclick="copyProfile('${c.lang}')">Copy profile</button>
+        </div>
+        ${noteBox(c.id,'sn-')}
+        <label>Result</label>
+        <div class="row" style="margin-top:0">
+          <button class="btn good" onclick="act('${c.id}','sent','WhatsApp')">Message sent</button>
+          <button class="btn good" onclick="act('${c.id}','spoke','Call')">Spoke</button>
+          <button class="btn" onclick="act('${c.id}','wroteback','')">Wrote back</button>
+          <button class="btn" onclick="act('${c.id}','answered','')">I answered</button>
+          <button class="btn" onclick="act('${c.id}','noreach','')">Didn’t reach</button>
+          <button class="btn" onclick="act('${c.id}','later','')">Later</button>
+          <button class="btn" onclick="act('${c.id}','wrong','')">Wrong number</button>
+          <button class="btn danger" onclick="stop('${c.id}','')">Do not contact</button>
+          ${c.status!=='New'?`<button class="btn quiet" onclick="act('${c.id}','reopen','')">Back to new</button>`:''}
+        </div>
+        <label for="f-next">Next step date</label>
+        <div class="notebox" style="margin-top:0"><input type="date" id="f-next" value="${esc(c.nextDate||'')}"><button class="btn quiet" onclick="saveContact('${c.id}')">Save date</button></div>
+        <h2>Latest</h2>
+        <div id="histTop"></div>
       </div>
 
-      <h2>Add one recommended shadchan by hand</h2>
-      <div class="card">
-        <label for="r-name">Name</label><input id="r-name" dir="auto">
-        <label for="r-phone">Phone</label><input id="r-phone" inputmode="tel">
-        <label for="r-email">Email (optional)</label><input id="r-email" inputmode="email">
-        <label for="r-city">City (optional)</label><input id="r-city" dir="auto">
-        <div class="row"><button class="btn primary" onclick="addReferral('${c.id}')">Add recommended shadchan</button></div>
-      </div>
+      <div class="t-details">
+        <h2>About</h2>
+        <div class="card">
+          ${c.other?`<div class="spec" dir="auto">${esc(c.other)}</div>`:''}
+          ${c.email?`<div class="spec">Email: <a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div>`:''}
+          <div class="spec" dir="auto">Source: ${esc(c.source||'—')}${c.sourceRef?' · '+esc(c.sourceRef):''}</div>
+          ${c.emailStatus?`<div class="spec">Email status: ${esc(c.emailStatus)}</div>`:''}
+          ${c.attempts?`<div class="spec">Tries: ${esc(c.attempts)}</div>`:''}
+        </div>
+        <label for="f-lang">Message language</label>
+        <select id="f-lang">${['HE','RU','EN'].map(l=>`<option ${c.lang===l?'selected':''}>${l}</option>`).join('')}</select>
+        <label for="f-notes">Notes</label>
+        <textarea id="f-notes" dir="auto">${esc(c.notes||'')}</textarea>
+        <div class="row"><button class="btn primary" onclick="saveContact('${c.id}')">Save changes</button></div>
 
-      <h2>They sent a list or file</h2>
-      <div class="card">
-        <label for="x-what">What did they send?</label><input id="x-what" placeholder="e.g. photo of a list, Excel file, 5 names" dir="auto">
-        <label for="x-ch">How</label><select id="x-ch"><option>WhatsApp</option><option>Email</option><option>Phone</option></select>
-        <label for="x-link">Link to the file in Drive (optional)</label><input id="x-link">
-        <div class="row"><button class="btn primary" onclick="addReceived('${c.id}')">Save</button></div>
-      </div>
+        <h2>Ask for more shadchanim</h2>
+        <div class="card">
+          <div class="meta">${c.asked?('Asked: '+esc(c.asked)):'Best after a good conversation.'}</div>
+          <div class="row">${askButtons(c)}</div>
+          <label for="p-text">They answered on WhatsApp? Paste their message here</label>
+          <textarea id="p-text" dir="auto" placeholder="Paste the message with names and numbers"></textarea>
+          <div class="row"><button class="btn primary" onclick="pasteExtract('${c.id}')">Find shadchanim in this text</button></div>
+        </div>
 
-      <h2>History</h2>
-      <div id="histBox">${histHtml(HIST[c.id])}</div>
+        <h2>Add one recommended shadchan by hand</h2>
+        <div class="card">
+          <label for="r-name">Name</label><input id="r-name" dir="auto">
+          <label for="r-phone">Phone</label><input id="r-phone" inputmode="tel">
+          <label for="r-email">Email (optional)</label><input id="r-email" inputmode="email">
+          <label for="r-city">City (optional)</label><input id="r-city" dir="auto">
+          <div class="row"><button class="btn primary" onclick="addReferral('${c.id}')">Add recommended shadchan</button></div>
+        </div>
+
+        <h2>They sent a list or file</h2>
+        <div class="card">
+          <label for="x-what">What did they send?</label><input id="x-what" placeholder="e.g. photo of a list, Excel file, 5 names" dir="auto">
+          <label for="x-ch">How</label><select id="x-ch"><option>WhatsApp</option><option>Email</option><option>Phone</option></select>
+          <label for="x-link">Link to the file in Drive (optional)</label><input id="x-link">
+          <div class="row"><button class="btn primary" onclick="addReceived('${c.id}')">Save</button></div>
+        </div>
+
+        <h2>History</h2>
+        <div id="histBox"></div>
+      </div>
     `;
+    fillHist(HIST[c.id]); setTab(sheetTab);
     $('#sheet').scrollTop = keepScroll ? y : 0;
 }
 function closeSheet(){ $('#sheet').classList.remove('open'); sheetId = null; histReq++; }

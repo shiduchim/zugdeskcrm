@@ -42,3 +42,6 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - Contacts: source bubbles with counts ("Book p. 12" and "Book" = one bubble; the insert sheet "שדכנים חדשים" counts as Book); Show / Sort menus; Russian / Chabad toggles; count line "N people here · total"; search finds everyone incl. by phone digits.
 - Insert-sheet contacts: on first app open after v4, Source becomes "Book" and the old wording moves to SourceRef (runs once; Book rows untouched).
 - Contacts list loads more by itself while scrolling (no "Show more" button); opening a contact from the list is instant and WhatsApp link is built on the device.
+- Settings button (top right) → Theme Auto / Light / Dark; choice is remembered on this device after reload; Auto follows the phone/PC.
+- Contact card has Basic / Details tabs. Basic: call/WhatsApp/email/copy profile, note box, result buttons, next date (Save date), latest 3 history lines + "All history". Details: about/source/email status, language, notes editor, ask for more shadchanim, add referral, received list, full history. Opening another contact starts on Basic; saving keeps the current tab.
+- Card note box (id sn-…) does not clash with the Today card's note box (n-…); a result tapped in the card saves the card's note.
