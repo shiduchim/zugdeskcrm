@@ -106,6 +106,19 @@ label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
 .switch{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .loading{color:var(--muted);padding:20px 6px}
 [dir=auto]{unicode-bidi:plaintext}
+/* PC: list on the left, the open card stays on the right */
+@media (min-width:900px){
+  :root{--lw:clamp(380px,42vw,560px)}
+  header{width:var(--lw);padding:14px 16px 8px}
+  main{max-width:none;width:var(--lw);margin:0;padding:0 16px 96px}
+  .sheet{display:block;left:var(--lw);top:0;bottom:57px;right:0;z-index:4;border-inline-start:1px solid var(--line);background:var(--surface)}
+  .sheet .top{background:var(--surface)}
+  .sheet .inner{padding:12px 24px 40px}
+  .sheet:not(.open) .inner{display:none}
+  .sheet:not(.open)::before{content:"Click a name to see the card here.";display:block;color:var(--muted);padding:48px 24px;text-align:center}
+  .crow.sel{background:var(--blue-soft);box-shadow:inset 3px 0 0 var(--blue)}
+  .toast{left:calc(var(--lw)/2)}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -424,7 +437,7 @@ function histHtml(h){
 }
 async function openContact(id){
   const sameOpen = sheetId===id && $('#sheet').classList.contains('open');
-  sheetId = id;
+  sheetId = id; markSel();
   $('#sheet').classList.add('open');
   const req = ++histReq;
   if (CARDS[id]) renderSheet(CARDS[id], sameOpen);
@@ -528,7 +541,19 @@ function renderSheet(c, keepScroll){
     fillHist(HIST[c.id]); setTab(sheetTab);
     $('#sheet').scrollTop = keepScroll ? y : 0;
 }
-function closeSheet(){ $('#sheet').classList.remove('open'); sheetId = null; histReq++; }
+function markSel(){ document.querySelectorAll('.crow').forEach(r=>r.classList.toggle('sel', r.dataset.id===sheetId)); }
+function closeSheet(){ $('#sheet').classList.remove('open'); sheetId = null; histReq++; markSel(); }
+const wide = () => matchMedia('(min-width:900px)').matches;
+/* Keys: Esc closes the card; on PC, up/down arrows move through the contact list. */
+document.addEventListener('keydown', e=>{
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) { if (e.key==='Escape') e.target.blur(); return; }
+  if (e.key==='Escape' && $('#sheet').classList.contains('open')) { closeSheet(); return; }
+  if ((e.key==='ArrowDown'||e.key==='ArrowUp') && wide() && !$('#v-contacts').hidden){
+    const rows=[...document.querySelectorAll('#clist .crow')]; if(!rows.length) return;
+    let i=rows.findIndex(r=>r.dataset.id===sheetId); i = i<0 ? 0 : Math.max(0, Math.min(rows.length-1, i+(e.key==='ArrowDown'?1:-1)));
+    e.preventDefault(); rows[i].scrollIntoView({block:'nearest'}); openContact(rows[i].dataset.id);
+  }
+});
 async function saveContact(id){
   try{
     const c = await run('api_saveContact', id, {NextDate:$('#f-next').value, Lang:$('#f-lang').value, Notes:$('#f-notes').value});
@@ -625,7 +650,7 @@ function rowHtml(c){
   const st = c.blocked && c.status!=='Closed' ? 'Do not contact' : c.status + (c.closeReason?' — '+c.closeReason:'');
   const bits = [c.city, st, c.lastContact && 'last '+String(c.lastContact).slice(0,10), c.nextDate && 'next '+c.nextDate].filter(Boolean).map(esc).join(' · ');
   const top = (c.why||[]).filter(w=>!/Age limit|Crossed|Only other/.test(w)).slice(0,2);
-  return `<button class="crow" dir="${/^[^A-Za-zА-яЁё]*[\u0590-\u05FF]/.test(c.name)?'rtl':'ltr'}" onclick="openContact('${c.id}')" data-id="${c.id}">
+  return `<button class="crow${c.id===sheetId?' sel':''}" dir="${/^[^A-Za-zА-яЁё]*[\u0590-\u05FF]/.test(c.name)?'rtl':'ltr'}" onclick="openContact('${c.id}')" data-id="${c.id}">
     <span class="nm" dir="auto">${esc(c.name)}</span>
     <span class="sub" dir="auto">${bits}</span>
     ${top.length?`<span class="tg">${top.map(w=>`<i dir="auto">${esc(w)}</i>`).join('')}</span>`:''}

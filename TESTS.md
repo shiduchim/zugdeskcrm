@@ -45,3 +45,4 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - Settings button (top right) → Theme Auto / Light / Dark; choice is remembered on this device after reload; Auto follows the phone/PC.
 - Contact card has Basic / Details tabs. Basic: call/WhatsApp/email/copy profile, note box, result buttons, next date (Save date), latest 3 history lines + "All history". Details: about/source/email status, language, notes editor, ask for more shadchanim, add referral, received list, full history. Opening another contact starts on Basic; saving keeps the current tab.
 - Card note box (id sn-…) does not clash with the Today card's note box (n-…); a result tapped in the card saves the card's note.
+- PC (≥900px wide): list on the left, the card stays open on the right (no going back and forth); the open person is highlighted in the list; ↑/↓ move through the list; Esc closes the card. Phone layout unchanged (card opens full screen).
