@@ -1,0 +1,6 @@
+*.xlsx
+*.csv
+*.tsv
+*.mbox
+source_data/
+Takeout/

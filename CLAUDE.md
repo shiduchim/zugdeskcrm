@@ -1,20 +1,117 @@
 # zugdeskcrm
 
-## What it is
-<One or two sentences: what the app does and for whom.>
+Personal shadchan-outreach CRM for **Eliyahu Kahanovich** (41, single, Kohen, Chabad, baal teshuva ~15 yrs, Russian + English native, Hebrew conversational, lives in Tzfat; born in Russia, raised in the US).
+Goal: **spend the least time per useful shadchan conversation, and keep growing the list of shadchanim.**
+It must feel easy enough for a 12-year-old.
 
-## Tech / structure
-- Language/framework: <e.g. C# .NET, Revit 2024 API, WPF>
-- Key folders: <folder> — <purpose>
-- How to build: `<command>`
-- How to test: see TESTS.md
+Status: **designed and coded, not yet deployed or tested inside Google.** Logic for ranking, daily plan, reply-text cleaning and referral extraction was unit-tested with Node against the real data. Nothing has run in Apps Script yet — expect small first-run fixes.
 
-## Rules
-- Follow the global workflow rules (rules at the bottom of this file).
+---
 
-## Design decisions (do not change without asking)
-- <decision> — <why>
+## Files
 
+| File | What it is |
+|---|---|
+| `Code.gs` | Apps Script backend (all logic, Gmail, triggers, API for the UI) |
+| `Index.html` | The web app UI (single file, HTML/CSS/JS, uses `google.script.run`) |
+| `ShidduchDesk_Data.xlsx` (not in repo — private, kept by the user) | **Authoritative data.** Tabs: Contacts (517), Log, Received, DoNotContact (39, from ZugDesk), Settings (all settings, message templates, profile HE/RU/EN). Upload → Save as Google Sheets. |
+| `find_shadchanim.py` | Optional local script: scans a Google Takeout (mbox + contacts) for shidduch-related people → 2 small CSVs. Tested on sample data. |
+| `source_data/` (not in repo — private) | Provenance only: ChatGPT transcription of the 81-page book (TSV), review workbook, cleaned listings, the ZugDesk outreach workbook (450 emails, separate project), and the Python scripts used to build the data. `build_data.py` does NOT include the 21 contacts from the insert sheet or the final renumbering — don't regenerate the data file from it without merging. |
+
+---
+
+## Architecture (decided)
+
+- Google Sheet + **container-bound Apps Script web app**, served by Google (HtmlService).
+- Deploy: **Execute as: Me, Who has access: Only myself.** No GitHub Pages, no public endpoint, no tokens in JS.
+- Use a dedicated Chrome profile with only this Google account (multi-account Apps Script access error was hit before on a previous project).
+- Owner account: the user may use a **separate, rarely-used Gmail address just for shidduchim** — then create the Sheet + script in that account. Old shidduch mail in the main account can be forwarded by a Gmail filter.
+- Must stay **separate from ZugDesk** (survey/outreach project) and from **ClickCRM** (ClickTo3D marketing CRM). ClickCRM ideas were reused, not its code.
+- Timezone `Asia/Jerusalem` everywhere. All sheets formatted as plain text (`@`) so phones keep leading zeros.
+
+### Setup steps (for the user)
+1. Upload `ShidduchDesk_Data.xlsx` to Drive → File → Save as Google Sheets.
+2. Extensions → Apps Script → paste `Code.gs`; add HTML file named `Index` → paste `Index.html`.
+3. Run `setup()` once, approve permissions (Sheets, Gmail, Drive, triggers).
+4. Deploy → New deployment → Web app (Me / Only myself). Open link on PC and phone (add to home screen).
+5. Settings tab: fill `MY_PHONE`.
+6. App → Email → Send test email to me → check HE + RU → Turn on autopilot.
+Updates later: Deploy → Manage deployments → Edit → New version.
+
+---
+
+## Data model
+
+**Contacts** columns: `ID, Name, City, Sector, Specialty, Languages, Symbol, Hours, Phone1, Phone2, Email, Other, Source, SourceRef, ReferredBy, Status, CloseReason, NextDate, Attempts, LastContact, LastChannel, NeedsReply, EmailStatus, EmailSentAt, EmailFollowupAt, EmailThreadIds, EmailLastSeen, Lang, Boost, CrossedOut, InZugDesk, Notes, AskedReferralsAt`
+
+- IDs `C0001…C0517` — stable, never reuse/renumber. New IDs = max+1.
+- `Status`: New → Contacted → Talking / Later / Closed. `CloseReason`: Not reached, Wrong number, Do not contact.
+- `EmailStatus`: '' / Sent / Followed up / Replied / Bounced / Asked / Error.
+- `Languages` uses the book's legend: ע Hebrew, ר Russian, א English, י Yiddish, צ French, ס Spanish. `Symbol`: `*` limited activity, `**` accepts anyone.
+- `Lang` override per contact: HE / RU / EN (default: RU for Russian speakers if setting is YES, else HE).
+- Other tabs: **Log** (When, ContactID, Name, Channel, Action, Details), **Received** (lists/files people sent; email attachments saved automatically to Drive folder "zugdeskcrm – Received lists"), **DoNotContact** (Email, Phone, Reason, Date, Source — blocks every channel), **Suggested** (created automatically: recommended shadchanim found in replies/pasted text, status New/Added/Linked/Ignored), **Settings** (Key / Value / Explanation).
+
+### Where the 517 contacts came from
+- 496 from an ~10-year-old printed Israeli shadchanim directory (81 photos, pages 4–158). Transcribed by ChatGPT, checked against 3 sample pages: **phones were 29/29 correct, names had 2 silent errors in 22** (fixed), so names may contain errors elsewhere. 41 problematic non-Russian rows were deleted; 15 problematic Russian-speaking rows were kept with a note. Rows crossed out in pen in the book have `CrossedOut=YES`.
+- 21 from a separate printed insert "שדכנים חדשים" (no city/symbol columns; "הורן אסתר" name partly hidden by a fold).
+- 7 directory contacts overlap with the ZugDesk email list (`InZugDesk=YES`; they received a survey email before). ZugDesk's 39 Do-Not-Contact emails are in DoNotContact. None of ZugDesk's opt-outs appear in the directory.
+- Phone numbers are ~10 years old: expect dead numbers.
+
+---
+
+## What's built
+
+**Ranking** (`scoreContact`, pure function, weights in Settings `W_*`): Chabad (+5), Russian-speaking / works with Russian speakers (+4/+5), baalei teshuva (+2), age range including 41 (+4) or excluding (−8), all ages/older (+2), young-only (−2), "only other communities" (−4), dati leumi without Chabad (−2), `**` (+2), Tzfat (+3) / nearby (+1) / Chabad towns (+1), mobile (+1), referred (+5), crossed out (−4), already in ZugDesk (−1), manual `Boost`. Returns `why` chips shown in UI (no numbers shown).
+Top leads on day 1: call קיי אסתר (Tzfat, Russian speakers); WhatsApp סוקולוב פרידה, סטמבלר אורה, אליגולשוילי…
+
+**Today plan** (cached per day in ScriptProperties): 1 call (prefers landline-only best lead) + 10 WhatsApp (mobiles) from Status New, not blocked, no shared phone with an already-contacted contact, and (when autopilot is on) people with an email get email first. Plus: "Wrote back to you", "Recommended to you" (one-tap add), "Check in again" (NextDate due), "Good time to ask for more shadchanim" (Talking, contacted ≤21 days, not yet asked; max 3/day).
+
+**One-tap results** (`RESULTS`): sent (+6 days), noreach (+4, closes after MAX_ATTEMPTS=3), spoke (+21), wroteback (needs reply), answered (+14), later (+60), wrong (close), stop (close + add to DoNotContact), reopen.
+
+**WhatsApp**: `api.whatsapp.com/send?phone=…&text=…` links with the intro (HE/RU/EN) + profile prefilled (`WA_INCLUDE_PROFILE`; if WhatsApp truncates long text set NO and use the Copy profile button). Regular WhatsApp only — **no WhatsApp Business, no unofficial syncing** (account-ban risk).
+
+**Email autopilot** (hourly trigger `hourlyJob`): Sun–Thu, 9:00–19:00, up to 20/day spread over the day, best leads first, one follow-up after 8 days, HTML with correct direction (RTL for Hebrew), label `zugdeskcrm`. Reply detection in threads + replies sent as new emails; bounces (in-thread and mailer-daemon search) move the contact back to the phone/WhatsApp pool; autopilot auto-pauses after 5 bounces/day. Opt-out words detected only in the person's own text (quoted history and our template lines are stripped by `ownText_`). Attachments → Drive + Received. Test email button. Starts OFF.
+
+**Referrals**: polite ask messages (`ASK_WA_*`, `ASK_EMAIL_*`, `ASK_SUBJECT_*`) sent at the right moment; email ask replies inside the person's own thread. `extractPeople()` finds names + Israeli/US phones + emails in replies and pasted text (tested HE/RU/EN, multiple people per line, email on next line, excludes sender's/own numbers). Known contacts → linked as "recommended by"; new → Suggested for one-tap add. Referred contacts get +5 and their intro says who referred them.
+
+**Other**: daily Drive backup at 03:00 (keeps 30), schema auto-upgrade (`schema_()`), LockService on writes, UI buttons lock during saves, contact sheet with history/notes/next date/language, contacts search + filters, Received screen, Email status screen.
+
+---
+
+## Planned next (agreed with the user, not built)
+
+Status and order: see HANDOFF.md.
+
+1. **Second opinion first**: have a Fable subagent review the design and code (efficiency, simplicity, bugs). Show both opinions and one combined plan **before changing files**.
+2. **Easy mode / Advanced mode** toggle (remembered). Easy = Today only, one task at a time, big buttons, "done for today". Advanced = contacts, history, settings, received, stats.
+3. **WhatsApp Send mode**: "Start sending (10)" → opens WhatsApp → on return one "Sent?" tap → auto-advance.
+4. **Call only within the shadchan's printed hours** (parse `Hours`; outside hours show "Call after 21:00").
+5. **One "Add shadchanim" button**: paste text (extraction), 10-second quick add, **event mode** (event name set once, tags every add, next-day follow-up list), photo/file intake (to Received).
+6. **Source tags** on every contact (Book / Insert / Referral – name / WhatsApp group – name / Event – name+date / Website / Gmail).
+7. **Connectors** category (people who know shadchanim; they get a "do you know shadchanim?" message, not the profile).
+8. **Thank-you reminder** to the referrer when a referral leads to a good conversation.
+9. **"WhatsApp check" screen**: everyone messaged in the last 2 weeks without a reply → one tap "Replied" (user keeps a WhatsApp list "Shidduchim").
+10. Optional: import exported WhatsApp chats (.txt) from Drive; SMS import if Android (backup app → Drive), not possible on iPhone.
+11. **"What works" panel**: reply rates by channel and by source.
+12. Gmail import: the user exported ~2,800 shidduch-related conversations (label `shid`) + contacts via Takeout; those are being processed in the Claude.ai chat and will arrive as an updated data file. Many are newsletters (ChabadMatch, SawYouAtSinai). People suggested to him or their families are **not** shadchanim and must never get autopilot emails.
+
+---
+
+## Standing UI / tone rules
+- Calm, positive wording. Avoid "waiting", "overdue", "no response", "failed" style pressure words in the main flow.
+- Big tap targets (≥44px), mobile-first, works on PC too. No clutter. No plus signs as icons in the UI.
+- No numeric scores shown to the user — use short "why" chips.
+- Hebrew/Russian text: `dir="auto"`; Hebrew emails right-to-left.
+- Light and dark mode.
+- Never suggest bulk/unofficial WhatsApp automation; never auto-merge contacts by name only (phone/email exact match only).
+- Messages to shadchanim: short, polite, personal; first message never asks for lists of other shadchanim.
+
+## Privacy
+Data stays in the user's Google account. Notes about suggested people (later "Shidduchim" area) are sensitive: never put data or tokens in a public repo or page.
+
+## Repo rules
+- The app was first called ShidduchDesk; its name is now **zugdeskcrm** (separate from the ZugDesk survey project).
+- Never commit the data file, `source_data/`, Takeout exports or anything with contact data, even though the repo is private.
 
 ---
 

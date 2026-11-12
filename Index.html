@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9EEF3; --surface:#FFFFFF; --ink:#1B2733; --muted:#5B6B7B; --line:#D3DCE5;
+  --blue:#2B67A8; --blue-ink:#FFFFFF; --blue-soft:#DCE8F5; --green:#2F7A4F; --green-soft:#DDF0E4;
+  --amber:#9A6A12; --amber-soft:#F6EBD3; --red:#A23B32; --red-soft:#F5DEDB;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#121A22; --surface:#1B2631; --ink:#E6EDF3; --muted:#9AAABA; --line:#2C3A48;
+  --blue:#5B9BE0; --blue-ink:#0E1620; --blue-soft:#1E3247; --green:#6BC28F; --green-soft:#1C3328;
+  --amber:#E0B35E; --amber-soft:#3A2F1A; --red:#E58A80; --red-soft:#3D2522; color-scheme:dark;
+}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Rubik,"Segoe UI",Arial,sans-serif;font-size:16px;line-height:1.45}
+header{position:sticky;top:0;z-index:5;background:var(--bg);padding:14px 16px 8px;display:flex;align-items:baseline;justify-content:space-between}
+header h1{margin:0;font-size:20px;font-weight:600;letter-spacing:.2px}
+header .date{color:var(--muted);font-size:14px}
+main{max-width:720px;margin:0 auto;padding:0 12px 96px}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;min-height:56px;border:0;background:none;color:var(--muted);font:inherit;font-size:14px;cursor:pointer}
+nav button.on{color:var(--blue);font-weight:600;box-shadow:inset 0 3px 0 var(--blue)}
+h2{font-size:15px;font-weight:600;color:var(--muted);margin:22px 4px 8px}
+.progress{margin:4px 4px 10px;color:var(--muted);font-size:14px}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--green);transition:width .3s}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px}
+.card.done{opacity:.55}
+.card.call{border:2px solid var(--blue);padding:18px}
+.name{font-size:19px;font-weight:600;cursor:pointer;margin:0}
+.call .name{font-size:24px}
+.meta{color:var(--muted);font-size:14px;margin-top:2px}
+.spec{font-size:14px;margin-top:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{font-size:12.5px;padding:3px 9px;border-radius:999px;background:var(--blue-soft);color:var(--ink)}
+.chip.warn{background:var(--amber-soft)}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btn{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:var(--blue-ink);font-weight:500}
+.btn.good{background:var(--green-soft);border-color:transparent;color:var(--green);font-weight:500}
+.btn.quiet{border-color:transparent;background:none;color:var(--muted)}
+.btn.danger{color:var(--red)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.big{min-height:56px;font-size:18px;flex:1}
+.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.more{display:none}.more.open{display:flex}
+.empty{color:var(--muted);padding:14px 6px;font-size:15px}
+.script{background:var(--blue-soft);border-radius:10px;padding:10px 12px;margin-top:10px;font-size:15px;display:none}
+.script.open{display:block}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;min-height:44px;padding:8px 12px;width:100%}
+textarea{min-height:80px}
+.filters{display:flex;gap:6px;overflow-x:auto;padding:8px 2px}
+.filters button{flex:none;min-height:38px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
+.filters button.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.list .card{padding:12px}
+.status{font-size:12.5px;color:var(--muted)}
+.sheet{position:fixed;inset:0;z-index:20;background:var(--bg);overflow:auto;display:none}
+.sheet.open{display:block}
+.sheet .inner{max-width:720px;margin:0 auto;padding:12px 14px 60px}
+.sheet .top{display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--bg);padding:6px 0}
+label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
+.hist{font-size:14px;border-top:1px solid var(--line);padding:8px 0}
+.hist b{font-weight:500}
+.toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:30;max-width:90vw}
+.toast.show{opacity:1}
+.stat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.stat div{background:var(--bg);border-radius:10px;padding:10px;text-align:center}
+.stat b{display:block;font-size:22px;font-weight:600}
+.stat span{font-size:12.5px;color:var(--muted)}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.loading{color:var(--muted);padding:20px 6px}
+[dir=auto]{unicode-bidi:plaintext}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header><h1>zugdeskcrm</h1><span class="date" id="date"></span></header>
+<main>
+  <section id="v-today"><div class="loading">Loading today…</div></section>
+  <section id="v-contacts" hidden>
+    <input id="q" placeholder="Search name, city, phone…" autocomplete="off">
+    <div class="filters" id="filters"></div>
+    <div class="list" id="clist"></div>
+    <div class="row"><button class="btn" id="moreBtn" hidden>Show more</button></div>
+  </section>
+  <section id="v-received" hidden></section>
+  <section id="v-email" hidden></section>
+</main>
+<nav>
+  <button data-v="today" class="on">Today</button>
+  <button data-v="contacts">Contacts</button>
+  <button data-v="received">Received</button>
+  <button data-v="email">Email</button>
+</nav>
+<div class="sheet" id="sheet"><div class="inner" id="sheetInner"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const run = (fn, ...a) => new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](...a));
+let T = null;              // today data
+let profiles = {};
+let callScript = '';
+
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2600); }
+function fail(e){ toast('Something went wrong: ' + (e && e.message || e)); console.error(e); }
+
+/* ---------- navigation ---------- */
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.v));
+function show(v){
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.v===v));
+  ['today','contacts','received','email'].forEach(x => $('#v-'+x).hidden = x!==v);
+  if (v==='today') loadToday();
+  if (v==='contacts' && !$('#clist').dataset.loaded) loadContacts(true);
+  if (v==='received') loadReceived();
+  if (v==='email') loadEmail();
+  window.scrollTo(0,0);
+}
+
+/* ---------- Today ---------- */
+async function loadToday(rebuild){
+  try{
+    T = await run('api_today', !!rebuild);
+    profiles = T.profiles;
+    $('#date').textContent = new Date(T.date+'T12:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+    renderToday();
+  }catch(e){ fail(e); }
+}
+
+function renderToday(){
+  const items = [...T.call, ...T.wa];
+  const done = items.filter(c=>c.doneToday).length;
+  const pct = items.length ? Math.round(done/items.length*100) : 0;
+  let h = `<div class="progress">${done} of ${items.length} done today<div class="bar"><i style="width:${pct}%"></i></div></div>`;
+
+  h += `<h2>Your call today</h2>`;
+  h += T.call.length ? T.call.map(callCard).join('') : `<div class="empty">No call today — everyone with a phone number has been reached.</div>`;
+
+  if (T.replies.length){
+    h += `<h2>Wrote back to you</h2>` + T.replies.map(c=>card(c,'reply')).join('');
+  }
+  if (T.suggestions.length){
+    h += `<h2>Recommended to you — add with one tap</h2>` + T.suggestions.map(sugCard).join('');
+  }
+  h += `<h2>Messages to send</h2>`;
+  h += T.wa.length ? T.wa.map(c=>card(c,'wa')).join('') : `<div class="empty">No messages for today.</div>`;
+
+  if (T.checkins.length){
+    h += `<h2>Check in again</h2>` + T.checkins.map(c=>card(c,'checkin')).join('');
+  }
+  if (T.asks.length){
+    h += `<h2>Good time to ask for more shadchanim</h2>
+      <p class="meta" style="margin:-4px 4px 8px">You had a good contact with these people recently. A short, polite question is ready.</p>` + T.asks.map(askCard).join('');
+  }
+  h += `<div class="row" style="margin-top:20px"><button class="btn quiet" onclick="rebuild()">Pick new people for today</button></div>`;
+  $('#v-today').innerHTML = h;
+}
+
+function rebuild(){ if(confirm('Replace today’s call and message list with a fresh selection?')) loadToday(true); }
+
+function chips(c){
+  return c.why.length ? `<div class="chips">${c.why.map(w=>`<span class="chip${/Age limit|Crossed|Only other/.test(w)?' warn':''}" dir="auto">${esc(w)}</span>`).join('')}</div>` : '';
+}
+function metaLine(c){
+  return [c.city, c.sector, c.languages && ('Languages ' + c.languages)].filter(Boolean).map(esc).join(' • ');
+}
+
+function callCard(c){
+  const tel = c.phones[0];
+  return `<div class="card call ${c.doneToday?'done':''}" id="k-${c.id}">
+    <p class="name" dir="auto" onclick="openContact('${c.id}')">${esc(c.name)}</p>
+    <div class="meta" dir="auto">${metaLine(c)}</div>
+    ${c.hours?`<div class="meta" dir="auto">Hours: ${esc(c.hours)}</div>`:''}
+    ${c.specialty?`<div class="spec" dir="auto">${esc(c.specialty)}</div>`:''}
+    ${chips(c)}
+    <div class="row">${c.phones.map(p=>`<a class="btn primary big" href="${p.tel}">Call ${esc(p.local)}</a>`).join('')}</div>
+    <div class="row"><button class="btn quiet" onclick="this.parentNode.nextElementSibling.classList.toggle('open')">What to say</button></div>
+    <div class="script" dir="auto">${esc(T && T.callScript || '')}</div>
+    <div class="row">
+      <button class="btn good" onclick="act('${c.id}','spoke','Call')">Spoke</button>
+      <button class="btn" onclick="act('${c.id}','noreach','Call')">Didn’t reach</button>
+      <button class="btn" onclick="act('${c.id}','later','Call')">Later</button>
+      <button class="btn quiet" onclick="act('${c.id}','wrong','Call')">Wrong number</button>
+      <button class="btn quiet danger" onclick="stop('${c.id}','Call')">Do not contact</button>
+    </div>
+  </div>`;
+}
+
+function card(c, kind){
+  const mob = c.phones.find(p=>p.mobile), tel = c.phones[0];
+  let main = '', results = '';
+  if (kind==='wa'){
+    main = c.waUrl ? `<a class="btn primary" href="${c.waUrl}" target="_blank" onclick="opened('${c.id}')">Open WhatsApp</a>` : '';
+    main += `<button class="btn" onclick="copyProfile('${c.lang}')">Copy profile</button>`;
+    results = `<button class="btn good" onclick="act('${c.id}','sent','WhatsApp')">Sent</button>
+      <button class="btn quiet" onclick="moreToggle('${c.id}')">More</button>`;
+  } else if (kind==='reply'){
+    main = (c.gmailUrl?`<a class="btn primary" href="${c.gmailUrl}" target="_blank">Open email</a>`:'')
+      + (mob?`<a class="btn" href="${c.waUrl.split('&text=')[0]}" target="_blank">WhatsApp</a>`:'')
+      + (tel?`<a class="btn" href="${tel.tel}">Call</a>`:'');
+    results = `<button class="btn good" onclick="act('${c.id}','answered','')">I answered</button>
+      <button class="btn quiet" onclick="moreToggle('${c.id}')">More</button>`;
+  } else {
+    main = (mob?`<a class="btn primary" href="${c.waUrl.split('&text=')[0]}" target="_blank">WhatsApp</a>`:'')
+      + (tel?`<a class="btn" href="${tel.tel}">Call ${esc(tel.local)}</a>`:'');
+    results = `<button class="btn good" onclick="act('${c.id}','spoke','')">Spoke</button>
+      <button class="btn" onclick="act('${c.id}','wroteback','')">Wrote back</button>
+      <button class="btn" onclick="act('${c.id}','noreach','')">Didn’t reach</button>
+      <button class="btn quiet" onclick="moreToggle('${c.id}')">More</button>`;
+  }
+  const last = kind!=='wa' && c.lastChannel ? `<div class="status">Last: ${esc(c.lastChannel)} ${esc((c.lastContact||'').slice(0,10))}</div>` : '';
+  return `<div class="card ${c.doneToday && kind==='wa'?'done':''}" id="k-${c.id}">
+    <p class="name" dir="auto" onclick="openContact('${c.id}')">${esc(c.name)}</p>
+    <div class="meta" dir="auto">${metaLine(c)}</div>${last}
+    ${chips(c)}
+    <div class="row">${main}</div>
+    <div class="row">${results}</div>
+    <div class="row more" id="m-${c.id}">
+      <button class="btn" onclick="act('${c.id}','later','')">Later</button>
+      <button class="btn" onclick="act('${c.id}','wrong','')">Wrong number</button>
+      <button class="btn danger" onclick="stop('${c.id}','')">Do not contact</button>
+    </div>
+  </div>`;
+}
+
+function sugCard(x){
+  return `<div class="card" id="s-${x.row}">
+    <label for="sn-${x.row}" style="margin-top:0">Name</label>
+    <input id="sn-${x.row}" value="${esc(x.name)}" dir="auto" placeholder="Add a name">
+    <div class="meta" dir="auto" style="margin-top:8px">${[x.phone,x.phone2,x.email].filter(Boolean).map(esc).join(' • ')}</div>
+    <div class="status" dir="auto">Recommended by ${esc(x.from)} • “${esc(x.text)}”</div>
+    <div class="row">
+      <button class="btn good" onclick="acceptSug(${x.row})">Add to my list</button>
+      <button class="btn quiet" onclick="ignoreSug(${x.row})">Not a shadchan</button>
+    </div></div>`;
+}
+async function acceptSug(row){
+  try{ const r=await run('api_acceptSuggestion', row, $('#sn-'+row).value.trim());
+    toast(r.status==='linked' ? r.name+' was already in your list — marked as recommended' : 'Added '+r.name); loadToday(); }catch(e){ fail(e); }
+}
+async function ignoreSug(row){ try{ await run('api_ignoreSuggestion', row); $('#s-'+row).remove(); }catch(e){ fail(e); } }
+
+function askButtons(c){
+  return (c.askWaUrl?`<a class="btn primary" href="${c.askWaUrl}" target="_blank">Ask on WhatsApp</a>`:'')
+    + (c.email && c.emailStatus!=='Bounced'?`<button class="btn ${c.askWaUrl?'':'primary'}" onclick="askEmail('${c.id}')">Ask by email</button>`:'')
+    + `<button class="btn" onclick="askMark('${c.id}','WhatsApp')">Asked</button>`
+    + `<button class="btn" onclick="askMark('${c.id}','Call')">Asked by phone</button>`;
+}
+function askCard(c){
+  return `<div class="card" id="a-${c.id}">
+    <p class="name" dir="auto" onclick="openContact('${c.id}')">${esc(c.name)}</p>
+    <div class="meta" dir="auto">${metaLine(c)}</div>
+    <div class="row">${askButtons(c)}<button class="btn quiet" onclick="askMark('${c.id}','skip')">Not now</button></div>
+  </div>`;
+}
+async function askEmail(id){
+  if(!confirm('Send the short “any shadchanim you’d recommend?” email now?')) return;
+  try{ await run('api_askEmail', id); toast('Asked by email — their answer will show up in Today'); refreshAfterAsk(id); }catch(e){ fail(e); }
+}
+async function askMark(id, how){
+  try{ await run('api_askMark', id, how); toast(how==='skip'?'OK, not now':'Saved'); refreshAfterAsk(id); }catch(e){ fail(e); }
+}
+function refreshAfterAsk(id){ if(!$('#v-today').hidden) loadToday(); if($('#sheet').classList.contains('open')) openContact(id); }
+async function pasteExtract(id){
+  const t=$('#p-text').value.trim(); if(!t) return toast('Paste their message first');
+  try{ const r=await run('api_extractFromText', id, t);
+    toast(r.found ? `Found ${r.found} — ${r.added} new waiting in Today` : 'No names with phone or email found in that text');
+    $('#p-text').value=''; }catch(e){ fail(e); }
+}
+
+function moreToggle(id){ $('#m-'+id).classList.toggle('open'); }
+function opened(id){ const k=$('#k-'+id); if(k) k.querySelector('.btn.good').focus(); }
+
+let busy=false;
+async function act(id, action, channel, note){
+  if (busy) return; busy=true;
+  document.querySelectorAll('button.btn').forEach(b=>b.disabled=true);
+  try{
+    await run('api_result', id, action, channel, note||'', '');
+    const labels={sent:'Marked as sent',spoke:'Saved — spoke',noreach:'Saved — will try again',later:'Moved to later',wrong:'Closed — wrong number',stop:'Added to Do not contact',answered:'Saved',wroteback:'Saved — they wrote back',reopen:'Reopened'};
+    toast(labels[action]||'Saved');
+    if (!$('#v-today').hidden) loadToday();
+    if ($('#sheet').classList.contains('open')) openContact(id);
+  }catch(e){ fail(e); }
+  finally{ busy=false; document.querySelectorAll('button.btn').forEach(b=>b.disabled=false); }
+}
+function stop(id, channel){ if(confirm('Never contact this person again (phone, WhatsApp and email)?')) act(id,'stop',channel); }
+
+function copyText(text){
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    return navigator.clipboard.writeText(text).then(()=>true).catch(()=>fallbackCopy(text));
+  }
+  return Promise.resolve(fallbackCopy(text));
+}
+function fallbackCopy(text){
+  const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select(); let ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
+  ta.remove(); return ok;
+}
+async function copyProfile(lang){
+  const ok = await copyText(profiles[lang]||profiles.HE);
+  toast(ok ? 'Profile copied — paste it in WhatsApp' : 'Copy blocked here — open the contact and select the profile text');
+}
+
+/* ---------- Contact sheet ---------- */
+async function openContact(id){
+  $('#sheet').classList.add('open');
+  $('#sheetInner').innerHTML = '<div class="loading">Loading…</div>';
+  try{
+    const c = await run('api_contact', id);
+    const mob = c.phones.find(p=>p.mobile);
+    $('#sheetInner').innerHTML = `
+      <div class="top"><button class="btn" onclick="closeSheet()">Back</button><span class="status">${esc(c.status)}${c.closeReason?' — '+esc(c.closeReason):''}</span></div>
+      <p class="name" dir="auto" style="font-size:24px">${esc(c.name)}</p>
+      <div class="meta" dir="auto">${metaLine(c)}</div>
+      ${c.hours?`<div class="meta" dir="auto">Hours: ${esc(c.hours)}</div>`:''}
+      ${c.specialty?`<div class="spec" dir="auto">${esc(c.specialty)}</div>`:''}
+      ${c.other?`<div class="spec" dir="auto">${esc(c.other)}</div>`:''}
+      ${c.referredBy?`<div class="spec" dir="auto">Recommended by ${esc(c.referredBy)}</div>`:''}
+      <div class="status">${esc(c.source||'')}${c.emailStatus?' • Email: '+esc(c.emailStatus):''}</div>
+      ${chips(c)}
+      <div class="row">
+        ${c.phones.map(p=>`<a class="btn primary" href="${p.tel}">Call ${esc(p.local)}</a>`).join('')}
+        ${c.waUrl?`<a class="btn primary" href="${c.waUrl}" target="_blank">WhatsApp with message</a>`:''}
+        ${c.email?`<a class="btn" href="mailto:${esc(c.email)}">Email ${esc(c.email)}</a>`:''}
+        <button class="btn" onclick="copyProfile('${c.lang}')">Copy profile</button>
+      </div>
+      <label>Result</label>
+      <div class="row" style="margin-top:0">
+        <button class="btn good" onclick="act('${c.id}','sent','WhatsApp')">Message sent</button>
+        <button class="btn good" onclick="act('${c.id}','spoke','Call')">Spoke</button>
+        <button class="btn" onclick="act('${c.id}','wroteback','')">Wrote back</button>
+        <button class="btn" onclick="act('${c.id}','answered','')">I answered</button>
+        <button class="btn" onclick="act('${c.id}','noreach','')">Didn’t reach</button>
+        <button class="btn" onclick="act('${c.id}','later','')">Later</button>
+        <button class="btn" onclick="act('${c.id}','wrong','')">Wrong number</button>
+        <button class="btn danger" onclick="stop('${c.id}','')">Do not contact</button>
+        ${c.status!=='New'?`<button class="btn quiet" onclick="act('${c.id}','reopen','')">Back to new</button>`:''}
+      </div>
+      <label for="f-next">Next step date</label>
+      <input type="date" id="f-next" value="${esc(c.nextDate||'')}">
+      <label for="f-lang">Message language</label>
+      <select id="f-lang">${['HE','RU','EN'].map(l=>`<option ${c.lang===l?'selected':''}>${l}</option>`).join('')}</select>
+      <label for="f-notes">Notes</label>
+      <textarea id="f-notes" dir="auto">${esc(c.notes||'')}</textarea>
+      <div class="row"><button class="btn primary" onclick="saveContact('${c.id}')">Save changes</button></div>
+
+      <h2>Ask for more shadchanim</h2>
+      <div class="card">
+        <div class="meta">${c.asked?('Asked: '+esc(c.asked)):'Best after a good conversation.'}</div>
+        <div class="row">${askButtons(c)}</div>
+        <label for="p-text">They answered on WhatsApp? Paste their message here</label>
+        <textarea id="p-text" dir="auto" placeholder="Paste the message with names and numbers"></textarea>
+        <div class="row"><button class="btn primary" onclick="pasteExtract('${c.id}')">Find shadchanim in this text</button></div>
+      </div>
+
+      <h2>Add one recommended shadchan by hand</h2>
+      <div class="card">
+        <label for="r-name">Name</label><input id="r-name" dir="auto">
+        <label for="r-phone">Phone</label><input id="r-phone" inputmode="tel">
+        <label for="r-email">Email (optional)</label><input id="r-email" inputmode="email">
+        <label for="r-city">City (optional)</label><input id="r-city" dir="auto">
+        <div class="row"><button class="btn primary" onclick="addReferral('${c.id}')">Add recommended shadchan</button></div>
+      </div>
+
+      <h2>They sent a list or file</h2>
+      <div class="card">
+        <label for="x-what">What did they send?</label><input id="x-what" placeholder="e.g. photo of a list, Excel file, 5 names" dir="auto">
+        <label for="x-ch">How</label><select id="x-ch"><option>WhatsApp</option><option>Email</option><option>Phone</option></select>
+        <label for="x-link">Link to the file in Drive (optional)</label><input id="x-link">
+        <div class="row"><button class="btn primary" onclick="addReceived('${c.id}','${esc(c.name).replace(/'/g,'')}')">Save</button></div>
+      </div>
+
+      <h2>History</h2>
+      ${c.history.length?c.history.map(h=>`<div class="hist" dir="auto"><b>${esc(h.when)}</b> · ${esc(h.channel)} · ${esc(h.action)}${h.details?'<br>'+esc(h.details):''}</div>`).join(''):'<div class="empty">Nothing yet.</div>'}
+    `;
+  }catch(e){ fail(e); }
+}
+function closeSheet(){ $('#sheet').classList.remove('open'); }
+async function saveContact(id){
+  try{
+    await run('api_saveContact', id, {NextDate:$('#f-next').value, Lang:$('#f-lang').value, Notes:$('#f-notes').value});
+    toast('Saved'); openContact(id);
+  }catch(e){ fail(e); }
+}
+async function addReferral(byId){
+  const d={name:$('#r-name').value.trim(), phone:$('#r-phone').value.trim(), email:$('#r-email').value.trim(), city:$('#r-city').value.trim()};
+  if(!d.name || (!d.phone && !d.email)) return toast('Add a name and a phone or email');
+  try{
+    const r=await run('api_addReferral', byId, d);
+    toast(r.status==='linked' ? r.name+' was already in your list — marked as recommended' : 'Added '+r.name+' — they’ll come up soon');
+    openContact(byId);
+  }catch(e){ fail(e); }
+}
+async function addReceived(id, name){
+  const d={contactId:id, from:name, channel:$('#x-ch').value, what:$('#x-what').value.trim(), link:$('#x-link').value.trim()};
+  if(!d.what) return toast('Describe what they sent');
+  try{ await run('api_addReceived', d); toast('Saved to Received'); openContact(id); }catch(e){ fail(e); }
+}
+
+/* ---------- Contacts ---------- */
+const FILTERS=[['best','Best first'],['russian','Russian'],['chabad','Chabad'],['talking','Talking'],['contacted','Contacted'],['later','Later'],['closed','Closed'],['all','All']];
+let cf='best', coff=0, qTimer=null;
+$('#filters').innerHTML = FILTERS.map(f=>`<button data-f="${f[0]}" class="${f[0]===cf?'on':''}">${f[1]}</button>`).join('');
+$('#filters').onclick = e => { const b=e.target.closest('button'); if(!b) return; cf=b.dataset.f;
+  document.querySelectorAll('#filters button').forEach(x=>x.classList.toggle('on',x===b)); loadContacts(true); };
+$('#q').oninput = () => { clearTimeout(qTimer); qTimer=setTimeout(()=>loadContacts(true),300); };
+$('#moreBtn').onclick = () => loadContacts(false);
+async function loadContacts(reset){
+  if(reset){ coff=0; $('#clist').innerHTML='<div class="loading">Loading…</div>'; }
+  try{
+    const r = await run('api_contacts', $('#q').value, cf, coff);
+    const html = r.items.map(c=>`<div class="card" onclick="openContact('${c.id}')" style="cursor:pointer">
+      <p class="name" dir="auto">${esc(c.name)}</p><div class="meta" dir="auto">${metaLine(c)}</div>
+      <div class="status">${esc(c.status)}${c.nextDate?' • next '+esc(c.nextDate):''}</div>${chips(c)}</div>`).join('');
+    $('#clist').innerHTML = (reset?'':$('#clist').innerHTML) + (html || '<div class="empty">No one here.</div>');
+    $('#clist').dataset.loaded=1;
+    coff += r.items.length;
+    $('#moreBtn').hidden = coff >= r.total;
+  }catch(e){ fail(e); }
+}
+
+/* ---------- Received ---------- */
+async function loadReceived(){
+  $('#v-received').innerHTML='<div class="loading">Loading…</div>';
+  try{
+    const items = await run('api_received');
+    $('#v-received').innerHTML = `<h2>Lists and files people sent</h2>
+      <p class="meta" style="margin:0 4px 10px">Email attachments are saved here automatically. For WhatsApp, open the person and use “They sent a list or file”.</p>` +
+      (items.length ? items.map(r=>`<div class="card ${r.imported?'done':''}">
+        <p class="name" dir="auto" style="font-size:17px">${esc(r.what)}</p>
+        <div class="meta" dir="auto">From ${esc(r.from)} • ${esc(r.channel)} • ${esc(r.when)}</div>
+        <div class="row">${r.link?`<a class="btn" href="${esc(r.link)}" target="_blank">Open file</a>`:''}
+        <button class="btn ${r.imported?'':'good'}" onclick="markRec(${r.row},${!r.imported})">${r.imported?'Mark as not added':'Added to my contacts'}</button></div>
+      </div>`).join('') : '<div class="empty">Nothing received yet. When someone sends a list, it will show up here.</div>');
+  }catch(e){ fail(e); }
+}
+async function markRec(row, val){ try{ await run('api_markReceived', row, val); loadReceived(); }catch(e){ fail(e); } }
+
+/* ---------- Email ---------- */
+async function loadEmail(){
+  $('#v-email').innerHTML='<div class="loading">Loading…</div>';
+  try{ renderEmail(await run('api_status')); }catch(e){ fail(e); }
+}
+function renderEmail(s){
+  $('#v-email').innerHTML = `<h2>Email autopilot</h2>
+    ${s.pausedReason?`<div class="card" style="border-color:var(--amber);background:var(--amber-soft)">${esc(s.pausedReason)}</div>`:''}
+    <div class="card">
+      <div class="switch"><div><b>${s.autoEmail?'On':'Off'}</b><div class="meta">${esc(s.days)} • ${esc(s.hours)} • up to ${s.perDay} a day</div></div>
+      <button class="btn ${s.autoEmail?'':'primary'}" onclick="setAuto(${!s.autoEmail})">${s.autoEmail?'Turn off':'Turn on'}</button></div>
+      <div class="stat">
+        <div><b>${s.sentToday}</b><span>sent today</span></div>
+        <div><b>${s.queue}</b><span>still to email</span></div>
+        <div><b>${s.replied}</b><span>wrote back</span></div>
+        <div><b>${s.sent}</b><span>emailed</span></div>
+        <div><b>${s.followedUp}</b><span>follow-up sent</span></div>
+        <div><b>${s.bounced}</b><span>address failed</span></div>
+      </div>
+      <p class="meta">Sending from ${esc(s.me)}${s.lastRun?' • last check '+esc(s.lastRun):''}</p>
+    </div>
+    <div class="row">
+      <button class="btn" onclick="testEmail()">Send test email to me</button>
+      <button class="btn" onclick="checkNow()">Check for replies now</button>
+      <a class="btn quiet" href="${esc(s.sheetUrl)}" target="_blank">Edit messages and settings</a>
+    </div>`;
+}
+async function setAuto(on){
+  if(on && !confirm('Start sending emails automatically (Sun–Thu, up to the daily limit)?')) return;
+  try{ renderEmail(await run('api_setAutopilot', on)); toast(on?'Autopilot on':'Autopilot off'); }catch(e){ fail(e); }
+}
+async function testEmail(){ try{ toast(await run('api_testEmail')); }catch(e){ fail(e); } }
+async function checkNow(){ toast('Checking Gmail…'); try{ renderEmail(await run('api_checkNow')); toast('Done'); }catch(e){ fail(e); } }
+
+loadToday();
+</script>
+</body>
+</html>

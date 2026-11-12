@@ -1,0 +1,903 @@
+/**
+ * zugdeskcrm — personal shadchan outreach CRM
+ * Google Sheet + Apps Script web app (Execute as: me, Access: only myself)
+ *
+ * Tabs used: Contacts, Log, Received, DoNotContact, Settings
+ * First-time setup: run setup() once from the editor, then deploy as a web app.
+ */
+
+const TZ = 'Asia/Jerusalem';
+const LABEL = 'zugdeskcrm';
+const C_HEADERS = ['ID','Name','City','Sector','Specialty','Languages','Symbol','Hours','Phone1','Phone2','Email','Other',
+  'Source','SourceRef','ReferredBy','Status','CloseReason','NextDate','Attempts','LastContact','LastChannel','NeedsReply',
+  'EmailStatus','EmailSentAt','EmailFollowupAt','EmailThreadIds','EmailLastSeen','Lang','Boost','CrossedOut','InZugDesk','Notes',
+  'AskedReferralsAt'];
+const S_HEADERS = ['When','FromID','FromName','Name','Phone','Phone2','Email','Text','Status','ContactID'];
+
+/** Adds new tabs/columns to an older sheet without touching data. */
+function schema_() {
+  const p = PropertiesService.getScriptProperties();
+  if (p.getProperty('schema') === '2') return;
+  ensureSheet_('Contacts', C_HEADERS);
+  const sh = ensureSheet_('Suggested', S_HEADERS);
+  sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).setNumberFormat('@');
+  p.setProperty('schema', '2');
+}
+
+/* ------------------------------------------------------------------ */
+/* Web app entry                                                       */
+/* ------------------------------------------------------------------ */
+
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('Index')
+    .setTitle('zugdeskcrm')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
+}
+
+/* ------------------------------------------------------------------ */
+/* Setup                                                               */
+/* ------------------------------------------------------------------ */
+
+function setup() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('SS_ID', ss.getId());
+  ensureSheet_('Contacts', C_HEADERS);
+  ensureSheet_('Log', ['When','ContactID','Name','Channel','Action','Details']);
+  ensureSheet_('Received', ['When','ContactID','From','Channel','What','Link','Imported','Notes']);
+  ensureSheet_('DoNotContact', ['Email','Phone','Reason','Date','Source']);
+  ensureSheet_('Suggested', S_HEADERS);
+  // keep everything as plain text so phones keep their leading 0 and dates stay readable
+  ['Contacts','Log','Received','DoNotContact','Suggested'].forEach(n => {
+    const sh = ss.getSheetByName(n);
+    sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).setNumberFormat('@');
+  });
+  receivedFolder_();
+  GmailApp.getUserLabelByName(LABEL) || GmailApp.createLabel(LABEL);
+  ensureTrigger_();
+  PropertiesService.getScriptProperties().setProperty('schema', '2');
+  return 'Setup done. Now deploy as a web app (Execute as: Me, Who has access: Only myself).';
+}
+
+function ensureSheet_(name, headers) {
+  const ss = ss_();
+  let sh = ss.getSheetByName(name);
+  if (!sh) sh = ss.insertSheet(name);
+  const first = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0];
+  if (!first[0]) { sh.getRange(1, 1, 1, headers.length).setValues([headers]); sh.setFrozenRows(1); return sh; }
+  // add any missing columns at the end
+  const missing = headers.filter(h => first.indexOf(h) < 0);
+  if (missing.length) sh.getRange(1, sh.getLastColumn() + 1, 1, missing.length).setValues([missing]);
+  return sh;
+}
+
+function ensureTrigger_() {
+  const names = ScriptApp.getProjectTriggers().map(t => t.getHandlerFunction());
+  if (names.indexOf('hourlyJob') < 0) ScriptApp.newTrigger('hourlyJob').timeBased().everyHours(1).create();
+  if (names.indexOf('dailyBackup') < 0) ScriptApp.newTrigger('dailyBackup').timeBased().atHour(3).everyDays(1).inTimezone(TZ).create();
+}
+
+/** Daily copy of the whole sheet to Drive; keeps the last 30. Also tidies old daily counters. */
+function dailyBackup() {
+  const props = PropertiesService.getScriptProperties();
+  let folder = null;
+  try { folder = DriveApp.getFolderById(props.getProperty('BACKUP_ID')); } catch (e) {}
+  if (!folder) { folder = DriveApp.createFolder('zugdeskcrm – Backups'); props.setProperty('BACKUP_ID', folder.getId()); }
+  DriveApp.getFileById(ss_().getId()).makeCopy('zugdeskcrm backup ' + Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), folder);
+  const files = []; const it = folder.getFiles(); while (it.hasNext()) files.push(it.next());
+  files.sort((a, b) => b.getDateCreated() - a.getDateCreated()).slice(30).forEach(f => f.setTrashed(true));
+  const keep = today_();
+  Object.keys(props.getProperties()).forEach(k => {
+    if (/^(plan_|sent_|bounce_)/.test(k) && k.indexOf(keep) < 0) props.deleteProperty(k);
+  });
+}
+
+function ss_() {
+  const id = PropertiesService.getScriptProperties().getProperty('SS_ID');
+  return id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
+}
+
+function receivedFolder_() {
+  const props = PropertiesService.getScriptProperties();
+  const id = props.getProperty('FOLDER_ID');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
+  const f = DriveApp.createFolder('zugdeskcrm – Received lists');
+  props.setProperty('FOLDER_ID', f.getId());
+  return f;
+}
+
+/* ------------------------------------------------------------------ */
+/* Small helpers                                                       */
+/* ------------------------------------------------------------------ */
+
+function today_() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'); }
+function now_() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'); }
+function addDays_(n) { return Utilities.formatDate(new Date(Date.now() + n * 864e5), TZ, 'yyyy-MM-dd'); }
+function str_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, TZ, 'yyyy-MM-dd HH:mm').replace(' 00:00', '');
+  return v === null || v === undefined ? '' : String(v).trim();
+}
+function fill_(tpl, map) { return String(tpl || '').replace(/\{(\w+)\}/g, (m, k) => (map[k] !== undefined ? map[k] : '')); }
+
+/** Israeli phone → {local:'050-1234567', intl:'972501234567', mobile:true} or null */
+function normPhone_(p) {
+  let d = String(p || '').replace(/\D/g, '');
+  if (d.startsWith('972')) d = '0' + d.slice(3);
+  if (!d.startsWith('0')) {
+    if (d.length === 11 && d.startsWith('1')) d = d.slice(1);
+    if (d.length === 10 && /^[2-9]\d{2}[2-9]/.test(d))
+      return { local: '+1 ' + d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6), intl: '1' + d, mobile: true };
+    return null;
+  }
+  const ok = (d.length === 9 && /^0[2-489]/.test(d)) || (d.length === 10 && /^0[5-7]/.test(d));
+  if (!ok) return null;
+  const local = d.length === 9 ? d.slice(0, 2) + '-' + d.slice(2) : d.slice(0, 3) + '-' + d.slice(3);
+  return { local: local, intl: '972' + d.slice(1), mobile: /^05/.test(d) };
+}
+let ME_ = '';
+function me_() { return ME_ || (ME_ = Session.getEffectiveUser().getEmail().toLowerCase()); }
+function threadUrl_(tid) { return tid ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(me_()) + '#all/' + tid : ''; }
+
+/** Plain text → simple HTML with the right text direction (Hebrew right-to-left). */
+function toHtml_(text, lang) {
+  const rtl = lang === 'HE';
+  const esc = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*([^*\n]+)\*/g, '<b>$1</b>')
+    .replace(/https?:\/\/[^\s<]+/g, u => '<a href="' + u + '" dir="ltr">' + u + '</a>');
+  return '<div dir="' + (rtl ? 'rtl' : 'ltr') + '" style="direction:' + (rtl ? 'rtl' : 'ltr') + ';text-align:' + (rtl ? 'right' : 'left') +
+    ';font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6">' + esc.replace(/\n/g, '<br>') + '</div>';
+}
+
+/** Keep only what the person wrote: cut quoted history, drop lines copied from our own messages. */
+function ownText_(body, s) {
+  const lines = String(body || '').replace(/\r\n/g, '\n').split('\n');
+  const out = [];
+  for (const raw of lines) {
+    const t = raw.replace(/[\u200e\u200f\u202a-\u202e]/g, '').trim();
+    if (/^>/.test(t) || /^--\s*$/.test(t)) break;
+    if (/^On .{5,250}wrote:$/i.test(t) || /^בתאריך .{3,250}(מאת|כתב)/.test(t) || /^(-{2,}\s*(Original|Forwarded)|From:\s|מאת:\s|От:\s)/i.test(t)) break;
+    if (/(написал|пишет).{0,40}:$/i.test(t)) break;
+    out.push(t);
+  }
+  const mine = new Set();
+  ['HE', 'RU', 'EN'].forEach(l => ['EMAIL_BODY_', 'EMAIL_FOLLOWUP_', 'ASK_EMAIL_', 'PROFILE_'].forEach(k =>
+    String(s[k + l] || '').split('\n').forEach(x => { const n = x.replace(/\s+/g, ' ').trim().toLowerCase(); if (n.length >= 8) mine.add(n); })));
+  return out.filter(x => !mine.has(x.replace(/\s+/g, ' ').trim().toLowerCase())).join('\n').trim();
+}
+
+function validEmail_(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e || '').trim()); }
+
+/* ------------------------------------------------------------------ */
+/* Settings                                                            */
+/* ------------------------------------------------------------------ */
+
+function settings_() {
+  const sh = ss_().getSheetByName('Settings');
+  const vals = sh.getDataRange().getValues();
+  const s = {};
+  vals.slice(1).forEach(r => { if (r[0]) s[String(r[0]).trim()] = r[1] instanceof Date ? str_(r[1]) : String(r[1]); });
+  return s;
+}
+function setSetting_(key, value) {
+  const sh = ss_().getSheetByName('Settings');
+  const vals = sh.getDataRange().getValues();
+  for (let i = 1; i < vals.length; i++) if (String(vals[i][0]).trim() === key) { sh.getRange(i + 1, 2).setValue(value); return; }
+  sh.appendRow([key, value, '']);
+}
+function num_(s, k, d) { const n = parseFloat(s[k]); return isNaN(n) ? d : n; }
+function list_(s, k) { return String(s[k] || '').split(',').map(x => x.trim()).filter(Boolean); }
+
+/* ------------------------------------------------------------------ */
+/* Data access                                                         */
+/* ------------------------------------------------------------------ */
+
+function loadContacts_() {
+  const sh = ss_().getSheetByName('Contacts');
+  const vals = sh.getDataRange().getValues();
+  const head = vals[0].map(h => String(h).trim());
+  const rows = [];
+  for (let i = 1; i < vals.length; i++) {
+    if (!vals[i][0]) continue;
+    const o = { _row: i + 1 };
+    head.forEach((h, j) => (o[h] = str_(vals[i][j])));
+    rows.push(o);
+  }
+  return { sh: sh, head: head, rows: rows };
+}
+
+function patchContact_(db, c, patch) {
+  Object.keys(patch).forEach(k => {
+    const j = db.head.indexOf(k);
+    if (j < 0) return;
+    db.sh.getRange(c._row, j + 1).setValue(patch[k]);
+    c[k] = String(patch[k]);
+  });
+}
+
+function log_(c, channel, action, details) {
+  ss_().getSheetByName('Log').appendRow([now_(), c ? c.ID : '', c ? c.Name : '', channel, action, details || '']);
+}
+
+function dnc_() {
+  const vals = ss_().getSheetByName('DoNotContact').getDataRange().getValues().slice(1);
+  const emails = new Set(), phones = new Set();
+  vals.forEach(r => {
+    if (r[0]) emails.add(String(r[0]).toLowerCase().trim());
+    const p = normPhone_(r[1]); if (p) phones.add(p.intl);
+  });
+  return { emails: emails, phones: phones };
+}
+
+function phonesOf_(c) { return [c.Phone1, c.Phone2].map(normPhone_).filter(Boolean); }
+
+function blocked_(c, dnc) {
+  if (dnc.emails.has(String(c.Email).toLowerCase())) return true;
+  return phonesOf_(c).some(p => dnc.phones.has(p.intl));
+}
+
+/* ------------------------------------------------------------------ */
+/* Priority: best leads first (pure function, no Google calls)         */
+/* ------------------------------------------------------------------ */
+
+function scoreContact(c, s) {
+  const why = []; let score = 0;
+  const text = (c.Specialty || '') + ' ' + (c.Other || '');
+  const tag = c.Sector || '';
+  const langs = c.Languages || '';
+  const myAge = parseFloat(s.MY_AGE) || 41;
+  const W = k => parseFloat(s[k]) || 0;
+
+  const chabad = /חב["״']?ד|חבד|אנ["״']?ש/.test(text + ' ' + tag);
+  if (chabad) {
+    score += W('W_CHABAD'); why.push('Chabad');
+    if (/(רק|בעיקר|בציבור)\s*ל?חב["״']?ד/.test(text)) score += 1;
+  }
+  const ruLang = langs.indexOf('ר') >= 0, ruText = /רוס/.test(text);
+  if (ruLang || ruText) { score += W('W_RUSSIAN') + (ruText ? 1 : 0); why.push(ruText ? 'Works with Russian speakers' : 'Speaks Russian'); }
+  if (langs.indexOf('א') >= 0 || /אמריק|אנגלית/.test(text)) { score += W('W_ENGLISH'); if (/אמריק|אנגלית/.test(text)) why.push('Works with Americans/English'); }
+  if (/תשובה|מקורבים/.test(text)) { score += W('W_BT'); why.push('Baalei teshuva'); }
+
+  // age fit
+  let ageNote = '', ageFit = 0;
+  const range = text.match(/(\d{2})\s*[-–]\s*(\d{2})/);
+  const upTo = text.match(/עד\s*(?:גיל\s*)?(\d{2})/);
+  const plus = text.match(/(\d{2})\s*\+/);
+  if (range) { const a = +range[1], b = +range[2]; ageFit = (myAge >= Math.min(a, b) && myAge <= Math.max(a, b)) ? 1 : -1; ageNote = 'ages ' + a + '–' + b; }
+  else if (upTo) { ageFit = myAge <= +upTo[1] ? 1 : -1; ageNote = 'up to ' + upTo[1]; }
+  else if (plus) { ageFit = myAge >= +plus[1] ? 1 : -1; ageNote = plus[1] + '+'; }
+  if (ageFit > 0) { score += W('W_AGE_FIT'); why.push('Fits age (' + ageNote + ')'); }
+  else if (ageFit < 0) { score -= W('W_AGE_MISMATCH'); why.push('Age limit ' + ageNote); }
+  else if (/כל הגילאים|לכל הגילאים|בכל גיל|כל גיל|מבוגרים|גיל המעבר/.test(text)) { score += W('W_ALL_AGES'); why.push('All ages / older'); }
+  else if (/צעירים|צעירות|בחורי|אם-בית|בנות סמינר/.test(text)) { score -= W('W_YOUNG'); }
+
+  // narrow focus on other communities
+  if (!chabad && !ruText && /(^|\s)רק\s|בלבד/.test(text)) { score -= W('W_ONLY_OTHER'); why.push('Only other communities'); }
+  if (!chabad && /דת["״']?ל|דתי לאומי|דתיים לאומיים/.test(tag + ' ' + text)) score -= W('W_DATI_LEUMI');
+
+  if (c.Symbol === '**') score += W('W_OPEN_TO_ALL');
+
+  const city = c.City || '';
+  if (s.MY_CITY && city.indexOf(s.MY_CITY) >= 0) { score += W('W_MY_CITY'); why.push('In ' + s.MY_CITY); }
+  else if (list_(s, 'NEAR_CITIES').some(x => city.indexOf(x) >= 0)) { score += W('W_NEAR'); why.push('Nearby'); }
+  if (list_(s, 'CHABAD_CITIES').some(x => city.indexOf(x) >= 0)) score += W('W_CHABAD_TOWN');
+
+  if (phonesOf_(c).some(p => p.mobile)) score += W('W_MOBILE');
+  if (c.ReferredBy) { score += W('W_REFERRED'); why.unshift('Recommended by ' + c.ReferredBy); }
+  if (c.CrossedOut === 'YES') { score -= W('W_CROSSED_OUT'); why.push('Crossed out in book'); }
+  if (c.InZugDesk === 'YES') score -= 1;
+  score += parseFloat(c.Boost) || 0;
+  return { score: Math.round(score * 10) / 10, why: why.slice(0, 4) };
+}
+
+/* ------------------------------------------------------------------ */
+/* Recommended shadchanim: find names/phones/emails in what people write */
+/* ------------------------------------------------------------------ */
+
+const PHONE_RE = /(?<!\d)(?:(?:\+?972[\s-]?|0)(?:[23489]|5\d|7\d)[\s-]?\d{3}[\s-]?\d{4}|(?:\+?1[\s.-]?)?\(?[2-9]\d{2}\)?[\s.-]\d{3}[\s.-]\d{4})(?!\d)/g;
+const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+const LABEL_RE = /(טלפון|טל['׳]?|נייד|פלאפון|פל['׳]|מייל|אימייל|דוא["״]ל|ווטסאפ|וואטסאפ|email|e-mail|mail|phone|tel|cell|mobile|whatsapp|телефон|тел\.?|почта)\s*[:.]?/gi;
+
+/** Returns [{name, phone, phone2, email, line}] found in free text. exclude = {phones:Set(intl), emails:Set(lower)} */
+function extractPeople(text, exclude) {
+  const lines = String(text || '').split('\n').map(l => l.replace(/[\u200e\u200f\u202a-\u202e]/g, '').trim());
+  const out = []; let prevName = '', prevIdx = -9;
+  const cleanName = seg => {
+    let t = seg.replace(LABEL_RE, ' ');
+    const cut = Math.max(t.lastIndexOf('!'), t.lastIndexOf('?'));
+    if (cut >= 0) t = t.slice(cut + 1);
+    t = t.replace(/[\-–—:|,;•*·()\[\]\d+\/]/g, ' ').replace(/\s+/g, ' ').trim()
+      .replace(/^(and|try|also|or|recommend|ו?גם|או|и|также|или)\s+/i, '').trim();
+    const w = t.split(' ').filter(Boolean);
+    return w.slice(-4).join(' ').slice(0, 60);
+  };
+  lines.forEach((line, i) => {
+    const toks = [];
+    let m; PHONE_RE.lastIndex = 0;
+    while ((m = PHONE_RE.exec(line))) { const p = normPhone_(m[0]); toks.push({ at: m.index, end: m.index + m[0].length, phone: p ? p.local : '', skip: !p || exclude.phones.has(p.intl) }); }
+    EMAIL_RE.lastIndex = 0;
+    while ((m = EMAIL_RE.exec(line))) { const e = m[0].toLowerCase(); toks.push({ at: m.index, end: m.index + m[0].length, email: e, skip: exclude.emails.has(e) }); }
+    if (!toks.some(t => !t.skip)) {
+      prevName = (!toks.length && /\p{L}{2}/u.test(line) && line.length <= 40 && !/[?:]$/.test(line)) ? line : ''; prevIdx = i; return;
+    }
+    toks.sort((a, b) => a.at - b.at);
+    let pos = 0, firstOnLine = true;
+    toks.forEach(t => {
+      if (t.skip) { pos = t.end; return; }
+      let name = cleanName(line.slice(pos, t.at));
+      pos = t.end;
+      const last = out[out.length - 1];
+      if (name.length < 2 && firstOnLine && prevIdx === i - 1 && prevName) name = cleanName(prevName) || prevName;
+      if (name.length < 2 && last && (last._i === i || last._i === i - 1)) {   // more details for the same person
+        if (t.email && !last.email) last.email = t.email;
+        else if (t.phone && !last.phone) last.phone = t.phone;
+        else if (t.phone && !last.phone2) last.phone2 = t.phone;
+        last._i = i; firstOnLine = false; return;
+      }
+      out.push({ name: name, phone: t.phone || '', phone2: '', email: t.email || '', line: line.slice(0, 200), _i: i });
+      firstOnLine = false;
+    });
+    prevName = '';
+  });
+  return out;
+}
+
+function excludeFor_(c, s) {
+  const phones = new Set(phonesOf_(c).map(p => p.intl)), emails = new Set();
+  const mine = normPhone_(s.MY_PHONE); if (mine) phones.add(mine.intl);
+  if (c.Email) emails.add(c.Email.toLowerCase().trim());
+  try { emails.add(me_()); } catch (e) {}
+  return { phones: phones, emails: emails };
+}
+
+/** Saves found people. Already-known ones are linked as "recommended by"; new ones wait in Today for one tap. */
+function saveSuggestions_(from, people, db) {
+  if (!people.length) return 0;
+  const sh = ss_().getSheetByName('Suggested');
+  const pending = sh.getDataRange().getValues().slice(1).filter(r => String(r[8]) === 'New');
+  let added = 0;
+  people.forEach(p => {
+    const ph = [p.phone, p.phone2].map(normPhone_).filter(Boolean).map(x => x.intl);
+    const em = (p.email || '').toLowerCase();
+    if (!ph.length && !em) return;
+    const known = db.rows.find(c => c.ID !== from.ID && ((ph.length && phonesOf_(c).some(x => ph.indexOf(x.intl) >= 0)) || (em && String(c.Email).toLowerCase() === em)));
+    if (known) {
+      if ((known.ReferredBy || '').indexOf(from.Name) < 0)
+        patchContact_(db, known, { ReferredBy: known.ReferredBy ? known.ReferredBy + ', ' + from.Name : from.Name });
+      log_(known, 'Referral', 'Also recommended', 'by ' + from.Name);
+      sh.appendRow([now_(), from.ID, from.Name, p.name, p.phone, p.phone2, p.email, p.line, 'Linked', known.ID]);
+      return;
+    }
+    const dup = pending.some(r => (ph.length && ph.some(x => { const n = normPhone_(r[4]); return n && n.intl === x; })) || (em && String(r[6]).toLowerCase() === em));
+    if (dup) return;
+    sh.appendRow([now_(), from.ID, from.Name, p.name, p.phone, p.phone2, p.email, p.line, 'New', '']);
+    pending.push(['', '', '', p.name, p.phone, p.phone2, p.email, '', 'New']);
+    added++;
+  });
+  if (added) log_(from, 'Referral', 'Recommended ' + added + ' shadchanim', 'waiting in Today to add');
+  return added;
+}
+
+function api_suggestions() {
+  schema_();
+  const vals = ss_().getSheetByName('Suggested').getDataRange().getValues();
+  return vals.slice(1).map((r, i) => ({ row: i + 2, when: str_(r[0]), fromId: str_(r[1]), from: str_(r[2]), name: str_(r[3]),
+    phone: str_(r[4]), phone2: str_(r[5]), email: str_(r[6]), text: str_(r[7]), status: str_(r[8]) })).filter(x => x.status === 'New');
+}
+
+function api_acceptSuggestion(row, name) {
+  const sh = ss_().getSheetByName('Suggested');
+  const r = sh.getRange(row, 1, 1, S_HEADERS.length).getValues()[0].map(str_);
+  const res = api_addReferral(r[1], { name: name || r[3] || '(no name)', phone: r[4], email: r[6], byName: r[2], phone2: r[5] });
+  sh.getRange(row, 9, 1, 2).setValues([[res.status === 'linked' ? 'Linked' : 'Added', res.id]]);
+  return res;
+}
+function api_ignoreSuggestion(row) { ss_().getSheetByName('Suggested').getRange(row, 9).setValue('Ignored'); return true; }
+
+/** Paste a WhatsApp message (or any text) from a contact; finds the people in it. */
+function api_extractFromText(fromId, text) {
+  schema_();
+  const s = settings_(), db = loadContacts_();
+  const from = db.rows.find(c => c.ID === fromId);
+  const people = extractPeople(text, excludeFor_(from, s));
+  const n = saveSuggestions_(from, people, db);
+  return { found: people.length, added: n };
+}
+
+/** Ask for recommendations by email: replies inside their own email if they wrote to us. */
+function api_askEmail(id) {
+  const s = settings_(), db = loadContacts_();
+  const c = db.rows.find(r => r.ID === id);
+  if (!validEmail_(c.Email)) throw new Error('No email address for this person');
+  if (c.EmailStatus === 'Bounced') throw new Error('Email to this address failed before — ask by WhatsApp or phone');
+  const lang = pickLang_(c, s);
+  const body = fill_(s['ASK_EMAIL_' + lang] || s.ASK_EMAIL_HE, { sender: s.SENDER_NAME });
+  const opts = { name: s.SENDER_NAME, htmlBody: toHtml_(body, lang) };
+  let theirs = null;
+  (c.EmailThreadIds || '').split(',').filter(Boolean).forEach(tid => {
+    try { GmailApp.getThreadById(tid).getMessages().forEach(m => { if (m.getFrom().toLowerCase().indexOf(me_()) < 0) theirs = m; }); } catch (e) {}
+  });
+  const ids = (c.EmailThreadIds || '').split(',').filter(Boolean);
+  if (theirs) theirs.reply(body, opts);
+  else {
+    const msg = GmailApp.createDraft(c.Email.trim(), fill_(s['ASK_SUBJECT_' + lang] || s.ASK_SUBJECT_HE, {}), body, opts).send();
+    const th = msg.getThread(); th.addLabel(GmailApp.getUserLabelByName(LABEL) || GmailApp.createLabel(LABEL));
+    if (ids.indexOf(th.getId()) < 0) ids.push(th.getId());
+  }
+  patchContact_(db, c, { AskedReferralsAt: now_(), EmailThreadIds: ids.join(','), EmailStatus: c.EmailStatus || 'Asked' });
+  log_(c, 'Email', 'Asked for recommendations', lang);
+  return card_(c, s);
+}
+
+/** Mark that you asked by WhatsApp/phone, or that now isn't a good time ('skip'). */
+function api_askMark(id, how) {
+  const s = settings_(), db = loadContacts_();
+  const c = db.rows.find(r => r.ID === id);
+  patchContact_(db, c, { AskedReferralsAt: how === 'skip' ? 'skip ' + today_() : now_() });
+  log_(c, how === 'skip' ? '' : how, how === 'skip' ? 'Not asking for recommendations now' : 'Asked for recommendations', '');
+  return card_(c, s);
+}
+
+/* ------------------------------------------------------------------ */
+/* Today plan                                                          */
+/* ------------------------------------------------------------------ */
+
+function buildPlan_(db, s, dnc) {
+  const autoEmail = String(s.AUTO_EMAIL).toUpperCase() === 'ON';
+  const touched = new Set();
+  db.rows.forEach(c => { if (c.Status && c.Status !== 'New') phonesOf_(c).forEach(p => touched.add(p.intl)); });
+
+  const pool = db.rows
+    .filter(c => (c.Status || 'New') === 'New' && !blocked_(c, dnc))
+    .filter(c => phonesOf_(c).length && !phonesOf_(c).some(p => touched.has(p.intl)))
+    // when the email autopilot is on, people with an email get the email first
+    .filter(c => !(autoEmail && validEmail_(c.Email) && !c.EmailStatus))
+    .map(c => ({ c: c, sc: scoreContact(c, s).score }))
+    .sort((a, b) => b.sc - a.sc);
+
+  const used = new Set();
+  const take = (pred, n) => {
+    const out = [];
+    for (const x of pool) {
+      if (out.length >= n) break;
+      if (used.has(x.c.ID) || !pred(x.c)) continue;
+      const ph = phonesOf_(x.c).map(p => p.intl);
+      if (ph.some(p => used.has(p))) continue;
+      used.add(x.c.ID); ph.forEach(p => used.add(p));
+      out.push(x.c.ID);
+    }
+    return out;
+  };
+  // the daily call goes to the best lead that can only be reached by phone; otherwise the best lead overall
+  const callsN = num_(s, 'CALLS_PER_DAY', 1);
+  let calls = take(c => !phonesOf_(c).some(p => p.mobile), callsN);
+  if (calls.length < callsN) calls = calls.concat(take(() => true, callsN - calls.length));
+  const wa = take(c => phonesOf_(c).some(p => p.mobile), num_(s, 'WA_PER_DAY', 10));
+  return { call: calls, wa: wa };
+}
+
+function getPlan_(db, s, dnc, rebuild) {
+  const props = PropertiesService.getScriptProperties();
+  const key = 'plan_' + today_();
+  let plan = rebuild ? null : props.getProperty(key);
+  if (plan) return JSON.parse(plan);
+  const p = buildPlan_(db, s, dnc);
+  props.setProperty(key, JSON.stringify(p));
+  return p;
+}
+
+function card_(c, s) {
+  const lang = pickLang_(c, s);
+  const sc = scoreContact(c, s);
+  const phones = phonesOf_(c);
+  const mob = phones.find(p => p.mobile);
+  return {
+    id: c.ID, name: c.Name, city: c.City, sector: c.Sector, specialty: c.Specialty, languages: c.Languages,
+    hours: c.Hours, email: c.Email, other: c.Other, status: c.Status || 'New', nextDate: c.NextDate,
+    needsReply: c.NeedsReply === 'YES', emailStatus: c.EmailStatus, referredBy: c.ReferredBy, notes: c.Notes,
+    lastContact: c.LastContact, lastChannel: c.LastChannel, lang: lang, why: sc.why,
+    phones: phones.map(p => ({ local: p.local, tel: 'tel:+' + p.intl, mobile: p.mobile })),
+    askWaUrl: mob ? 'https://api.whatsapp.com/send?phone=' + mob.intl + '&text=' + encodeURIComponent(fill_(s['ASK_WA_' + lang] || s.ASK_WA_HE, {})) : '',
+    asked: c.AskedReferralsAt || '',
+    gmailUrl: threadUrl_((c.EmailThreadIds || '').split(',').filter(Boolean).pop()),
+    waUrl: mob ? 'https://api.whatsapp.com/send?phone=' + mob.intl + '&text=' + encodeURIComponent(waText_(c, s, lang)) : '',
+    doneToday: (c.LastContact || '').slice(0, 10) === today_()
+  };
+}
+
+function pickLang_(c, s) {
+  if (c.Lang) return c.Lang.toUpperCase();
+  if (String(s.RUSSIAN_FOR_RUSSIAN_SPEAKERS).toUpperCase() === 'YES' && (c.Languages || '').indexOf('ר') >= 0) return 'RU';
+  return 'HE';
+}
+function sourceLine_(c, s, lang) {
+  return c.ReferredBy ? fill_(s['SOURCE_REFERRAL_' + lang], { by: c.ReferredBy }) : s['SOURCE_DIRECTORY_' + lang] || '';
+}
+function waText_(c, s, lang) {
+  const withProfile = String(s.WA_INCLUDE_PROFILE).toUpperCase() === 'YES';
+  return fill_(s['WA_INTRO_' + lang] || s.WA_INTRO_HE, {
+    source_line: sourceLine_(c, s, lang),
+    profile: withProfile ? '\n\n' + (s['PROFILE_' + lang] || s.PROFILE_HE) : ''
+  }).trim();
+}
+
+/* ------------------------------------------------------------------ */
+/* API for the web app                                                 */
+/* ------------------------------------------------------------------ */
+
+function api_today(rebuild) {
+  schema_();
+  const s = settings_(), db = loadContacts_(), dnc = dnc_();
+  const plan = getPlan_(db, s, dnc, rebuild);
+  const byId = {}; db.rows.forEach(c => (byId[c.ID] = c));
+  const t = today_();
+  const inPlan = new Set(plan.call.concat(plan.wa));
+  const replies = db.rows.filter(c => c.NeedsReply === 'YES' && c.Status !== 'Closed');
+  const checkins = db.rows
+    .filter(c => !inPlan.has(c.ID) && c.NeedsReply !== 'YES' && ['Contacted', 'Talking', 'Later'].indexOf(c.Status) >= 0
+      && c.NextDate && c.NextDate <= t && !blocked_(c, dnc))
+    .map(c => ({ c: c, sc: scoreContact(c, s).score })).sort((a, b) => b.sc - a.sc)
+    .slice(0, num_(s, 'CHECKINS_PER_DAY', 8)).map(x => x.c);
+  const recent = addDays_(-21);
+  const asks = db.rows.filter(c => c.Status === 'Talking' && !c.AskedReferralsAt && c.NeedsReply !== 'YES'
+      && (c.LastContact || '').slice(0, 10) >= recent && !blocked_(c, dnc))
+    .map(c => ({ c: c, sc: scoreContact(c, s).score })).sort((a, b) => b.sc - a.sc)
+    .slice(0, num_(s, 'ASKS_PER_DAY', 3)).map(x => x.c);
+  const counts = { total: db.rows.length, fresh: db.rows.filter(c => (c.Status || 'New') === 'New').length,
+    talking: db.rows.filter(c => c.Status === 'Talking').length };
+  return {
+    date: t,
+    call: plan.call.map(id => byId[id]).filter(Boolean).map(c => card_(c, s)),
+    wa: plan.wa.map(id => byId[id]).filter(Boolean).map(c => card_(c, s)),
+    replies: replies.map(c => card_(c, s)),
+    checkins: checkins.map(c => card_(c, s)),
+    asks: asks.map(c => card_(c, s)),
+    suggestions: api_suggestions(),
+    counts: counts,
+    autoEmail: String(s.AUTO_EMAIL).toUpperCase() === 'ON',
+    profiles: { HE: s.PROFILE_HE || '', RU: s.PROFILE_RU || '', EN: s.PROFILE_EN || '' },
+    callScript: s.CALL_SCRIPT || '',
+    sheetUrl: ss_().getUrl()
+  };
+}
+
+const RESULTS = {
+  sent:      { label: 'Message sent',     status: 'Contacted', days: 6,  attempt: true },
+  noreach:   { label: "Didn't reach",     status: 'Contacted', days: 4,  attempt: true },
+  spoke:     { label: 'Spoke',            status: 'Talking',   days: 21, clearReply: true },
+  wroteback: { label: 'They wrote back',  status: 'Talking',   days: 0,  needsReply: true },
+  answered:  { label: 'I answered',       status: 'Talking',   days: 14, clearReply: true },
+  later:     { label: 'Later',            status: 'Later',     days: 60, clearReply: true },
+  wrong:     { label: 'Wrong number',     status: 'Closed',    close: 'Wrong number' },
+  stop:      { label: 'Do not contact',   status: 'Closed',    close: 'Do not contact' },
+  reopen:    { label: 'Reopened',         status: 'New',       days: 0 }
+};
+
+function api_result(id, action, channel, note, nextDate) {
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const s = settings_(), db = loadContacts_();
+    const c = db.rows.find(r => r.ID === id);
+    if (!c) throw new Error('Contact not found: ' + id);
+    const r = RESULTS[action]; if (!r) throw new Error('Unknown action ' + action);
+    const patch = { Status: r.status, LastContact: now_(), LastChannel: channel || c.LastChannel || '' };
+    if (r.attempt) patch.Attempts = (parseInt(c.Attempts, 10) || 0) + 1;
+    if (action === 'noreach' && patch.Attempts >= num_(s, 'MAX_ATTEMPTS', 3)) { patch.Status = 'Closed'; patch.CloseReason = 'Not reached'; }
+    if (r.close) patch.CloseReason = r.close;
+    if (r.needsReply) patch.NeedsReply = 'YES';
+    if (r.clearReply || r.close) patch.NeedsReply = '';
+    patch.NextDate = nextDate || (r.days !== undefined && patch.Status !== 'Closed' ? addDays_(r.days) : '');
+    if (note) patch.Notes = (c.Notes ? c.Notes + '\n' : '') + today_() + ': ' + note;
+    patchContact_(db, c, patch);
+    if (action === 'stop') {
+      const sh = ss_().getSheetByName('DoNotContact');
+      const ph = phonesOf_(c).map(p => p.local);
+      sh.appendRow([c.Email || '', ph[0] || '', 'Asked not to be contacted', today_(), 'zugdeskcrm']);
+      if (ph[1]) sh.appendRow(['', ph[1], 'Asked not to be contacted', today_(), 'zugdeskcrm']);
+    }
+    log_(c, channel || '', r.label, note || '');
+    return card_(c, s);
+  } finally { lock.releaseLock(); }
+}
+
+function api_contacts(q, filter, offset) {
+  const s = settings_(), db = loadContacts_(), dnc = dnc_();
+  q = String(q || '').trim().toLowerCase();
+  let rows = db.rows.map(c => ({ c: c, sc: scoreContact(c, s) }));
+  const f = filter || 'best';
+  rows = rows.filter(x => {
+    const c = x.c, st = c.Status || 'New';
+    if (q && (c.Name + ' ' + c.City + ' ' + c.Phone1 + ' ' + c.Phone2 + ' ' + c.Email + ' ' + c.Specialty).toLowerCase().indexOf(q) < 0) return false;
+    if (f === 'best') return st === 'New' && !blocked_(c, dnc);
+    if (f === 'russian') return (c.Languages || '').indexOf('ר') >= 0 || /רוס/.test(c.Specialty);
+    if (f === 'chabad') return x.sc.why.indexOf('Chabad') >= 0;
+    if (f === 'talking') return st === 'Talking';
+    if (f === 'contacted') return st === 'Contacted';
+    if (f === 'later') return st === 'Later';
+    if (f === 'closed') return st === 'Closed' || blocked_(c, dnc);
+    return true;
+  }).sort((a, b) => b.sc.score - a.sc.score);
+  const start = offset || 0;
+  return { total: rows.length, items: rows.slice(start, start + 40).map(x => card_(x.c, s)) };
+}
+
+function api_contact(id) {
+  const s = settings_(), db = loadContacts_();
+  const c = db.rows.find(r => r.ID === id);
+  if (!c) throw new Error('Contact not found');
+  const log = ss_().getSheetByName('Log').getDataRange().getValues().slice(1)
+    .filter(r => String(r[1]) === id).map(r => ({ when: str_(r[0]), channel: str_(r[3]), action: str_(r[4]), details: str_(r[5]) })).reverse();
+  const card = card_(c, s);
+  card.history = log;
+  card.source = c.Source; card.closeReason = c.CloseReason; card.attempts = c.Attempts;
+  return card;
+}
+
+function api_saveContact(id, patch) {
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const db = loadContacts_(); const c = db.rows.find(r => r.ID === id);
+    const allowed = {}; ['Notes', 'NextDate', 'Lang', 'Email', 'Boost'].forEach(k => { if (patch[k] !== undefined) allowed[k] = patch[k]; });
+    patchContact_(db, c, allowed);
+    return api_contact(id);
+  } finally { lock.releaseLock(); }
+}
+
+/** Add a recommended shadchan. Duplicates (same phone or email) are linked, not added twice. */
+function api_addReferral(byId, data) {
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const db = loadContacts_();
+    const by = byId ? db.rows.find(r => r.ID === byId) : null;
+    const byName = by ? by.Name : (data.byName || '');
+    const p1 = normPhone_(data.phone), em = String(data.email || '').trim().toLowerCase();
+    const dup = db.rows.find(c => (p1 && phonesOf_(c).some(p => p.intl === p1.intl)) || (em && String(c.Email).toLowerCase() === em));
+    if (dup) {
+      const refs = dup.ReferredBy ? dup.ReferredBy + ', ' + byName : byName;
+      patchContact_(db, dup, { ReferredBy: refs });
+      log_(dup, 'Referral', 'Also recommended', 'by ' + byName);
+      return { status: 'linked', id: dup.ID, name: dup.Name };
+    }
+    const id = nextId_(db);
+    const row = C_HEADERS.map(h => ({
+      ID: id, Name: data.name || '', City: data.city || '', Phone1: p1 ? p1.local : (data.phone || ''), Phone2: data.phone2 || '', Email: data.email || '',
+      Specialty: data.note || '', Languages: data.languages || '', Source: 'Referral', ReferredBy: byName, Status: 'New'
+    })[h] || '');
+    db.sh.appendRow(row);
+    log_({ ID: id, Name: data.name }, 'Referral', 'Added', 'recommended by ' + byName);
+    if (by) log_(by, 'Referral', 'Recommended someone', data.name || '');
+    return { status: 'added', id: id, name: data.name };
+  } finally { lock.releaseLock(); }
+}
+
+function nextId_(db) {
+  const n = db.rows.map(c => parseInt(String(c.ID).replace(/\D/g, ''), 10) || 0).reduce((a, b) => Math.max(a, b), 0);
+  return 'C' + String(n + 1).padStart(4, '0');
+}
+
+function api_received() {
+  const vals = ss_().getSheetByName('Received').getDataRange().getValues();
+  return vals.slice(1).map((r, i) => ({ row: i + 2, when: str_(r[0]), contactId: str_(r[1]), from: str_(r[2]), channel: str_(r[3]),
+    what: str_(r[4]), link: str_(r[5]), imported: str_(r[6]) === 'YES', notes: str_(r[7]) })).reverse();
+}
+function api_addReceived(d) {
+  ss_().getSheetByName('Received').appendRow([now_(), d.contactId || '', d.from || '', d.channel || '', d.what || '', d.link || '', '', d.notes || '']);
+  return api_received();
+}
+function api_markReceived(row, imported) {
+  ss_().getSheetByName('Received').getRange(row, 7).setValue(imported ? 'YES' : '');
+  return api_received();
+}
+
+function api_status() {
+  const s = settings_(), db = loadContacts_();
+  const t = today_();
+  const props = PropertiesService.getScriptProperties();
+  const queue = db.rows.filter(c => (c.Status || 'New') === 'New' && validEmail_(c.Email) && !c.EmailStatus).length;
+  const by = k => db.rows.filter(c => c.EmailStatus === k).length;
+  return {
+    autoEmail: String(s.AUTO_EMAIL).toUpperCase() === 'ON',
+    sentToday: parseInt(props.getProperty('sent_' + t) || '0', 10),
+    perDay: num_(s, 'EMAILS_PER_DAY', 20), days: s.EMAIL_DAYS, hours: s.EMAIL_START_HOUR + ':00–' + s.EMAIL_END_HOUR + ':00',
+    queue: queue, sent: by('Sent'), followedUp: by('Followed up'), replied: by('Replied'), bounced: by('Bounced'),
+    bouncesToday: parseInt(props.getProperty('bounce_' + t) || '0', 10), pausedReason: props.getProperty('paused_reason') || '',
+    lastRun: props.getProperty('last_run') || '', me: me_(), sheetUrl: ss_().getUrl()
+  };
+}
+
+function api_setAutopilot(on) {
+  setSetting_('AUTO_EMAIL', on ? 'ON' : 'OFF');
+  if (on) PropertiesService.getScriptProperties().deleteProperty('paused_reason');
+  ensureTrigger_();
+  PropertiesService.getScriptProperties().deleteProperty('plan_' + today_());
+  return api_status();
+}
+
+function api_testEmail() {
+  const s = settings_();
+  const me = Session.getEffectiveUser().getEmail();
+  const fake = { Name: 'Test', Languages: 'ע,ר', ReferredBy: '' };
+  ['HE', 'RU'].forEach(lang => {
+    const m = composeEmail_(fake, s, lang, false);
+    GmailApp.sendEmail(me, '[TEST] ' + m.subject, m.body, { name: s.SENDER_NAME, htmlBody: toHtml_(m.body, lang) });
+  });
+  log_(null, 'Email', 'Test email', 'sent to ' + me);
+  return 'Two test emails (Hebrew and Russian) sent to ' + me;
+}
+
+function api_checkNow() { scanReplies_(); return api_status(); }
+
+/* ------------------------------------------------------------------ */
+/* Email autopilot (hourly trigger)                                    */
+/* ------------------------------------------------------------------ */
+
+function hourlyJob() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) return;
+  try {
+    schema_();
+    PropertiesService.getScriptProperties().setProperty('last_run', now_());
+    scanReplies_();
+    sendBatch_();
+  } finally { lock.releaseLock(); }
+}
+
+function composeEmail_(c, s, lang, followup) {
+  const myPhone = String(s.MY_PHONE || '').trim();
+  const contact = {
+    HE: myPhone ? 'אפשר להשיב למייל הזה או לכתוב לי בוואטסאפ: ' + myPhone : 'אפשר פשוט להשיב למייל הזה.',
+    RU: myPhone ? 'Можно ответить на это письмо или написать мне в WhatsApp: ' + myPhone : 'Можно просто ответить на это письмо.',
+    EN: myPhone ? 'You can reply to this email or message me on WhatsApp: ' + myPhone : 'You can simply reply to this email.'
+  }[lang];
+  const map = { source_line: sourceLine_(c, s, lang), profile: s['PROFILE_' + lang] || s.PROFILE_HE, contact_line: contact, sender: s.SENDER_NAME };
+  const subject = fill_(s['EMAIL_SUBJECT_' + lang] || s.EMAIL_SUBJECT_HE, map);
+  const body = fill_(followup ? (s['EMAIL_FOLLOWUP_' + lang] || s.EMAIL_FOLLOWUP_HE) : (s['EMAIL_BODY_' + lang] || s.EMAIL_BODY_HE), map);
+  return { subject: followup ? 'Re: ' + subject : subject, body: body };
+}
+
+function sendBatch_() {
+  const s = settings_();
+  if (String(s.AUTO_EMAIL).toUpperCase() !== 'ON') return;
+  const now = new Date();
+  const day = Utilities.formatDate(now, TZ, 'EEE');          // Sun, Mon, ...
+  const hour = parseInt(Utilities.formatDate(now, TZ, 'H'), 10);
+  if (list_(s, 'EMAIL_DAYS').indexOf(day) < 0) return;
+  if (hour < num_(s, 'EMAIL_START_HOUR', 9) || hour >= num_(s, 'EMAIL_END_HOUR', 19)) return;
+
+  const props = PropertiesService.getScriptProperties();
+  const key = 'sent_' + today_();
+  let sentToday = parseInt(props.getProperty(key) || '0', 10);
+  const cap = num_(s, 'EMAILS_PER_DAY', 20);
+  // spread the day's emails over the remaining hours
+  const hoursLeft = Math.max(1, num_(s, 'EMAIL_END_HOUR', 19) - hour);
+  let budget = Math.min(cap - sentToday, Math.ceil((cap - sentToday) / hoursLeft));
+  if (budget <= 0) return;
+  const bounces = parseInt(props.getProperty('bounce_' + today_()) || '0', 10);
+  if (bounces >= num_(s, 'MAX_BOUNCES_PER_DAY', 5)) {
+    setSetting_('AUTO_EMAIL', 'OFF');
+    props.setProperty('paused_reason', 'Paused automatically on ' + now_() + ': ' + bounces +
+      ' emails failed today. Check the failed addresses, then turn the autopilot on again.');
+    log_(null, 'Email', 'Autopilot paused', bounces + ' failed emails today');
+    return;
+  }
+
+  const db = loadContacts_(), dnc = dnc_();
+  const label = GmailApp.getUserLabelByName(LABEL) || GmailApp.createLabel(LABEL);
+  const t = today_();
+  const fuDays = num_(s, 'FOLLOWUP_DAYS', 8);
+
+  // 1) one gentle follow-up to people who haven't written back
+  const followups = db.rows.filter(c => c.EmailStatus === 'Sent' && c.Status !== 'Closed' && c.NeedsReply !== 'YES'
+    && c.EmailSentAt && c.EmailSentAt.slice(0, 10) <= addDays_(-fuDays) && !blocked_(c, dnc) && validEmail_(c.Email));
+  // 2) new emails, best leads first
+  const fresh = db.rows.filter(c => (c.Status || 'New') === 'New' && !c.EmailStatus && validEmail_(c.Email) && !blocked_(c, dnc)
+    && !(String(s.SKIP_ZUGDESK).toUpperCase() === 'YES' && c.InZugDesk === 'YES'))
+    .map(c => ({ c: c, sc: scoreContact(c, s).score })).sort((a, b) => b.sc - a.sc).map(x => x.c);
+
+  const queue = followups.map(c => ({ c: c, fu: true })).concat(fresh.map(c => ({ c: c, fu: false })));
+  for (const item of queue) {
+    if (budget <= 0) break;
+    const c = item.c, lang = pickLang_(c, s);
+    try {
+      const m = composeEmail_(c, s, lang, item.fu);
+      const msg = GmailApp.createDraft(c.Email.trim(), m.subject, m.body, { name: s.SENDER_NAME, htmlBody: toHtml_(m.body, lang) }).send();
+      const th = msg.getThread(); th.addLabel(label);
+      const ids = c.EmailThreadIds ? c.EmailThreadIds.split(',') : [];
+      if (ids.indexOf(th.getId()) < 0) ids.push(th.getId());
+      if (item.fu) {
+        patchContact_(db, c, { EmailStatus: 'Followed up', EmailFollowupAt: now_(), EmailThreadIds: ids.join(','), LastContact: now_(), LastChannel: 'Email' });
+        log_(c, 'Email', 'Follow-up email sent', lang);
+      } else {
+        patchContact_(db, c, { EmailStatus: 'Sent', EmailSentAt: now_(), EmailThreadIds: ids.join(','), Status: 'Contacted',
+          LastContact: now_(), LastChannel: 'Email', NextDate: addDays_(fuDays + 6) });
+        log_(c, 'Email', 'Email sent', lang);
+      }
+      sentToday++; budget--; props.setProperty(key, String(sentToday));
+    } catch (e) {
+      patchContact_(db, c, { EmailStatus: 'Error' });
+      log_(c, 'Email', 'Send error', String(e).slice(0, 200));
+    }
+  }
+}
+
+const STOP_WORDS = /(^|[\s.,!?"'׳״()-])(הסר|הסירו|להסיר|תסיר|תסירו)($|[\s.,!?"'׳״()-])|לא שדכנית|לא שדכן|לא עוסק|לא עוסקת|unsubscribe|remove me|please remove|not a shadchan|no longer|удал|отпис|не пишите/i;
+
+function bumpBounce_() {
+  const p = PropertiesService.getScriptProperties(), k = 'bounce_' + today_();
+  p.setProperty(k, String((parseInt(p.getProperty(k) || '0', 10)) + 1));
+}
+
+function scanReplies_() {
+  const db = loadContacts_(), s = settings_();
+  const me = me_();
+  const folder = receivedFolder_();
+  const recv = ss_().getSheetByName('Received');
+  const cutoff = addDays_(-45);
+
+  db.rows.filter(c => c.EmailThreadIds && ['Sent', 'Followed up', 'Replied', 'Asked'].indexOf(c.EmailStatus) >= 0
+      && [c.EmailSentAt || '', c.AskedReferralsAt || '', c.EmailLastSeen || ''].sort().pop().slice(0, 10) >= cutoff)
+    .forEach(c => {
+      // replies that arrive as a brand-new email instead of in our thread
+      if (['Sent', 'Followed up'].indexOf(c.EmailStatus) >= 0 && validEmail_(c.Email)) {
+        const since = (c.EmailSentAt || today_()).slice(0, 10).replace(/-/g, '/');
+        try {
+          const extra = GmailApp.search('from:' + c.Email.trim() + ' after:' + since, 0, 3).map(t => t.getId());
+          const ids = c.EmailThreadIds.split(',');
+          const add = extra.filter(id => ids.indexOf(id) < 0);
+          if (add.length) patchContact_(db, c, { EmailThreadIds: ids.concat(add).join(',') });
+        } catch (e) {}
+      }
+      let lastSeen = c.EmailLastSeen || c.EmailSentAt || '';
+      let newest = lastSeen, gotReply = false, bounced = false, stopHint = false, preview = '';
+      c.EmailThreadIds.split(',').forEach(tid => {
+        let th; try { th = GmailApp.getThreadById(tid); } catch (e) { return; }
+        if (!th) return;
+        th.getMessages().forEach(m => {
+          const when = Utilities.formatDate(m.getDate(), TZ, 'yyyy-MM-dd HH:mm');
+          if (when <= lastSeen) return;
+          const from = m.getFrom().toLowerCase();
+          if (from.indexOf(me) >= 0) return;
+          if (when > newest) newest = when;
+          if (/mailer-daemon|postmaster/.test(from)) { bounced = true; return; }
+          gotReply = true;
+          const own = ownText_(m.getPlainBody() || '', s);
+          preview = own.slice(0, 200);
+          if (STOP_WORDS.test(own.slice(0, 600))) stopHint = true;
+          saveSuggestions_(c, extractPeople(own, excludeFor_(c, s)), db);
+          m.getAttachments({ includeInlineImages: false }).forEach(a => {
+            const f = folder.createFile(a.copyBlob()).setName(c.Name + ' – ' + a.getName());
+            recv.appendRow([now_(), c.ID, c.Name, 'Email', 'Attachment: ' + a.getName(), f.getUrl(), '', '']);
+          });
+        });
+      });
+      if (bounced && !gotReply) {
+        // back into the phone/WhatsApp pool
+        bumpBounce_();
+        patchContact_(db, c, { EmailStatus: 'Bounced', EmailLastSeen: newest, Status: c.Status === 'Contacted' ? 'New' : c.Status });
+        log_(c, 'Email', 'Email bounced', 'moved back to phone/WhatsApp list');
+      } else if (gotReply) {
+        patchContact_(db, c, { EmailStatus: 'Replied', EmailLastSeen: newest, NeedsReply: 'YES', Status: 'Talking', NextDate: today_() });
+        log_(c, 'Email', stopHint ? 'Wrote back – may be asking to stop' : 'Wrote back', preview);
+      }
+    });
+  scanBounces_(db);
+}
+
+/** Bounce notices often arrive as separate messages; match them to contacts by address. */
+function scanBounces_(db) {
+  const seen = GmailApp.getUserLabelByName(LABEL + '/bounce-seen') || GmailApp.createLabel(LABEL + '/bounce-seen');
+  const threads = GmailApp.search('from:(mailer-daemon OR postmaster) newer_than:5d -label:' + LABEL + '-bounce-seen', 0, 30);
+  threads.forEach(th => {
+    if (th.getLabels().some(l => l.getName() === seen.getName())) return;
+    const text = th.getMessages().map(m => m.getPlainBody()).join('\n').toLowerCase();
+    db.rows.filter(c => validEmail_(c.Email) && ['Sent', 'Followed up'].indexOf(c.EmailStatus) >= 0 && text.indexOf(c.Email.toLowerCase()) >= 0)
+      .forEach(c => {
+        bumpBounce_();
+        patchContact_(db, c, { EmailStatus: 'Bounced', Status: c.Status === 'Contacted' ? 'New' : c.Status });
+        log_(c, 'Email', 'Email bounced', 'moved back to phone/WhatsApp list');
+      });
+    th.addLabel(seen);
+  });
+}
+
+/* for local testing with node */
+if (typeof module !== 'undefined') module.exports = { scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople };
