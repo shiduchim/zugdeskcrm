@@ -22,4 +22,4 @@ Original plan:
 ## Notes / blockers
 - Google Drive + Gmail connectors are connected to the shidduchim account: Claude can read the Sheet (export) and Gmail directly. Drive connector cannot edit Sheet cells.
 - User does NOT want to re-upload to Drive for future list updates: add an "Import file" button in the app (file picker → merge by exact phone/email, no duplicates). Build it with the Gmail import (12).
-- Nothing has run inside Google yet; everything Google-side must be tested by the user.
+- The app runs in Google (first run OK 2026-11-12); Google-side features are tested by the user. First real Import save not yet confirmed.

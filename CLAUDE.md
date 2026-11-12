@@ -4,7 +4,7 @@ Personal shadchan-outreach CRM for **Eliyahu Kahanovich** (41, single, Kohen, Ch
 Goal: **spend the least time per useful shadchan conversation, and keep growing the list of shadchanim.**
 It must feel easy enough for a 12-year-old.
 
-Status: **deployed and running in the shidduchim Google account (first run OK 2026-11-12); autopilot still OFF.** Logic for ranking, daily plan, reply-text cleaning and referral extraction was unit-tested with Node against the real data. Nothing has run in Apps Script yet — expect small first-run fixes.
+Status: **deployed and running in the shidduchim Google account (first run OK 2026-11-12); autopilot still OFF.** Logic for ranking, daily plan, reply-text cleaning and referral extraction was unit-tested with Node against the real data. Google-side features (Gmail, triggers, import save) are tested by the user in the live app.
 
 ---
 
@@ -78,7 +78,7 @@ Top leads on day 1: call קיי אסתר (Tzfat, Russian speakers); WhatsApp ס�
 
 **Referrals**: polite ask messages (`ASK_WA_*`, `ASK_EMAIL_*`, `ASK_SUBJECT_*`) sent at the right moment; email ask replies inside the person's own thread. `extractPeople()` finds names + Israeli/US phones + emails in replies and pasted text (tested HE/RU/EN, multiple people per line, email on next line, excludes sender's/own numbers). Known contacts → linked as "recommended by"; new → Suggested for one-tap add. Referred contacts get +5 and their intro says who referred them.
 
-**Other**: the hourly job uses its own running flag (not the script lock) so app taps never wait; statuses never move backwards (Talking stays Talking); daily Drive backup at 03:00 (keeps 30), schema auto-upgrade (`schema_()`), LockService on writes, UI buttons lock during saves, contact sheet with history/notes/next date/language, contacts search + filters, Received screen, Email status screen.
+**Other**: the hourly job uses its own running flag (not the script lock) so app taps never wait; statuses never move backwards (Talking stays Talking); daily Drive backup at 03:00 (keeps 30), schema auto-upgrade (`schema_()`), LockService on writes, UI buttons lock during saves, contact sheet with history/notes/next date/language, contacts search + filters (sources grouped in bubbles; insert sheet = Book), Received screen, Email status screen. **Settings** (header button): Theme Auto/Light/Dark, Look ZugDesk (default)/Classic, both in localStorage. Contact card has Basic/Details tabs; on PC (≥900px) list left, card panel right, arrows + Esc. **Import contacts** (Settings): file or pasted list → preview (new / already in list / Do-not-contact / skipped) → add; matches by exact phone or email only; usual flow: user sends a list in chat, Claude returns a clean CSV (scratchpad, never the repo).
 
 ---
 
