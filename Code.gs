@@ -774,7 +774,8 @@ function runJob_(fn) {
 }
 
 function composeEmail_(c, s, lang, followup) {
-  const myPhone = String(s.MY_PHONE || '').trim();
+  const rawPhone = String(s.MY_PHONE || '').trim(), np = normPhone_(rawPhone);
+  const myPhone = np ? (np.intl.startsWith('1') ? np.local : '+' + np.intl.slice(0, 3) + ' ' + np.local.slice(1)) : rawPhone;   // readable, works from Israel and abroad
   const contact = {
     HE: myPhone ? 'אפשר להשיב למייל הזה או לכתוב לי בוואטסאפ: ' + myPhone : 'אפשר פשוט להשיב למייל הזה.',
     RU: myPhone ? 'Можно ответить на это письмо или написать мне в WhatsApp: ' + myPhone : 'Можно просто ответить на это письмо.',

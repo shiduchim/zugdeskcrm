@@ -29,3 +29,4 @@
 - Names with an apostrophe (ג') don't break "They sent a list or file".
 - "Message sent" / "Didn't reach" never moves a Talking contact back or closes it.
 - "Ask by email" refuses Closed / Do-not-contact people.
+- `MY_PHONE` shows readable in emails (+1 612-… / +972 50-…) even if Sheets turned it into bare digits.
