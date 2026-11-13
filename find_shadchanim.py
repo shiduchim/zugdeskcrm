@@ -8,6 +8,8 @@ What it reads (it finds the files itself inside the Takeout folder):
 What it writes (next to this script):
   * shadchan_from_email.csv     — people you emailed with about shidduchim
   * shadchan_from_contacts.csv  — contacts whose name/notes/labels mention shid / shadchan / שדכן ...
+  * shadchan_details.csv       — per person: did they ask not to be contacted, did they make suggestions,
+                                  do they call themselves a shadchan, and short excerpts of their own words
 
 Usage (Windows):
   py find_shadchanim.py "C:\\path\\to\\Takeout" your@gmail.com
@@ -79,9 +81,23 @@ def norm_phone(p):
     return ""
 
 
+OPT_OUT = re.compile(r"(^|[\s.,!?\"'()-])(הסר|הסירו|להסיר|תסיר|תסירו)($|[\s.,!?\"'()-])|לא מעוניינ|אל ת(שלח|כתוב|פנה)|תפסיק|"
+                     r"unsubscribe|remove me|take me off|stop (sending|emailing)|do(n't| not) (email|contact|write)|не пишите|удалите|отпиш", re.I)
+SUGGEST = re.compile(r"הצעה|הצעות|יש לי (בחורה|מישהי|הצעה)|רעיון (בשבילך|עבורך)|suggest|have someone for you|an idea for you|"
+                     r"resume|rezume|רזומה|קורות חיים|предлож|есть девушка", re.I)
+SAYS_SHADCHAN = re.compile(r"שדכנית|שדכן|מ?שדכת|matchmaker|shadchan|shadchante|шадхан|сваха", re.I)
+AUTO = re.compile(r"auto-?reply|automatic reply|out of (the )?office|תשובה אוטומטית|מענה אוטומטי", re.I)
+
+
+def one_line(t, n):
+    t = re.sub(r"\s+", " ", t).strip()
+    return t[:n] + ("…" if len(t) > n else "")
+
+
 def scan_mail(paths, me):
     people = defaultdict(lambda: {"names": set(), "count": 0, "from_them": 0, "to_them": 0,
                                   "first": "", "last": "", "subjects": [], "phones": set()})
+    details = defaultdict(lambda: {"optout": 0, "suggest": 0, "says": 0, "list": 0, "auto": 0, "words": []})
     scanned = matched = 0
     for path in paths:
         print("Reading", path, "(this can take a few minutes)…")
@@ -94,6 +110,28 @@ def scan_mail(paths, me):
                 text = body_text(msg)
             except Exception:
                 continue
+            # details from EVERY message a person sent (a "please remove me" rarely says "shidduch")
+            try:
+                frm = [a.lower() for _, a in getaddresses([dec(msg.get("From"))])]
+            except Exception:
+                frm = []
+            if frm and frm[0] not in me:
+                d = details[frm[0]]
+                own = own_part(text)
+                if msg.get("List-Unsubscribe") or msg.get("List-Id") or (msg.get("Precedence") or "").lower() in ("bulk", "list"):
+                    d["list"] += 1
+                elif AUTO.search(subj) or msg.get("Auto-Submitted", "no").lower() != "no":
+                    d["auto"] += 1
+                else:
+                    if OPT_OUT.search(own): d["optout"] += 1
+                    if SUGGEST.search(subj + " " + own): d["suggest"] += 1
+                    if SAYS_SHADCHAN.search(own): d["says"] += 1
+                    try:
+                        dt = parsedate_to_datetime(msg.get("Date")).strftime("%Y-%m-%d")
+                    except Exception:
+                        dt = ""
+                    if own.strip():
+                        d["words"].append((dt, one_line(own, 400)))
             if not KEYWORDS.search(subj + "\n" + text):
                 continue
             if msg.get("List-Unsubscribe") or msg.get("List-Id"):
@@ -133,6 +171,16 @@ def scan_mail(paths, me):
         for addr, p in rows:
             w.writerow([addr, " / ".join(sorted(p["names"])), p["count"], p["from_them"], p["to_them"],
                         p["first"], p["last"], ", ".join(sorted(p["phones"])), " | ".join(p["subjects"])])
+    with open("shadchan_details.csv", "w", newline="", encoding="utf-8-sig") as f:
+        w = csv.writer(f)
+        w.writerow(["Email", "Name(s)", "From them", "From you", "Last", "Asked not to contact", "Suggestions",
+                    "Says shadchan", "Newsletter emails", "Auto-replies", "Phones", "Their latest words (newest first)"])
+        for addr, p in rows:
+            d = details.get(addr) or {"optout": 0, "suggest": 0, "says": 0, "list": 0, "auto": 0, "words": []}
+            words = sorted(d["words"], reverse=True)[:3]
+            w.writerow([addr, " / ".join(sorted(p["names"])), p["from_them"], p["to_them"], p["last"],
+                        d["optout"], d["suggest"], d["says"], d["list"], d["auto"], ", ".join(sorted(p["phones"])),
+                        " ‖ ".join(f"[{dt}] {t}" for dt, t in words)])
 
 
 def scan_contacts(csv_paths, vcf_paths):
@@ -192,4 +240,4 @@ if __name__ == "__main__":
         if not me:
             print("Tip: add your own email address(es) after the folder so you aren't listed as a contact.")
         scan_mail(mboxes, me)
-    print("Finished. Send shadchan_from_email.csv and shadchan_from_contacts.csv to Claude.")
+    print("Finished. Send shadchan_details.csv, shadchan_from_email.csv and shadchan_from_contacts.csv to Claude.")
