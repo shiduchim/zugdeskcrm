@@ -98,7 +98,7 @@ def one_line(t, n):
 def scan_mail(paths, me):
     people = defaultdict(lambda: {"names": set(), "count": 0, "from_them": 0, "to_them": 0,
                                   "first": "", "last": "", "subjects": [], "phones": set()})
-    details = defaultdict(lambda: {"optout": 0, "suggest": 0, "says": 0, "list": 0, "auto": 0, "words": []})
+    details = defaultdict(lambda: {"optout": 0, "suggest": 0, "says": 0, "list": 0, "auto": 0, "words": [], "emails": set(), "phones": set()})
     convo = defaultdict(list)          # addr -> [(date, direction, subject, text)]
     sent_texts = {}                    # same email sent to many people is written out only once
     scanned = matched = 0
@@ -129,6 +129,13 @@ def scan_mail(paths, me):
                     if OPT_OUT.search(own): d["optout"] += 1
                     if SUGGEST.search(subj + " " + own): d["suggest"] += 1
                     if SAYS_SHADCHAN.search(own): d["says"] += 1
+                    for e in re.findall(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", own):
+                        if e.lower() not in me and e.lower() != frm[0]:
+                            d["emails"].add(e.lower())
+                    for ph in PHONE.findall(own):
+                        n = norm_phone(ph)
+                        if n:
+                            d["phones"].add(n)
                     try:
                         dt = parsedate_to_datetime(msg.get("Date")).strftime("%Y-%m-%d")
                     except Exception:
@@ -202,12 +209,13 @@ def scan_mail(paths, me):
     with open("shadchan_details.csv", "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f)
         w.writerow(["Email", "Name(s)", "From them", "From you", "Last", "Asked not to contact", "Suggestions",
-                    "Says shadchan", "Newsletter emails", "Auto-replies", "Phones", "Their latest words (newest first)"])
+                    "Says shadchan", "Newsletter emails", "Auto-replies", "Phones", "Other emails they wrote", "Their latest words (newest first)"])
         for addr, p in rows:
-            d = details.get(addr) or {"optout": 0, "suggest": 0, "says": 0, "list": 0, "auto": 0, "words": []}
+            d = details.get(addr) or {"optout": 0, "suggest": 0, "says": 0, "list": 0, "auto": 0, "words": [], "emails": set(), "phones": set()}
             words = sorted(d["words"], reverse=True)[:3]
             w.writerow([addr, " / ".join(sorted(p["names"])), p["from_them"], p["to_them"], p["last"],
-                        d["optout"], d["suggest"], d["says"], d["list"], d["auto"], ", ".join(sorted(p["phones"])),
+                        d["optout"], d["suggest"], d["says"], d["list"], d["auto"], ", ".join(sorted(p["phones"] | d["phones"])),
+                        ", ".join(sorted(d["emails"])[:10]),
                         " ‖ ".join(f"[{dt}] {t}" for dt, t in words)])
 
 
