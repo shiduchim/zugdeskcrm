@@ -8,6 +8,7 @@ What it reads (it finds the files itself inside the Takeout folder):
 What it writes (next to this script):
   * shadchan_from_email.csv     — people you emailed with about shidduchim
   * shadchan_from_contacts.csv  — contacts whose name/notes/labels mention shid / shadchan / שדכן ...
+  * shadchan_conversations.txt — per person, every email in order (what you wrote, what they answered)
   * shadchan_details.csv       — per person: did they ask not to be contacted, did they make suggestions,
                                   do they call themselves a shadchan, and short excerpts of their own words
 
@@ -98,6 +99,8 @@ def scan_mail(paths, me):
     people = defaultdict(lambda: {"names": set(), "count": 0, "from_them": 0, "to_them": 0,
                                   "first": "", "last": "", "subjects": [], "phones": set()})
     details = defaultdict(lambda: {"optout": 0, "suggest": 0, "says": 0, "list": 0, "auto": 0, "words": []})
+    convo = defaultdict(list)          # addr -> [(date, direction, subject, text)]
+    sent_texts = {}                    # same email sent to many people is written out only once
     scanned = matched = 0
     for path in paths:
         print("Reading", path, "(this can take a few minutes)…")
@@ -132,6 +135,25 @@ def scan_mail(paths, me):
                         dt = ""
                     if own.strip():
                         d["words"].append((dt, one_line(own, 400)))
+            # the conversation text, both directions (quoted history cut)
+            try:
+                when_full = parsedate_to_datetime(msg.get("Date")).strftime("%Y-%m-%d %H:%M")
+            except Exception:
+                when_full = ""
+            if not (msg.get("List-Unsubscribe") or msg.get("List-Id")):
+                own = one_line(own_part(text), 1500)
+                if frm and frm[0] in me:
+                    key = own[:300]
+                    if key in sent_texts and own:
+                        own = "(same email as on " + sent_texts[key] + ")"
+                    else:
+                        sent_texts[key] = when_full
+                    for _, a in getaddresses([dec(msg.get(h)) for h in ("To", "Cc") if msg.get(h)]):
+                        a = (a or "").lower()
+                        if a and a not in me:
+                            convo[a].append((when_full, "ME →", subj[:120], own))
+                elif frm:
+                    convo[frm[0]].append((when_full, "← THEM", subj[:120], own))
             if not KEYWORDS.search(subj + "\n" + text):
                 continue
             if msg.get("List-Unsubscribe") or msg.get("List-Id"):
@@ -171,6 +193,12 @@ def scan_mail(paths, me):
         for addr, p in rows:
             w.writerow([addr, " / ".join(sorted(p["names"])), p["count"], p["from_them"], p["to_them"],
                         p["first"], p["last"], ", ".join(sorted(p["phones"])), " | ".join(p["subjects"])])
+    with open("shadchan_conversations.txt", "w", encoding="utf-8") as f:
+        for addr, p in rows:
+            f.write("=" * 70 + "\n" + addr + "  |  " + " / ".join(sorted(p["names"])) + "\n")
+            for when, direction, subj, own in sorted(convo.get(addr, [])):
+                f.write(f"[{when}] {direction}  {subj}\n    {own}\n")
+            f.write("\n")
     with open("shadchan_details.csv", "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f)
         w.writerow(["Email", "Name(s)", "From them", "From you", "Last", "Asked not to contact", "Suggestions",
@@ -240,4 +268,4 @@ if __name__ == "__main__":
         if not me:
             print("Tip: add your own email address(es) after the folder so you aren't listed as a contact.")
         scan_mail(mboxes, me)
-    print("Finished. Send shadchan_details.csv, shadchan_from_email.csv and shadchan_from_contacts.csv to Claude.")
+    print("Finished. Send shadchan_conversations.txt, shadchan_details.csv, shadchan_from_email.csv and shadchan_from_contacts.csv to Claude.")
