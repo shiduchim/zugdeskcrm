@@ -11,9 +11,9 @@ const LABEL = 'zugdeskcrm';
 const C_HEADERS = ['ID','Name','City','Sector','Specialty','Languages','Symbol','Hours','Phone1','Phone2','Email','Other',
   'Source','SourceRef','ReferredBy','Status','CloseReason','NextDate','Attempts','LastContact','LastChannel','NeedsReply',
   'EmailStatus','EmailSentAt','EmailFollowupAt','EmailThreadIds','EmailLastSeen','Lang','Boost','CrossedOut','InZugDesk','Notes',
-  'AskedReferralsAt','Type'];
+  'AskedReferralsAt','Type','Helpers'];
 const S_HEADERS = ['When','FromID','FromName','Name','Phone','Phone2','Email','Text','Status','ContactID'];
-const SCHEMA = '4';
+const SCHEMA = '5';
 
 /** Adds new tabs/columns/settings to an older sheet without touching existing data. */
 function schema_() {
@@ -482,12 +482,13 @@ function api_askMark(id, how) {
 /* ------------------------------------------------------------------ */
 
 function buildPlan_(db, s, dnc) {
+  const busy = helperBusy_();
   const autoEmail = String(s.AUTO_EMAIL).toUpperCase() === 'ON';
   const touched = new Set();
   db.rows.forEach(c => { if (c.Status && c.Status !== 'New') phonesOf_(c).forEach(p => touched.add(p.intl)); });
 
   const pool = db.rows
-    .filter(c => (c.Status || 'New') === 'New' && isShadchan_(c) && !blocked_(c, dnc))
+    .filter(c => (c.Status || 'New') === 'New' && isShadchan_(c) && !blocked_(c, dnc) && !busy.has(c.ID))
     .filter(c => phonesOf_(c).length && !phonesOf_(c).some(p => touched.has(p.intl)))
     // when the email autopilot is on, people with an email get the email first
     .filter(c => !(autoEmail && validEmail_(c.Email) && !c.EmailStatus))
@@ -541,7 +542,8 @@ function card_(c, s, lean) {
     gmailUrl: threadUrl_((c.EmailThreadIds || '').split(',').filter(Boolean).pop()),
     waUrl: mob && !lean ? 'https://api.whatsapp.com/send?phone=' + mob.intl + '&text=' + encodeURIComponent(waText_(c, s, lang)) : '',
     doneToday: (c.LastContact || '').slice(0, 10) === today_(),
-    source: c.Source, sourceRef: c.SourceRef, closeReason: c.CloseReason, attempts: c.Attempts, rank: sc.score
+    source: c.Source, sourceRef: c.SourceRef, closeReason: c.CloseReason, attempts: c.Attempts, rank: sc.score,
+    helpers: c.Helpers || ''
   };
 }
 
@@ -567,8 +569,13 @@ function waText_(c, s, lang) {
 
 function api_today(rebuild) {
   schema_();
+  try { helperSync_(false); } catch (e) { console.error(e); }   // helpers' results first
   const s = settings_(), db = loadContacts_(), dnc = dnc_();
+  const newPlan = rebuild || !PropertiesService.getScriptProperties().getProperty('plan_' + today_());
   const plan = getPlan_(db, s, dnc, rebuild);
+  if (newPlan) try { helperSync_(true); } catch (e) { console.error(e); }   // today's people leave the helpers' list
+  const busy = helperBusy_();
+  plan.call = plan.call.filter(id => !busy.has(id)); plan.wa = plan.wa.filter(id => !busy.has(id));
   const byId = {}; db.rows.forEach(c => (byId[c.ID] = c));
   const t = today_();
   const inPlan = new Set(plan.call.concat(plan.wa));
@@ -597,7 +604,8 @@ function api_today(rebuild) {
     autoEmail: String(s.AUTO_EMAIL).toUpperCase() === 'ON',
     profiles: { HE: s.PROFILE_HE || '', RU: s.PROFILE_RU || '', EN: s.PROFILE_EN || '' },
     callScript: s.CALL_SCRIPT || '',
-    sheetUrl: ss_().getUrl()
+    sheetUrl: ss_().getUrl(),
+    helperNames: helperNames_()
   };
 }
 
@@ -610,7 +618,9 @@ const RESULTS = {
   later:     { label: 'Later',            status: 'Later',     days: 60, clearReply: true },
   wrong:     { label: 'Wrong number',     status: 'Closed',    close: 'Wrong number' },
   stop:      { label: 'Do not contact',   status: 'Closed',    close: 'Do not contact' },
-  reopen:    { label: 'Reopened',         status: 'New',       days: 0 }
+  reopen:    { label: 'Reopened',         status: 'New',       days: 0 },
+  callback:  { label: 'Call back later',  status: 'Contacted', days: 3 },
+  inactive:  { label: 'Not active anymore', status: 'Closed',  close: 'Not active' }
 };
 
 function api_result(id, action, channel, note, nextDate) {
@@ -619,11 +629,19 @@ function api_result(id, action, channel, note, nextDate) {
     const s = settings_(), db = loadContacts_();
     const c = db.rows.find(r => r.ID === id);
     if (!c) throw new Error('Contact not found: ' + id);
+    applyResult_(s, db, c, action, channel, note, nextDate);
+    try { helperHide_(id); } catch (e) {}   // you contacted them yourself → off the helpers' list
+    return card_(c, s);
+  } finally { lock.releaseLock(); }
+}
+
+/** Saves one result on a contact (no lock: callers hold it). */
+function applyResult_(s, db, c, action, channel, note, nextDate) {
     const r = RESULTS[action]; if (!r) throw new Error('Unknown action ' + action);
     const patch = { Status: r.status, LastContact: now_(), LastChannel: channel || c.LastChannel || '' };
     if (action === 'reopen') { delete patch.LastContact; delete patch.LastChannel; }
     // someone you're already talking with stays "Talking" (no attempts counted, never auto-closed)
-    const keep = c.Status === 'Talking' && (action === 'sent' || action === 'noreach');
+    const keep = c.Status === 'Talking' && (action === 'sent' || action === 'noreach' || action === 'callback');
     if (keep) patch.Status = 'Talking';
     if (r.attempt && !keep) patch.Attempts = (parseInt(c.Attempts, 10) || 0) + 1;
     if (action === 'noreach' && !keep && patch.Attempts >= num_(s, 'MAX_ATTEMPTS', 3)) { patch.Status = 'Closed'; patch.CloseReason = 'Not reached'; }
@@ -640,8 +658,6 @@ function api_result(id, action, channel, note, nextDate) {
       if (ph[1]) sh.appendRow(['', ph[1], 'Asked not to be contacted', today_(), 'zugdeskcrm']);
     }
     log_(c, channel || '', r.label, note || '');
-    return card_(c, s);
-  } finally { lock.releaseLock(); }
 }
 
 function api_contacts(q, filter, offset) {
@@ -705,7 +721,7 @@ function api_saveContact(id, patch) {
   try {
     const db = loadContacts_(); const c = db.rows.find(r => r.ID === id);
     if (!c) throw new Error('Contact not found: ' + id);
-    const allowed = {}; ['Notes', 'NextDate', 'Lang', 'Email', 'Boost'].forEach(k => { if (patch[k] !== undefined) allowed[k] = patch[k]; });
+    const allowed = {}; ['Notes', 'NextDate', 'Lang', 'Email', 'Boost', 'Helpers'].forEach(k => { if (patch[k] !== undefined) allowed[k] = patch[k]; });
     patchContact_(db, c, allowed);
     return api_contact(id);
   } finally { lock.releaseLock(); }
@@ -909,6 +925,7 @@ function hourlyJob() {
   runJob_(() => {
     try { importInbox_(); } catch (e) { log_(null, 'Import', 'Import inbox error', String(e)); }
     scanReplies_(); sendBatch_();
+    try { helperSync_(true); } catch (e) { log_(null, 'Helpers', 'Helper sync error', String(e).slice(0, 200)); }
   });
 }
 
@@ -982,7 +999,7 @@ function sendBatch_() {
     return;
   }
 
-  const db = loadContacts_(), dnc = dnc_();
+  const db = loadContacts_(), dnc = dnc_(), busy = helperBusy_();
   const label = GmailApp.getUserLabelByName(LABEL) || GmailApp.createLabel(LABEL);
   const t = today_();
   const fuDays = num_(s, 'FOLLOWUP_DAYS', 8);
@@ -991,7 +1008,7 @@ function sendBatch_() {
   const followups = db.rows.filter(c => c.EmailStatus === 'Sent' && c.Status === 'Contacted' && c.LastChannel === 'Email' && c.NeedsReply !== 'YES' && isShadchan_(c)
     && c.EmailSentAt && c.EmailSentAt.slice(0, 10) <= addDays_(-fuDays) && !blocked_(c, dnc) && validEmail_(c.Email));
   // 2) new emails, best leads first
-  const fresh = db.rows.filter(c => (c.Status || 'New') === 'New' && isShadchan_(c) && !c.EmailStatus && validEmail_(c.Email) && !blocked_(c, dnc)
+  const fresh = db.rows.filter(c => (c.Status || 'New') === 'New' && isShadchan_(c) && !c.EmailStatus && validEmail_(c.Email) && !blocked_(c, dnc) && !busy.has(c.ID)
     && !(String(s.SKIP_ZUGDESK).toUpperCase() === 'YES' && c.InZugDesk === 'YES'))
     .map(c => ({ c: c, sc: scoreContact(c, s).score })).sort((a, b) => b.sc - a.sc).map(x => x.c);
 
@@ -1125,5 +1142,204 @@ function scanBounces_(db) {
   });
 }
 
+/* ------------------------------------------------------------------ */
+/* Helpers: friends/family call shadchanim with a personal link.       */
+/* Their app (folder helper/) only sees its own sheet; this app writes */
+/* the List there and reads back Reservations + Results.               */
+/* ------------------------------------------------------------------ */
+
+const HELPER_URL = '';   // filled in once the helper app is published
+const H_TABS = {
+  Helpers: ['Name', 'Key', 'Active', 'Show', 'Lang', 'Added'],
+  List: ['ID', 'Name', 'City', 'Languages', 'Hours', 'Phone1', 'Tel1', 'Mobile1', 'Phone2', 'Tel2', 'Mobile2', 'Specialty', 'Why', 'For'],
+  Reservations: ['ContactID', 'Helper', 'At', 'State'],
+  Results: ['When', 'Helper', 'ContactID', 'Name', 'Result', 'Next', 'Notes', 'Names'],
+  Texts: ['Key', 'Value', 'Explanation'],
+  Config: ['Key', 'Value']
+};
+/** Helper result → result in this app. */
+const HELPER_ACTIONS = { spoke: 'spoke', noanswer: 'noreach', callback: 'callback', wrong: 'wrong', inactive: 'inactive', stop: 'stop' };
+const HELPER_NEXT = { profile: 'wants Eliyahu\'s details', call: 'wants Eliyahu to call' };
+
+function helperSS_() {
+  const id = PropertiesService.getScriptProperties().getProperty('HELPER_SS_ID');
+  if (!id) return null;
+  try { return SpreadsheetApp.openById(id); } catch (e) { return null; }
+}
+function helperUrl_() { return settings_().HELPER_URL || HELPER_URL; }
+function hTime_() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss'); }
+
+/** Pure: who helpers may call, best first. skip = IDs you are handling yourself today. */
+function helperPool_(rows, s, isBlocked, skip, today) {
+  return rows.filter(c => {
+    if (!isShadchan_(c) || isBlocked(c) || skip.has(c.ID) || !phonesOf_(c).length) return false;
+    if (/^only me$/i.test(String(c.Helpers || '').trim())) return false;
+    const st = c.Status || 'New';
+    if (st === 'New') return true;
+    // a helper's "no answer / call back later" comes back to the helpers when it is due
+    return st === 'Contacted' && /^Helper/.test(c.LastChannel || '') && c.NeedsReply !== 'YES' && (!c.NextDate || c.NextDate <= today);
+  }).map(c => ({ c: c, sc: scoreContact(c, s) })).sort((a, b) => b.sc.score - a.sc.score).map(x => {
+    const ph = phonesOf_(x.c);
+    const p = i => ph[i] ? [ph[i].local, '+' + ph[i].intl, ph[i].mobile ? 'YES' : ''] : ['', '', ''];
+    return [x.c.ID, x.c.Name, x.c.City, x.c.Languages, x.c.Hours].concat(p(0), p(1), [x.c.Specialty, x.sc.why.join(' · '), x.c.Helpers || '']);
+  });
+}
+
+/** Pure: the note a helper's result leaves on the contact. */
+function helperNote_(r) {
+  return ['[' + r.helper + ']', r.notes, HELPER_NEXT[r.next] ? '→ ' + HELPER_NEXT[r.next] : '', r.names ? 'Names given: ' + r.names : '']
+    .filter(Boolean).join(' ').trim();
+}
+
+/** Contacts a helper is calling right now, or whose result is not yet in this app. Cached 2 minutes. */
+function helperBusy_() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('helper_busy');
+  if (hit !== null) return new Set(hit ? hit.split(',') : []);
+  const ids = [];
+  const hs = helperSS_();
+  if (hs) {
+    const dayAgo = Utilities.formatDate(new Date(Date.now() - 864e5), TZ, 'yyyy-MM-dd HH:mm:ss');
+    hs.getSheetByName('Reservations').getDataRange().getValues().slice(1)
+      .forEach(r => { if (String(r[3]) === 'Active' && str_(r[2]) >= dayAgo) ids.push(String(r[0])); });
+    const done = parseInt(PropertiesService.getScriptProperties().getProperty('helper_synced') || '0', 10);
+    hs.getSheetByName('Results').getDataRange().getValues().slice(1 + done).forEach(r => ids.push(String(r[2])));
+  }
+  cache.put('helper_busy', ids.join(','), 120);
+  return new Set(ids);
+}
+
+function helperNames_() {
+  const hs = helperSS_(); if (!hs) return [];
+  return hs.getSheetByName('Helpers').getDataRange().getValues().slice(1).map(r => str_(r[0])).filter(Boolean);
+}
+
+/** Brings helpers' results into Contacts; then (if asked or anything changed) rewrites the helpers' List. */
+function helperSync_(rebuildList) {
+  const hs = helperSS_(); if (!hs) return;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return;
+  try {
+    const props = PropertiesService.getScriptProperties();
+    let done = parseInt(props.getProperty('helper_synced') || '0', 10);
+    const res = hs.getSheetByName('Results').getDataRange().getValues().slice(1);
+    const s = settings_(), db = loadContacts_();
+    let applied = 0;
+    for (let i = done; i < res.length; i++) {
+      const r = { when: str_(res[i][0]), helper: str_(res[i][1]), id: str_(res[i][2]), result: str_(res[i][4]), next: str_(res[i][5]), notes: str_(res[i][6]), names: str_(res[i][7]) };
+      const c = db.rows.find(x => x.ID === r.id), action = HELPER_ACTIONS[r.result];
+      if (c && action) {
+        applyResult_(s, db, c, action, 'Helper: ' + r.helper, helperNote_(r));
+        if (action === 'spoke' && HELPER_NEXT[r.next]) patchContact_(db, c, { NeedsReply: 'YES', NextDate: today_() });
+        if (r.names) saveSuggestions_(c, extractPeople(r.names, excludeFor_(c, s)), db);
+      }
+      props.setProperty('helper_synced', String(i + 1));
+      applied++;
+    }
+    if (applied) CacheService.getScriptCache().remove('helper_busy');
+    const last = props.getProperty('helper_built') || '';
+    if (rebuildList || applied || last < Utilities.formatDate(new Date(Date.now() - 15 * 60e3), TZ, 'yyyy-MM-dd HH:mm:ss')) helperRebuild_(hs, s, db);
+  } finally { lock.releaseLock(); }
+}
+
+function helperRebuild_(hs, s, db) {
+  const dnc = dnc_();
+  const plan = JSON.parse(PropertiesService.getScriptProperties().getProperty('plan_' + today_()) || '{"call":[],"wa":[]}');
+  const skip = new Set(plan.call.concat(plan.wa));
+  db.rows.forEach(c => { if ((c.LastContact || '').slice(0, 10) === today_() && !/^Helper/.test(c.LastChannel || '')) skip.add(c.ID); });
+  const rows = helperPool_(db.rows, s, c => blocked_(c, dnc), skip, today_());
+  const sh = hs.getSheetByName('List');
+  const w = H_TABS.List.length;
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, w).clearContent();
+  if (rows.length) sh.getRange(2, 1, rows.length, w).setValues(rows);
+  const at = hTime_();
+  hSet_(hs, { BuiltAt: at, PROFILE_HE: s.PROFILE_HE || '', PROFILE_RU: s.PROFILE_RU || '', PROFILE_EN: s.PROFILE_EN || '' });
+  PropertiesService.getScriptProperties().setProperty('helper_built', at);
+}
+
+function hSet_(hs, map) {
+  const sh = hs.getSheetByName('Config');
+  const vals = sh.getDataRange().getValues();
+  Object.keys(map).forEach(k => {
+    const i = vals.findIndex(r => String(r[0]) === k);
+    if (i > 0) sh.getRange(i + 1, 2).setValue(map[k]); else { sh.appendRow([k, map[k]]); vals.push([k, map[k]]); }
+  });
+}
+
+/** You took care of someone yourself → hide them from helpers at once (if they were on the List). */
+function helperHide_(id) {
+  const plan = PropertiesService.getScriptProperties().getProperty('plan_' + today_()) || '';
+  if (plan.indexOf('"' + id + '"') >= 0) return;   // today's people are never on the helpers' list
+  const hs = helperSS_(); if (!hs) return;
+  const sh = hs.getSheetByName('List');
+  const ids = sh.getRange(1, 1, sh.getLastRow(), 1).getValues();
+  for (let i = ids.length - 1; i >= 1; i--) if (String(ids[i][0]) === id) sh.deleteRow(i + 1);
+}
+
+const H_TEXTS = [
+  ['SCRIPT_RU', 'Здравствуйте, меня зовут {helper}. Я звоню от имени Элияху Кахановича: ему 41 год, Хабад, живёт в Цфате, ищет шидух. Вы ещё занимаетесь шидухами? Как вам удобнее получить его данные?', 'What helpers say (Russian). {helper} = the helper\'s name.'],
+  ['SCRIPT_HE', 'שלום, מדבר/ת {helper}. אני מתקשר/ת בשם אליהו כהנוביץ\' – בן 41, חב"ד, גר בצפת, מחפש שידוך. רציתי לשאול אם את/ה עדיין עוסק/ת בשידוכים, ואיך הכי נוח לשלוח לך את הפרטים שלו?', 'What helpers say (Hebrew).'],
+  ['SCRIPT_EN', 'Hello, my name is {helper}. I\'m calling for Eliyahu Kahanovich: 41, Chabad, lives in Tzfat, looking for a shidduch. Are you still active as a shadchan? What is the best way to send you his details?', 'What helpers say (English).'],
+  ['(any label)', '', 'To change any word on the helpers\' page, add a row with its key + _RU / _HE / _EN (e.g. res_spoke_RU). Ask Claude for the key.']
+];
+
+/** One-time: creates the helpers' sheet (its own file; the helper app can only see that file). */
+function api_helpersSetup() {
+  const props = PropertiesService.getScriptProperties();
+  let hs = helperSS_();
+  if (!hs) { hs = SpreadsheetApp.create('zugdeskcrm – Helpers'); props.setProperty('HELPER_SS_ID', hs.getId()); }
+  Object.keys(H_TABS).forEach(n => {
+    let sh = hs.getSheetByName(n);
+    if (!sh) sh = hs.insertSheet(n);
+    if (!sh.getRange(1, 1).getValue()) { sh.getRange(1, 1, 1, H_TABS[n].length).setValues([H_TABS[n]]); sh.setFrozenRows(1); }
+    sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).setNumberFormat('@');
+  });
+  const first = hs.getSheetByName('Sheet1'); if (first && hs.getSheets().length > 1) hs.deleteSheet(first);
+  const tx = hs.getSheetByName('Texts');
+  const have = tx.getDataRange().getValues().map(r => String(r[0]));
+  H_TEXTS.forEach(r => { if (have.indexOf(r[0]) < 0) tx.appendRow(r); });
+  helperSync_(true);
+  return api_helpers();
+}
+
+function api_helpers() {
+  const hs = helperSS_();
+  if (!hs) return { ready: false };
+  const url = helperUrl_();
+  const helpers = hs.getSheetByName('Helpers').getDataRange().getValues().slice(1).filter(r => r[0]).map((r, i) => ({
+    row: i + 2, name: str_(r[0]), active: str_(r[2]) !== 'NO', show: str_(r[3]) || 'All', lang: str_(r[4]) || 'HE',
+    link: url ? url + '?k=' + str_(r[1]) : ''
+  }));
+  const results = hs.getSheetByName('Results').getDataRange().getValues().slice(1).slice(-15).reverse()
+    .map(r => ({ when: str_(r[0]).slice(0, 16), helper: str_(r[1]), id: str_(r[2]), name: str_(r[3]), result: str_(r[4]), notes: str_(r[6]) }));
+  const busy = helperBusy_();
+  return { ready: true, url: url, sheetUrl: hs.getUrl(), helpers: helpers, results: results, calling: busy.size,
+    listSize: Math.max(0, hs.getSheetByName('List').getLastRow() - 1) };
+}
+
+/** Add a helper, or change one (matched by name). */
+function api_saveHelper(h) {
+  const hs = helperSS_(); if (!hs) throw new Error('Set up helpers first');
+  const name = String(h.name || '').trim(); if (!name) throw new Error('Please type a name');
+  const sh = hs.getSheetByName('Helpers');
+  const vals = sh.getDataRange().getValues();
+  const i = vals.findIndex((r, j) => j > 0 && String(r[0]).trim().toLowerCase() === name.toLowerCase());
+  const show = ['All', 'Russian', 'English', 'Picked'].indexOf(h.show) >= 0 ? h.show : 'All';
+  const lang = ['HE', 'RU', 'EN'].indexOf(h.lang) >= 0 ? h.lang : 'HE';
+  const active = h.active === false ? 'NO' : 'YES';
+  if (i > 0) sh.getRange(i + 1, 3, 1, 3).setValues([[active, show, lang]]);
+  else sh.appendRow([name, Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '').slice(0, 8), active, show, lang, today_()]);
+  return api_helpers();
+}
+
+/** New secret link for one helper (the old link stops working). */
+function api_newHelperLink(name) {
+  const hs = helperSS_(); const sh = hs.getSheetByName('Helpers');
+  const vals = sh.getDataRange().getValues();
+  const i = vals.findIndex((r, j) => j > 0 && String(r[0]) === name);
+  if (i > 0) sh.getRange(i + 1, 2).setValue(Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '').slice(0, 8));
+  return api_helpers();
+}
+
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };
+if (typeof module !== 'undefined') module.exports = { helperPool_: helperPool_, helperNote_: helperNote_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };

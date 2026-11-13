@@ -4,7 +4,7 @@ name: Deploy to Apps Script
 on:
   push:
     branches: [main, claude/elegant-heisenberg-tapenz]
-    paths: [Code.gs, Index.html, appsscript.json, .github/workflows/deploy.yml]
+    paths: [Code.gs, Index.html, appsscript.json, 'helper/**', .github/workflows/deploy.yml]
   workflow_dispatch:
 concurrency: deploy
 jobs:
@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DEPLOYMENT_ID: AKfycbwKXLx6YKq_-qmba1SN6xXC8Ay1M8y4Wc_-Nf1iB_xYA4w8SsbgCDU07arL2tljUm8U
+      HELPER_DEPLOYMENT_ID: ''   # helpers' web app (filled in after its first deployment)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,6 +20,7 @@ jobs:
       - name: Checks (stop if anything fails)
         run: |
           cp Code.gs /tmp/c.js && node --check /tmp/c.js
+          cp helper/Code.gs /tmp/h.js && node --check /tmp/h.js
           node tests/test.js
       - name: Upload and update the web app
         env:
@@ -28,3 +30,8 @@ jobs:
           printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
           npx -y @google/clasp@3.4.1 push -f
           npx -y @google/clasp@3.4.1 create-deployment -i "$DEPLOYMENT_ID" -d "${GITHUB_SHA::7} $(git log -1 --format=%s | cut -c1-80)"
+          # helpers' app (separate project, only after helper/.clasp.json exists)
+          if [ -f helper/.clasp.json ]; then
+            cd helper && npx -y @google/clasp@3.4.1 push -f
+            if [ -n "$HELPER_DEPLOYMENT_ID" ]; then npx -y @google/clasp@3.4.1 create-deployment -i "$HELPER_DEPLOYMENT_ID" -d "${GITHUB_SHA::7} helpers"; fi
+          fi

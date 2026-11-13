@@ -60,4 +60,44 @@ t('csvRows_ + planImport_: quoted commas, BOM, Lang kept only if HE/RU/EN', () =
   const p = A.planImport_(r, [], { emails: new Set(), phones: new Set() });
   assert.strictEqual(p.add[0].Lang, 'EN'); assert.strictEqual(p.add[1].Lang, '');
 });
+
+// ---------- helpers ----------
+const H = require('../helper/Code.gs');
+t('helperPool_: only shadchanim with a phone, not "Only me", not blocked, not handled today', () => {
+  const rows = [
+    { ID: 'C1', Name: 'A', Type: 'Shadchan', Status: 'New', Phone1: '050-1234567', Languages: 'ר' },
+    { ID: 'C2', Name: 'B', Type: 'Shadchan', Status: 'New', Phone1: '050-1234568', Helpers: 'Only me' },
+    { ID: 'C3', Name: 'C', Type: 'Other', Status: 'New', Phone1: '050-1234569' },
+    { ID: 'C4', Name: 'D', Type: 'Shadchan', Status: 'New', Phone1: '' },
+    { ID: 'C5', Name: 'E', Type: 'Shadchan', Status: 'New', Phone1: '050-1234570' },
+    { ID: 'C6', Name: 'F', Type: 'Shadchan', Status: 'Talking', Phone1: '050-1234571' },
+    { ID: 'C7', Name: 'G', Type: 'Shadchan', Status: 'Contacted', LastChannel: 'Helper: Mom', NextDate: '2026-11-10', Phone1: '02-6234567' },
+    { ID: 'C8', Name: 'H', Type: 'Shadchan', Status: 'Contacted', LastChannel: 'Helper: Mom', NextDate: '2026-11-20', Phone1: '02-6234568' },
+    { ID: 'C9', Name: 'I', Type: 'Shadchan', Status: 'New', Phone1: '050-1234572', Helpers: 'Mom' }
+  ];
+  const out = A.helperPool_(rows, S, c => c.ID === 'C5', new Set(['C6']), '2026-11-13');
+  assert.deepStrictEqual(out.map(r => r[0]).sort(), ['C1', 'C7', 'C9']);
+  const c1 = out.find(r => r[0] === 'C1');
+  assert.strictEqual(c1[6], '+972501234567'); assert.strictEqual(c1[7], 'YES'); assert.strictEqual(out.find(r => r[0] === 'C9')[13], 'Mom');
+});
+t('helperNote_: name, notes, next step, names', () => {
+  assert.strictEqual(A.helperNote_({ helper: 'Mom', notes: 'nice lady', next: 'call', names: 'Rivka 050-1112223' }),
+    "[Mom] nice lady → wants Eliyahu to call Names given: Rivka 050-1112223");
+  assert.strictEqual(A.HELPER_ACTIONS.noanswer, 'noreach');
+});
+t('canSee_: picked people only for them; Russian filter; Picked shows nothing else', () => {
+  const mom = { name: 'Mom', show: 'Russian' }, dina = { name: 'Dina', show: 'All' }, pick = { name: 'Moshe', show: 'Picked' };
+  assert.ok(H.canSee_(mom, { Languages: 'ע,ר' })); assert.ok(!H.canSee_(mom, { Languages: 'ע' }));
+  assert.ok(H.canSee_(dina, { Languages: 'ע' })); assert.ok(!H.canSee_(dina, { For: 'Mom' }));
+  assert.ok(H.canSee_(mom, { For: 'mom, Dina', Languages: 'ע' })); assert.ok(!H.canSee_(pick, {})); assert.ok(H.canSee_(pick, { For: 'Moshe' }));
+});
+t('holds_: active 24h, given back or done ends it, newer helper wins after release', () => {
+  const now = Date.parse('2026-11-13T10:00:00Z');   // 12:00 in Jerusalem
+  const r = [['C1', 'Mom', '2026-11-13 09:00:00', 'Active'], ['C2', 'Dina', '2026-11-11 09:00:00', 'Active'],
+    ['C3', 'Mom', '2026-11-13 08:00:00', 'Active'], ['C3', 'Mom', '2026-11-13 08:30:00', 'Done'],
+    ['C4', 'Mom', '2026-11-13 08:00:00', 'Active'], ['C4', 'Mom', '2026-11-13 08:10:00', 'Released'], ['C4', 'Dina', '2026-11-13 08:20:00', 'Active']];
+  global.Utilities = { formatDate: (d, tz, f) => new Date(d.getTime() + 2 * 3600e3).toISOString().replace('T', ' ').slice(0, 19) };
+  const h = H.holds_(r, now);
+  assert.deepStrictEqual(Object.keys(h).sort(), ['C1', 'C4']); assert.strictEqual(h.C4.helper, 'Dina');
+});
 console.log(n + ' checks passed');

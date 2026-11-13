@@ -229,9 +229,59 @@ function openSettings(){
     <div class="card"><div class="seg">${lb('zd','ZugDesk')}${lb('classic','Classic')}</div></div>
     <h2>Contacts</h2>
     <div class="card"><div class="meta">Add many people at once from a file or a copied table. Nobody is added twice.</div>
-      <div class="row"><button class="btn primary" onclick="openImport()">Import contacts</button></div></div>`;
+      <div class="row"><button class="btn primary" onclick="openImport()">Import contacts</button></div></div>
+    <h2>Helpers</h2>
+    <div class="card"><div class="meta">Family and friends call shadchanim for you, each with a personal link. Their results come back here.</div>
+      <div class="row"><button class="btn primary" onclick="openHelpers()">Helpers</button></div></div>`;
   $('#sheet').classList.add('open'); $('#sheet').scrollTop = 0;
 }
+
+/* ---------- helpers (friends and family who call for you) ---------- */
+const H_SHOW = {All:'Everyone', Russian:'Russian speakers', English:'English speakers', Picked:'Only people I pick'};
+const H_RES = {spoke:'Spoke', noanswer:'No answer', callback:'Call back later', wrong:'Wrong number', inactive:'Not active anymore', stop:'Asked not to call'};
+let HLP = null;
+async function openHelpers(){
+  sheetId = null; histReq++;
+  $('#sheetInner').innerHTML = `<div class="top"><button class="btn" onclick="openSettings()">Back</button><span class="status">Helpers</span></div><div class="loading">Loading…</div>`;
+  $('#sheet').classList.add('open'); $('#sheet').scrollTop = 0;
+  try { HLP = await run('api_helpers'); renderHelpers(); } catch(e){ fail(e); }
+}
+function renderHelpers(){
+  const H = HLP; let h = `<div class="top"><button class="btn" onclick="openSettings()">Back</button><span class="status">Helpers</span></div>`;
+  if (!H.ready){
+    h += `<div class="card"><div class="meta">One-time step: creates a separate small sheet for your helpers. They can only ever see that sheet.</div>
+      <div class="row"><button class="btn primary" onclick="helpersSetup(this)">Set up helpers</button></div></div>`;
+    $('#sheetInner').innerHTML = h; return;
+  }
+  if (!H.url) h += `<div class="card"><div class="meta">Almost ready: the helpers' app is not published yet, so links can't be made. Claude will guide you.</div>
+      <div class="row"><a class="btn" href="${esc(H.sheetUrl)}" target="_blank">Open helpers' sheet</a></div></div>`;
+  h += `<div class="meta" style="margin:0 4px 8px">${H.listSize} people on the helpers' list · ${H.calling} being called now</div>`;
+  h += H.helpers.map((x,i)=>`<div class="card">
+      <p class="name" dir="auto">${esc(x.name)}${x.active?'':' <span class="chip warn">Paused</span>'}</p>
+      <label>Sees</label><select onchange="saveHelper(${i},{show:this.value})">${Object.keys(H_SHOW).map(k=>`<option value="${k}" ${x.show===k?'selected':''}>${H_SHOW[k]}</option>`).join('')}</select>
+      <label>Their page language</label><select onchange="saveHelper(${i},{lang:this.value})">${['RU','HE','EN'].map(l=>`<option ${x.lang===l?'selected':''}>${l}</option>`).join('')}</select>
+      <div class="row">${x.link?`<button class="btn primary" onclick="copyText(HLP.helpers[${i}].link)">Copy link</button>
+        <a class="btn" href="https://api.whatsapp.com/send?text=${encodeURIComponent(x.link)}" target="_blank">Send link by WhatsApp</a>`:''}
+        <button class="btn quiet" onclick="saveHelper(${i},{active:${!x.active}})">${x.active?'Pause':'Turn on again'}</button>
+        <button class="btn quiet" onclick="newLink(${i})">New link</button></div>
+    </div>`).join('');
+  h += `<h2>Add a helper</h2><div class="card">
+      <label for="h-name">Name (they see it on their page)</label><input id="h-name" dir="auto" placeholder="e.g. Mom, Dina">
+      <label for="h-show">Sees</label><select id="h-show">${Object.keys(H_SHOW).map(k=>`<option value="${k}">${H_SHOW[k]}</option>`).join('')}</select>
+      <label for="h-lang">Their page language</label><select id="h-lang"><option>RU</option><option selected>HE</option><option>EN</option></select>
+      <div class="row"><button class="btn primary" onclick="addHelper(this)">Add</button></div></div>`;
+  if (H.results.length) h += `<h2>Latest from your helpers</h2>` + H.results.map(r=>`<div class="card"><div class="meta">${esc(r.when)} · ${esc(r.helper)}</div>
+      <p class="name" dir="auto" onclick="openContact('${esc(r.id)}')">${esc(r.name)} — ${esc(H_RES[r.result]||r.result)}</p>${r.notes?`<div class="spec" dir="auto">${esc(r.notes)}</div>`:''}</div>`).join('');
+  h += `<div class="meta" style="margin:14px 4px">To keep someone only for yourself, open their card → Details → "Helpers". The call script and words on the helpers' page are in the <a href="${esc(H.sheetUrl)}" target="_blank">helpers' sheet</a>, tab Texts.</div>`;
+  $('#sheetInner').innerHTML = h;
+}
+async function helpersSetup(b){ b.disabled = true; try { HLP = await run('api_helpersSetup'); renderHelpers(); } catch(e){ b.disabled = false; fail(e); } }
+async function saveHelper(i, ch){ const x = Object.assign({}, HLP.helpers[i], ch); try { HLP = await run('api_saveHelper', x); renderHelpers(); toast('Saved'); } catch(e){ fail(e); } }
+async function addHelper(b){ b.disabled = true;
+  try { HLP = await run('api_saveHelper', {name:$('#h-name').value, show:$('#h-show').value, lang:$('#h-lang').value}); renderHelpers(); toast('Added'); }
+  catch(e){ b.disabled = false; fail(e); } }
+async function newLink(i){ if(!confirm('Make a new link for ' + HLP.helpers[i].name + '? The old link stops working.')) return;
+  try { HLP = await run('api_newHelperLink', HLP.helpers[i].name); renderHelpers(); toast('New link ready'); } catch(e){ fail(e); } }
 
 /* ---------- import a list ---------- */
 let IMP = null;
@@ -370,8 +420,12 @@ function renderToday(){
   h += `<h2>Your call today</h2>`;
   h += T.call.length ? T.call.map(callCard).join('') : `<div class="empty">No call today — everyone with a phone number has been reached.</div>`;
 
-  if (T.replies.length){
-    h += `<h2>Wrote back to you</h2>` + T.replies.map(c=>card(c,'reply')).join('');
+  const fromHelpers = T.replies.filter(c=>/^Helper/.test(c.lastChannel||'')), wrote = T.replies.filter(c=>!/^Helper/.test(c.lastChannel||''));
+  if (fromHelpers.length){
+    h += `<h2>From your helpers — your turn</h2>` + fromHelpers.map(c=>card(c,'reply')).join('');
+  }
+  if (wrote.length){
+    h += `<h2>Wrote back to you</h2>` + wrote.map(c=>card(c,'reply')).join('');
   }
   if (T.suggestions.length){
     h += `<h2>Recommended to you — add with one tap</h2>` + T.suggestions.map(sugCard).join('');
@@ -654,6 +708,9 @@ function renderSheet(c, keepScroll){
         </div>
         <label for="f-lang">Message language</label>
         <select id="f-lang">${['HE','RU','EN'].map(l=>`<option ${c.lang===l?'selected':''}>${l}</option>`).join('')}</select>
+        <label for="f-helpers">Helpers</label>
+        <select id="f-helpers">${['', 'Only me'].concat((T && T.helperNames) || []).concat(c.helpers && !/^only me$/i.test(c.helpers) && !((T && T.helperNames) || []).includes(c.helpers) ? [c.helpers] : [])
+          .map(v=>`<option value="${esc(v)}" ${(c.helpers||'')===v?'selected':''}>${v===''?'Any helper may call':v==='Only me'?'Only me (helpers never see this person)':'Only '+esc(v)}</option>`).join('')}</select>
         <label for="f-notes">Notes</label>
         <textarea id="f-notes" dir="auto">${esc(c.notes||'')}</textarea>
         <div class="row"><button class="btn primary" onclick="saveContact('${c.id}')">Save changes</button></div>
@@ -706,7 +763,7 @@ document.addEventListener('keydown', e=>{
 });
 async function saveContact(id){
   try{
-    const c = await run('api_saveContact', id, {NextDate:$('#f-next').value, Lang:$('#f-lang').value, Notes:$('#f-notes').value});
+    const c = await run('api_saveContact', id, {NextDate:$('#f-next').value, Lang:$('#f-lang').value, Notes:$('#f-notes').value, Helpers:$('#f-helpers') ? $('#f-helpers').value : undefined});
     toast('Saved'); HIST[id] = c.history; remember(c); updateTodayCard(c);
     if (sheetId===id) renderSheet(c, true);
   }catch(e){ fail(e); }

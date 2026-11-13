@@ -8,7 +8,7 @@ Friends/family/hired people call shadchanim with a personal link (no Google logi
 - Call/WhatsApp button reserves the person (others see "X is calling"); reservation expires after 24h; results flow back (notes, names given → Suggested, "wants profile / Eliyahu should call" → your turn).
 - Main: Settings → Helpers (add, link, pause, what each sees: All / Russian / English / Picked); contact field "Helpers" (Only me / names).
 - Phone numbers visible to all helpers (user's decision). Fable only for: final safety review before sending links widely, or a bug failing twice.
-- Not done yet: user one-time steps (create sheet → script ID → deploy → URL), then test on Mom's iPhone.
+- Built + tested in Node (17 checks); main app auto-deploys. Not done yet: user one-time steps: (1) Settings → Helpers → Set up helpers, (2) helpers' sheet → Extensions → Apps Script → Project Settings → Script ID to Claude → Claude adds helper/.clasp.json, (3) Deploy → New deployment → Web app, Me, Anyone → URL to Claude → Claude sets HELPER_URL in Code.gs + HELPER_DEPLOYMENT_ID in deploy.yml, (4) add Mom, test on her iPhone (TESTS.md Helpers).
 
 ## In progress
 Done and live: steps 1–4, first run, auto-deploy, Book grouping + v4 migration, Settings (Theme, Look), card Basic/Details tabs, PC layout, ZugDesk look, Import button.

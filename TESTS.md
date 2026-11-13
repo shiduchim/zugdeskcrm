@@ -2,7 +2,7 @@
 
 ## Automatic (Claude runs these)
 - Syntax: `cp Code.gs /tmp/c.js && node --check /tmp/c.js`
-- Tests: `node tests/test.js` (phones, ranking, finding names in text, cleaning replies, auto-reply detection)
+- Tests: `node tests/test.js` (phones, ranking, finding names in text, cleaning replies, auto-reply detection, helpers' list / who sees whom / holds)
 
 ## Manual — first run inside Google (only you can do these)
 _Phone: multiple Google accounts → use Samsung Internet (or another browser) logged in only to the shidduchim account. Firefox on Android fails with an internet filter unless "Use third party CA certificates" is on._
@@ -48,3 +48,13 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - PC (≥900px wide): list on the left, the card stays open on the right (no going back and forth); the open person is highlighted in the list; ↑/↓ move through the list; Esc closes the card. Phone layout unchanged (card opens full screen).
 - Look: ZugDesk (default: warm paper background, white cards with soft shadow, black main buttons, Inter, small uppercase section titles) or Classic in Settings → Look; remembered per device; works with Light/Dark/Auto. Cards and list rows stand out from the background in both themes.
 - Import (Settings → Import contacts): file (CSV/TXT) or pasted rows; headers in EN/HE/RU recognised, or loose lines "Name 054-… mail@x"; preview shows new / already in list / do-not-contact / skipped before anything is saved; matches only by exact phone or email (same name with another phone = new person); new people get next IDs, Status New, chosen Source + Type, SourceRef "Imported <date>"; existing people get "also in <source>"; one Log line per import.
+
+## Manual — Helpers (only you can do these)
+- [ ] Settings → Helpers → Set up helpers → a sheet "zugdeskcrm – Helpers" appears in Drive with tabs Helpers, List, Reservations, Results, Texts, Config; List is filled
+- [ ] Add "Mom" (Russian speakers, RU) → Copy link → opens on her iPhone in Safari without any Google login, page in Russian
+- [ ] Call button opens the dialer; the person moves to "My calls"; on a second link (another helper) the same person shows "Mom is calling"
+- [ ] Save "We spoke" + "Eliyahu should call" + a note → within an hour (or when you open your app) it shows under "From your helpers — your turn" with the note
+- [ ] Names given with a phone number → appear in "Recommended to you"
+- [ ] Pause a helper → their link shows "This link is not active"
+- [ ] Contact card → Details → Helpers "Only me" → person disappears from the helpers' list (within 15 minutes)
+
