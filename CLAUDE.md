@@ -46,7 +46,7 @@ Status: **deployed and running in the shidduchim Google account (first run OK 20
 
 **Contacts** columns: `ID, Name, City, Sector, Specialty, Languages, Symbol, Hours, Phone1, Phone2, Email, Other, Source, SourceRef, ReferredBy, Status, CloseReason, NextDate, Attempts, LastContact, LastChannel, NeedsReply, EmailStatus, EmailSentAt, EmailFollowupAt, EmailThreadIds, EmailLastSeen, Lang, Boost, CrossedOut, InZugDesk, Notes, AskedReferralsAt, Type`
 
-- `Type`: `Shadchan` (all book/insert/referral rows). **Only `Shadchan` gets emails or the daily WhatsApp plan.** Future imports (Gmail, connectors, families) must set another Type.
+- `Type`: `Shadchan` / `Connector` / `Organization` / `Other`. **Only `Shadchan` gets emails, the daily plan or helpers.** Organization + Other (e.g. old emails never answered) are kept out of Contacts/search/counts and shown only in Settings → Separate lists. Families of suggested people and friends are never imported. `Country` column (from phone code / email / text). Imports merge into existing contacts (exact phone/email): notes appended once, empty fields filled, nothing overwritten, original Source kept.
 
 - IDs `C0001…C0517` — stable, never reuse/renumber. New IDs = max+1.
 - `Status`: New → Contacted → Talking / Later / Closed. `CloseReason`: Not reached, Wrong number, Do not contact.

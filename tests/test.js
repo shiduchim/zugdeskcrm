@@ -100,4 +100,19 @@ t('holds_: active 24h, given back or done ends it, newer helper wins after relea
   const h = H.holds_(r, now);
   assert.deepStrictEqual(Object.keys(h).sort(), ['C1', 'C4']); assert.strictEqual(h.C4.helper, 'Dina');
 });
+
+t('mergePatch_: appends notes once, fills only empty fields, never overwrites', () => {
+  const c = { ID: 'C1', Notes: 'old note', Email: '', Phone1: '02-6234567', Phone2: '', Country: 'Israel', Lang: '' };
+  const ph = [A.normPhone_('02-6234567'), A.normPhone_('050-7654321')];
+  const p = A.mergePatch_(c, { notes: 'Gmail: spoke in 2020', country: 'USA', lang: 'en' }, ph, 'a@b.com');
+  assert.strictEqual(p.Notes, 'old note\nGmail: spoke in 2020'); assert.strictEqual(p.Email, 'a@b.com');
+  assert.strictEqual(p.Phone2, '050-7654321'); assert.strictEqual(p.Phone1, undefined);
+  assert.strictEqual(p.Country, undefined); assert.strictEqual(p.Lang, 'EN');
+  assert.deepStrictEqual(A.mergePatch_(Object.assign({}, c, { Notes: 'old note\nGmail: spoke in 2020', Email: 'x@y.com', Phone2: '050-7654321', Lang: 'HE' }),
+    { notes: 'Gmail: spoke in 2020' }, ph, 'a@b.com'), {});
+});
+t('isSeparate_: organizations and Other stay out of Contacts', () => {
+  assert.ok(A.isSeparate_({ Type: 'Organization' })); assert.ok(A.isSeparate_({ Type: 'Other' }));
+  assert.ok(!A.isSeparate_({ Type: 'Shadchan' })); assert.ok(!A.isSeparate_({ Type: 'Connector' }));
+});
 console.log(n + ' checks passed');

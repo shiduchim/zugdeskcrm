@@ -58,3 +58,9 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Pause a helper → their link shows "This link is not active"
 - [ ] Contact card → Details → Helpers "Only me" → person disappears from the helpers' list (within 15 minutes)
 
+## Manual — Types, Country, merge (only you can do these)
+- [ ] Contacts: "Who" dropdown shows Shadchanim by default; Connectors and Everyone work; no organizations or "never answered" people anywhere in Contacts or search
+- [ ] Settings → Separate lists → Organizations / Never answered open their own lists; tapping a name opens the card
+- [ ] Contact card → Details: Country field saves
+- [ ] After an import, a contact you already had keeps its group (e.g. Book) and gets the new note added once (not twice)
+

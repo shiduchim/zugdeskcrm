@@ -165,6 +165,9 @@ label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
     <input id="q" placeholder="Search anyone: name, city, phone, email…" autocomplete="off" dir="auto" aria-label="Search">
     <div class="filters" id="srcs" aria-label="Where they came from"></div>
     <div class="ctools">
+      <select id="cwho" aria-label="Who">
+        <option value="shadchan">Shadchanim</option><option value="connector">Connectors</option><option value="all">Everyone</option>
+      </select>
       <select id="cshow" aria-label="Show">
         <option value="ready">Ready to contact</option><option value="talking">Talking</option><option value="contacted">Contacted</option>
         <option value="later">Later</option><option value="closed">Closed</option><option value="all">Everyone</option>
@@ -230,10 +233,33 @@ function openSettings(){
     <h2>Contacts</h2>
     <div class="card"><div class="meta">Add many people at once from a file or a copied table. Nobody is added twice.</div>
       <div class="row"><button class="btn primary" onclick="openImport()">Import contacts</button></div></div>
+    <h2>Separate lists</h2>
+    <div class="card"><div class="meta">Kept apart from your shadchanim: never in Contacts, search, counts or Today, and never contacted automatically.</div>
+      <div class="row"><button class="btn" onclick="openSeparate('Organization')">Organizations</button><button class="btn" onclick="openSeparate('Other')">Never answered</button></div></div>
     <h2>Helpers</h2>
     <div class="card"><div class="meta">Family and friends call shadchanim for you, each with a personal link. Their results come back here.</div>
       <div class="row"><button class="btn primary" onclick="openHelpers()">Helpers</button></div></div>`;
   $('#sheet').classList.add('open'); $('#sheet').scrollTop = 0;
+}
+
+/* ---------- separate lists (organizations, old emails never answered) ---------- */
+let SEP = null, sepType = '', sepQ = '';
+async function openSeparate(type){
+  sheetId = null; histReq++; sepType = type; sepQ = '';
+  const title = type==='Organization' ? 'Organizations' : 'Never answered';
+  $('#sheetInner').innerHTML = `<div class="top"><button class="btn" onclick="openSettings()">Back</button><span class="status">${title}</span></div><div class="loading">Loading…</div>`;
+  $('#sheet').classList.add('open'); $('#sheet').scrollTop = 0;
+  try { SEP = await run('api_separate', type); SEP.forEach(remember); renderSeparate(); } catch(e){ fail(e); }
+}
+function renderSeparate(){
+  const title = sepType==='Organization' ? 'Organizations' : 'Never answered';
+  const q = sepQ.toLowerCase();
+  const list = SEP.filter(c => !q || (c.name+' '+(c.email||'')+' '+(c.country||'')+' '+(c.notes||'')).toLowerCase().indexOf(q)>=0);
+  $('#sheetInner').innerHTML = `<div class="top"><button class="btn" onclick="openSettings()">Back</button><span class="status">${title} (${SEP.length})</span></div>
+    <input id="sep-q" dir="auto" placeholder="Search" value="${esc(sepQ)}" oninput="sepQ=this.value;renderSeparate();const i=$('#sep-q');i.focus();i.setSelectionRange(i.value.length,i.value.length)" style="margin-bottom:8px">
+    ${list.length ? list.slice(0,200).map(c=>`<button class="crow" dir="auto" onclick="openContact('${c.id}')"><span class="nm">${esc(c.name)}</span>
+      <span class="sub">${esc([c.email, c.country, c.lastContact && c.lastContact.slice(0,10)].filter(Boolean).join(' · '))}</span></button>`).join('')
+      : `<div class="empty">Nothing here yet.</div>`}`;
 }
 
 /* ---------- helpers (friends and family who call for you) ---------- */
@@ -303,7 +329,7 @@ function openImport(){
       <input id="i-src" list="i-srcs" dir="auto" placeholder="e.g. Web search, ZugDesk survey, Gmail">
       <datalist id="i-srcs">${srcs.map(g=>`<option value="${esc(g)}">`).join('')}</datalist>
       <label for="i-type">Who are they?</label>
-      <select id="i-type"><option value="Shadchan">Shadchanim</option><option value="Connector">People who know shadchanim</option><option value="Other">Other (never contacted automatically)</option></select>
+      <select id="i-type"><option value="Shadchan">Shadchanim</option><option value="Connector">People who know shadchanim</option><option value="Organization">Shidduch organizations (separate list)</option><option value="Other">Other (never contacted automatically)</option></select>
     </div>
     <div class="row"><button class="btn primary" onclick="checkImport()">Check the list</button></div>
     <div id="i-out"></div>`;
@@ -452,7 +478,7 @@ function chips(c){
   return c.why.length ? `<div class="chips">${c.why.map(w=>`<span class="chip${/Age limit|Crossed|Only other/.test(w)?' warn':''}" dir="auto">${esc(w)}</span>`).join('')}</div>` : '';
 }
 function metaLine(c){
-  return [c.city, c.sector, c.languages && ('Languages ' + c.languages)].filter(Boolean).map(esc).join(' • ');
+  return [[c.city, c.country].filter(Boolean).join(', '), c.sector, c.languages && ('Languages ' + c.languages)].filter(Boolean).map(esc).join(' • ');
 }
 
 function callCard(c){
@@ -702,12 +728,15 @@ function renderSheet(c, keepScroll){
         <div class="card">
           ${c.other?`<div class="spec" dir="auto">${esc(c.other)}</div>`:''}
           ${c.email?`<div class="spec">Email: <a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div>`:''}
+          ${c.type && c.type!=='Shadchan'?`<div class="spec">Type: ${esc(c.type)}</div>`:''}
           <div class="spec" dir="auto">Source: ${esc(c.source||'—')}${c.sourceRef?' · '+esc(c.sourceRef):''}</div>
           ${c.emailStatus?`<div class="spec">Email status: ${esc(c.emailStatus)}</div>`:''}
           ${c.attempts?`<div class="spec">Tries: ${esc(c.attempts)}</div>`:''}
         </div>
         <label for="f-lang">Message language</label>
         <select id="f-lang">${['HE','RU','EN'].map(l=>`<option ${c.lang===l?'selected':''}>${l}</option>`).join('')}</select>
+        <label for="f-country">Country</label>
+        <input id="f-country" dir="auto" value="${esc(c.country||'')}" placeholder="e.g. Israel, USA">
         <label for="f-helpers">Helpers</label>
         <select id="f-helpers">${['', 'Only me'].concat((T && T.helperNames) || []).concat(c.helpers && !/^only me$/i.test(c.helpers) && !((T && T.helperNames) || []).includes(c.helpers) ? [c.helpers] : [])
           .map(v=>`<option value="${esc(v)}" ${(c.helpers||'')===v?'selected':''}>${v===''?'Any helper may call':v==='Only me'?'Only me (helpers never see this person)':'Only '+esc(v)}</option>`).join('')}</select>
@@ -763,7 +792,7 @@ document.addEventListener('keydown', e=>{
 });
 async function saveContact(id){
   try{
-    const c = await run('api_saveContact', id, {NextDate:$('#f-next').value, Lang:$('#f-lang').value, Notes:$('#f-notes').value, Helpers:$('#f-helpers') ? $('#f-helpers').value : undefined});
+    const c = await run('api_saveContact', id, {NextDate:$('#f-next').value, Lang:$('#f-lang').value, Notes:$('#f-notes').value, Helpers:$('#f-helpers') ? $('#f-helpers').value : undefined, Country:$('#f-country') ? $('#f-country').value : undefined});
     toast('Saved'); HIST[id] = c.history; remember(c); updateTodayCard(c);
     if (sheetId===id) renderSheet(c, true);
   }catch(e){ fail(e); }
@@ -810,6 +839,10 @@ async function ensureDir(force){
   }, e=>{ dirReq = null; throw e; });
   try{ await dirReq; if (!$('#v-contacts').hidden) renderContacts(); }catch(e){ fail(e); }
 }
+function whoOk(c){
+  const who = $('#cwho') ? $('#cwho').value : 'shadchan', t = c.type || 'Shadchan';
+  return who === 'all' || (who === 'connector' ? t === 'Connector' : t === 'Shadchan');
+}
 function showOk(c, show){
   const st = c.status || 'New';
   if (show==='ready') return st==='New' && !c.blocked && (!c.type || c.type==='Shadchan');
@@ -839,7 +872,7 @@ function renderContacts(){
     const qd = q.replace(/\D/g,'');
     base = all.filter(c => (c.name+' '+(c.city||'')+' '+(c.email||'')+' '+(c.specialty||'')+' '+(c.referredBy||'')).toLowerCase().indexOf(q)>=0
       || (qd.length>=3 && (c.phones||[]).some(p=>p.local.replace(/\D/g,'').indexOf(qd.replace(/^972/,'0'))>=0)));
-  } else base = all.filter(c => showOk(c, show) && tagOk(c));
+  } else base = all.filter(c => whoOk(c) && showOk(c, show) && tagOk(c));
   // source bubbles: counts follow the current Show / search
   const counts = {}; base.forEach(c=>{ const g=srcGroup(c.source); counts[g]=(counts[g]||0)+1; });
   const groups = Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
@@ -880,7 +913,7 @@ function syncTags(){ cTags.clear(); $('#ctags').querySelectorAll('input:checked'
 $('#ctags').onchange = syncTags;
 $('#ctagclear').onclick = () => { $('#ctags').querySelectorAll('input').forEach(i=>i.checked=false); $('#ctags').open=false; syncTags(); };
 document.addEventListener('click', e => { if (!e.target.closest('#ctags')) $('#ctags').open = false; });
-$('#cshow').onchange = resetPaging; $('#csort').onchange = resetPaging;
+$('#cshow').onchange = resetPaging; $('#cwho').onchange = resetPaging; $('#csort').onchange = resetPaging;
 $('#q').oninput = () => { clearTimeout(qTimer); qTimer=setTimeout(resetPaging,150); };
 
 /* ---------- Received ---------- */

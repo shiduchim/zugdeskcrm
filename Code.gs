@@ -11,9 +11,9 @@ const LABEL = 'zugdeskcrm';
 const C_HEADERS = ['ID','Name','City','Sector','Specialty','Languages','Symbol','Hours','Phone1','Phone2','Email','Other',
   'Source','SourceRef','ReferredBy','Status','CloseReason','NextDate','Attempts','LastContact','LastChannel','NeedsReply',
   'EmailStatus','EmailSentAt','EmailFollowupAt','EmailThreadIds','EmailLastSeen','Lang','Boost','CrossedOut','InZugDesk','Notes',
-  'AskedReferralsAt','Type','Helpers'];
+  'AskedReferralsAt','Type','Helpers','Country'];
 const S_HEADERS = ['When','FromID','FromName','Name','Phone','Phone2','Email','Text','Status','ContactID'];
-const SCHEMA = '5';
+const SCHEMA = '6';
 
 /** Adds new tabs/columns/settings to an older sheet without touching existing data. */
 function schema_() {
@@ -56,6 +56,9 @@ function schema_() {
 
 /** Only real shadchanim get outreach (later: Connector, Family… must never get autopilot emails). */
 function isShadchan_(c) { return c.Type === 'Shadchan'; }
+/** Organizations and 'Other' (e.g. old emails that were never answered) live in their own lists under Settings. */
+function isSeparate_(c) { return c.Type === 'Organization' || c.Type === 'Other'; }
+const TYPES = ['Shadchan', 'Connector', 'Organization', 'Other'];
 
 /* ------------------------------------------------------------------ */
 /* Web app entry                                                       */
@@ -543,7 +546,7 @@ function card_(c, s, lean) {
     waUrl: mob && !lean ? 'https://api.whatsapp.com/send?phone=' + mob.intl + '&text=' + encodeURIComponent(waText_(c, s, lang)) : '',
     doneToday: (c.LastContact || '').slice(0, 10) === today_(),
     source: c.Source, sourceRef: c.SourceRef, closeReason: c.CloseReason, attempts: c.Attempts, rank: sc.score,
-    helpers: c.Helpers || ''
+    helpers: c.Helpers || '', country: c.Country || '', type: c.Type || ''
   };
 }
 
@@ -590,8 +593,9 @@ function api_today(rebuild) {
       && (c.LastContact || '').slice(0, 10) >= recent && !blocked_(c, dnc))
     .map(c => ({ c: c, sc: scoreContact(c, s).score })).sort((a, b) => b.sc - a.sc)
     .slice(0, num_(s, 'ASKS_PER_DAY', 3)).map(x => x.c);
-  const counts = { total: db.rows.length, fresh: db.rows.filter(c => (c.Status || 'New') === 'New').length,
-    talking: db.rows.filter(c => c.Status === 'Talking').length };
+  const sh = db.rows.filter(isShadchan_);
+  const counts = { total: sh.length, fresh: sh.filter(c => (c.Status || 'New') === 'New').length,
+    talking: sh.filter(c => c.Status === 'Talking').length };
   return {
     date: t,
     call: plan.call.map(id => byId[id]).filter(Boolean).map(c => card_(c, s)),
@@ -690,7 +694,7 @@ function api_directory() {
   const s = settings_(), db = loadContacts_(), dnc = dnc_();
   const wa = {}, ask = {};
   ['HE', 'RU', 'EN'].forEach(l => { wa[l] = waText_({}, s, l); ask[l] = fill_(s['ASK_WA_' + l] || s.ASK_WA_HE, {}); });
-  const items = db.rows.map(c => {
+  const items = db.rows.filter(c => !isSeparate_(c)).map(c => {
     const card = card_(c, s, true);
     card.blocked = blocked_(c, dnc);
     card.ru = (c.Languages || '').indexOf('ר') >= 0 || /רוס/.test(c.Specialty || '');
@@ -699,6 +703,13 @@ function api_directory() {
     return card;
   });
   return { wa: wa, ask: ask, items: items, at: now_() };
+}
+
+/** Settings → Separate lists: 'Organization' or 'Other' (light cards, newest contact first). */
+function api_separate(type) {
+  const s = settings_(), db = loadContacts_();
+  return db.rows.filter(c => c.Type === type).map(c => card_(c, s, true))
+    .sort((a, b) => String(b.lastContact || '').localeCompare(String(a.lastContact || '')) || String(a.name).localeCompare(String(b.name)));
 }
 
 function api_contact(id) {
@@ -721,7 +732,7 @@ function api_saveContact(id, patch) {
   try {
     const db = loadContacts_(); const c = db.rows.find(r => r.ID === id);
     if (!c) throw new Error('Contact not found: ' + id);
-    const allowed = {}; ['Notes', 'NextDate', 'Lang', 'Email', 'Boost', 'Helpers'].forEach(k => { if (patch[k] !== undefined) allowed[k] = patch[k]; });
+    const allowed = {}; ['Notes', 'NextDate', 'Lang', 'Email', 'Boost', 'Helpers', 'Country'].forEach(k => { if (patch[k] !== undefined) allowed[k] = patch[k]; });
     patchContact_(db, c, allowed);
     return api_contact(id);
   } finally { lock.releaseLock(); }
@@ -786,20 +797,37 @@ function planImport_(rows, existing, dnc) {
     if (!ph.length && !em) return out.skipped.push({ name: name || '(no name)', why: 'no phone or email' });
     if ((em && dnc.emails.has(em)) || ph.some(p => dnc.phones.has(p.intl))) return out.blocked.push({ name: name || em });
     const hit = (em && byEmail[em]) || ph.map(p => byPhone[p.intl]).find(Boolean);
-    if (hit) return out.known.push({ id: hit.ID, name: hit.Name, theirName: name });
+    if (hit) return out.known.push({ id: hit.ID, name: hit.Name, theirName: name, merge: mergePatch_(hit, r, ph, em) });
     if ((em && seenE[em]) || ph.some(p => seenP[p.intl])) return out.skipped.push({ name: name || em, why: 'twice in this list' });
     if (em) seenE[em] = 1; ph.forEach(p => (seenP[p.intl] = 1));
     out.add.push({ Name: name || em, City: String(r.city || '').trim(), Phone1: ph[0] ? ph[0].local : '', Phone2: ph[1] ? ph[1].local : '',
       Email: em, Notes: String(r.notes || '').trim(), Specialty: String(r.specialty || '').trim(), Languages: String(r.languages || '').trim(),
-      Lang: ['HE', 'RU', 'EN'].indexOf(String(r.lang || '').trim().toUpperCase()) >= 0 ? String(r.lang).trim().toUpperCase() : '' });
+      Lang: ['HE', 'RU', 'EN'].indexOf(String(r.lang || '').trim().toUpperCase()) >= 0 ? String(r.lang).trim().toUpperCase() : '',
+      Country: String(r.country || '').trim() });
   });
   return out;
+}
+
+/** Pure: what an import row adds to a contact you already have. Never overwrites; notes are appended once. */
+function mergePatch_(c, r, ph, em) {
+  const patch = {};
+  const note = String(r.notes || '').trim();
+  if (note && String(c.Notes || '').indexOf(note) < 0) patch.Notes = (c.Notes ? c.Notes + '\n' : '') + note;
+  if (em && !String(c.Email || '').trim()) patch.Email = em;
+  const have = phonesOf_(c).map(p => p.intl);
+  const extra = ph.filter(p => have.indexOf(p.intl) < 0);
+  if (extra.length && !String(c.Phone1 || '').trim()) { patch.Phone1 = extra.shift().local; }
+  if (extra.length && !String(c.Phone2 || '').trim()) { patch.Phone2 = extra.shift().local; }
+  if (r.country && !String(c.Country || '').trim()) patch.Country = String(r.country).trim();
+  const lang = String(r.lang || '').trim().toUpperCase();
+  if (['HE', 'RU', 'EN'].indexOf(lang) >= 0 && !c.Lang) patch.Lang = lang;
+  return patch;
 }
 
 /** commit=false → preview only. type: Shadchan / Connector / Other (only Shadchan ever gets outreach). */
 function api_import(rows, source, type, commit) {
   source = String(source || '').trim() || 'Import';
-  type = ['Shadchan', 'Connector', 'Other'].indexOf(type) >= 0 ? type : 'Other';
+  type = TYPES.indexOf(type) >= 0 ? type : 'Other';
   const lock = LockService.getScriptLock(); lock.waitLock(30000);
   try {
     const db = loadContacts_(), plan = planImport_(rows || [], db.rows, dnc_());
@@ -817,11 +845,15 @@ function api_import(rows, source, type, commit) {
       const start = db.sh.getLastRow() + 1;
       db.sh.getRange(start, 1, out.length, db.head.length).setNumberFormat('@').setValues(out);
     }
+    let merged = 0;
     plan.known.forEach(k => {
-      const c = db.rows.find(x => x.ID === k.id);
-      if (c && String(c.SourceRef || '').indexOf(source) < 0)
-        patchContact_(db, c, { SourceRef: c.SourceRef ? c.SourceRef + ' · also in ' + source : 'Also in ' + source });
+      const c = db.rows.find(x => x.ID === k.id); if (!c) return;
+      const patch = Object.assign({}, k.merge);
+      if (String(c.SourceRef || '').indexOf(source) < 0) patch.SourceRef = c.SourceRef ? c.SourceRef + ' · also in ' + source : 'Also in ' + source;
+      if (Object.keys(k.merge).length) merged++;
+      patchContact_(db, c, patch);
     });
+    res.merged = merged;
     log_(null, 'Import', 'Imported list', source + ' (' + type + '): ' + out.length + ' added, ' + plan.known.length + ' already in list, ' +
       plan.blocked.length + ' do-not-contact, ' + plan.skipped.length + ' skipped');
     res.done = true; return res;
@@ -837,11 +869,32 @@ function importInbox_() {
     const f = files.next(), name = f.getName();
     if (/^Imported /.test(name) || !/\.csv$/i.test(name)) continue;
     const parts = name.replace(/\.csv$/i, '').split('__');
+    if (/^donotcontact$/i.test(parts[1] || '')) {
+      try { const n = addDoNotContact_(csvRows_(f.getBlob().getDataAsString('UTF-8')), parts[0]); f.setName('Imported ' + today_() + ' – ' + name + ' – ' + n + ' added to Do-not-contact'); }
+      catch (e) { log_(null, 'Import', 'Import inbox error', name + ': ' + e); }
+      continue;
+    }
     try {
       const res = api_import(csvRows_(f.getBlob().getDataAsString('UTF-8')), parts[0], parts[1] || 'Other', true);
-      f.setName('Imported ' + today_() + ' – ' + name + ' – ' + res.add + ' added, ' + res.known + ' known, ' + res.blocked + ' blocked, ' + res.skipped + ' skipped');
+      f.setName('Imported ' + today_() + ' – ' + name + ' – ' + res.add + ' added, ' + res.known + ' known (' + (res.merged || 0) + ' updated), ' + res.blocked + ' blocked, ' + res.skipped + ' skipped');
     } catch (e) { log_(null, 'Import', 'Import inbox error', name + ': ' + e); }
   }
+}
+
+/** Adds rows (email / phone / reason) to DoNotContact, skipping ones already there. */
+function addDoNotContact_(rows, source) {
+  const dnc = dnc_(), sh = ss_().getSheetByName('DoNotContact');
+  let n = 0;
+  rows.forEach(r => {
+    const em = validEmail_(r.email) ? String(r.email).trim().toLowerCase() : '';
+    const p = normPhone_(r.phone);
+    if ((!em || dnc.emails.has(em)) && (!p || dnc.phones.has(p.intl))) return;
+    sh.appendRow([em, p ? p.local : '', String(r.reason || 'Asked not to be contacted').slice(0, 300), today_(), source || 'Import']);
+    if (em) dnc.emails.add(em); if (p) dnc.phones.add(p.intl);
+    n++;
+  });
+  log_(null, 'Import', 'Do-not-contact list', source + ': ' + n + ' added');
+  return n;
 }
 
 /** Pure: CSV text (with header row) → array of objects with lower-case keys. */
@@ -1342,4 +1395,4 @@ function api_newHelperLink(name) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { helperPool_: helperPool_, helperNote_: helperNote_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };
+if (typeof module !== 'undefined') module.exports = { mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };
