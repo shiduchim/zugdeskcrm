@@ -126,7 +126,7 @@ function fail(e){ const m = String(e && e.message || e); if (/LINK/.test(m)) ret
 function showLink(){ $('#app').innerHTML = `<div class="center">${esc(t('link'))}</div>`; }
 
 async function load(){
-  try { D = await run('h_load'); lang = D.me.lang; document.documentElement.dir = lang === 'HE' ? 'rtl' : 'ltr'; document.documentElement.lang = lang.toLowerCase(); dropStale(); render(); updateSheet(); }
+  try { D = await run('h_load'); lang = D.me.lang; document.documentElement.dir = lang === 'HE' ? 'rtl' : 'ltr'; document.documentElement.lang = lang.toLowerCase(); startF(); dropStale(); render(); updateSheet(); }
   catch(e){ fail(e); }
 }
 function busyTyping(){ return sheetOpen || Object.values(form).some(f => f.result || f.notes || f.names) || (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement.id !== 'q'); }
@@ -265,6 +265,11 @@ function setF(k, v){
   saveF();
 }
 function clearF(){ fl = FL0(); saveF(); }
+function startF(){   // once per phone: Russian-speaking helpers start with Book + Russian ticked (they can untick)
+  try { if (localStorage.getItem('h_start') === '1') return; localStorage.setItem('h_start', '1'); } catch(e){ return; }
+  if (lang !== 'RU') return;
+  fl.lang = ['ru']; fl.src = free_().some(x => x.src === 'Book') ? ['Book'] : []; saveF();
+}
 function dropStale(){   // remembered filters that no longer exist in the list
   const free = free_();
   fl.country = fl.country.filter(c => free.some(x => countryOf(x) === c)); fl.city = fl.city.filter(c => free.some(x => x.city === c)); fl.src = fl.src.filter(v => free.some(x => x.src === v)); fl.lang = fl.lang.filter(k => LANGS[k]);

@@ -77,3 +77,4 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Country filter (both apps): uses the Country field, else phone code (+972 Israel, +1 USA); group shows only with 2+ countries; tag removes it.
 - [ ] Helper page top: title "{name}'s list" (no hello), small Original/Translation pill in the corner, My calls / List switch stays at the top while scrolling; What to say / Copy details are links; Mobile only / Russian are pills under Filters + Sort.
 - [ ] Helper My calls: results and What next in an even 2-column grid; Save greyed until a result is picked; "names of other shadchanim" box only after We spoke; languages shown as words.
+- [ ] Helper page in Russian starts once with Russian + Book ticked; unticking is remembered (English/Hebrew pages start with nothing).
