@@ -1340,7 +1340,7 @@ function scanBounces_(db) {
 /* the List there and reads back Reservations + Results.               */
 /* ------------------------------------------------------------------ */
 
-const HELPER_URL = '';   // filled in once the helper app is published
+const HELPER_URL = 'https://script.google.com/macros/s/AKfycbyTcd_8YF8vlS72UDNjTEMuOMIgq8yPwlusJ9fFSt4KDOg0e0_11xyeu2p4RjlpVaMm/exec';
 const H_TABS = {
   Helpers: ['Name', 'Key', 'Active', 'Show', 'Lang', 'Added'],
   List: ['ID', 'Name', 'City', 'Languages', 'Hours', 'Phone1', 'Tel1', 'Mobile1', 'Phone2', 'Tel2', 'Mobile2', 'Specialty', 'Why', 'For'],

@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DEPLOYMENT_ID: AKfycbwKXLx6YKq_-qmba1SN6xXC8Ay1M8y4Wc_-Nf1iB_xYA4w8SsbgCDU07arL2tljUm8U
-      HELPER_DEPLOYMENT_ID: ''   # helpers' web app (filled in after its first deployment)
+      HELPER_DEPLOYMENT_ID: AKfycbyTcd_8YF8vlS72UDNjTEMuOMIgq8yPwlusJ9fFSt4KDOg0e0_11xyeu2p4RjlpVaMm
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
