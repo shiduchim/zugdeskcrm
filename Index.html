@@ -26,7 +26,7 @@
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Rubik,"Segoe UI",Arial,sans-serif;font-size:16px;line-height:1.45}
 header{position:sticky;top:0;z-index:5;background:var(--bg);padding:14px max(16px,calc((100% - 720px)/2 + 12px)) 8px;display:flex;align-items:baseline;justify-content:space-between}
 header h1{margin:0;font-size:20px;font-weight:600;letter-spacing:.2px}
-header .date{color:var(--muted);font-size:14px}
+header .date{color:var(--muted);font-size:13px;white-space:nowrap}
 header .hr{display:flex;align-items:center;gap:10px}
 header .gear{min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
 .seg{display:flex;gap:6px}.seg button{flex:1}.seg button.on{background:var(--blue);color:var(--blue-ink);border-color:var(--blue)}
@@ -456,7 +456,7 @@ async function loadToday(rebuild){
     T = await run('api_today', !!rebuild); T.loadedAt = Date.now();
     if (!DIR && !dirReq) setTimeout(()=>ensureDir().catch(()=>{}), 1500);
     profiles = T.profiles; references = T.references || {};
-    $('#date').textContent = new Date(T.date+'T12:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+    $('#date').textContent = new Date(T.date+'T12:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
     renderToday();
   }catch(e){ fail(e); }
 }
