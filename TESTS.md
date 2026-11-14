@@ -68,3 +68,4 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Settings → Messages and profile: preview shows the first email, follow-up and WhatsApp message in Hebrew / Russian / English (tick "referred" shows the referral line); Edit → change a text → "See how it looks" shows the unsaved version with a banner → Save writes it to the Settings tab (old value in Log)
 - [ ] Settings → App settings: change e.g. emails per day → Save; AUTO_EMAIL is not listed (only the Email screen switches autopilot); Email screen → "See and edit messages" opens Messages
 - [ ] Node: settingsSections_ / settingsPatch_ (tests/test.js)
+- [ ] Helper static page (no Google cookies): `<pages-url>/#k=<key>` opens in a NORMAL multi-account Chrome window and on iPhone; Call/Save work; old `/exec?k=` link still works.

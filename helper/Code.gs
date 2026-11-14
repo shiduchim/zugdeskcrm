@@ -16,6 +16,24 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
 }
 
+/** API for the static helper page (no Google cookies → works with several accounts). Body: {fn, k, args}. Always JSON. */
+const API_ = { h_load: 0, h_reserve: 1, h_release: 1, h_save: 4 };
+const FN_ = () => ({ h_load: h_load, h_reserve: h_reserve, h_release: h_release, h_save: h_save });   // function → number of args after the key
+function doPost(e) {
+  let out;
+  try {
+    const b = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    const fn = String(b.fn || '');
+    if (fn === 'ping') out = { ok: true, data: 'pong' };
+    else {
+      if (!Object.prototype.hasOwnProperty.call(API_, fn)) throw new Error('Unknown call');
+      const a = Array.isArray(b.args) ? b.args.slice(0, API_[fn]) : [];
+      out = { ok: true, data: FN_()[fn].apply(null, [String(b.k || '')].concat(a)) };
+    }
+  } catch (err) { out = { ok: false, error: String(err && err.message || err) }; }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
 function sh_(n) { return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(n); }
 function rows_(n) { return sh_(n).getDataRange().getValues().slice(1); }
 function str_(v) { return v instanceof Date ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd HH:mm:ss') : String(v == null ? '' : v).trim(); }
@@ -114,4 +132,4 @@ function h_save(k, id, result, next, notes, names) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { canSee_: canSee_, holds_: holds_ };
+if (typeof module !== 'undefined') module.exports = { canSee_: canSee_, holds_: holds_, API_: API_ };

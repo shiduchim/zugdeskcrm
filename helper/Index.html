@@ -42,7 +42,10 @@ label{display:block;margin:12px 0 4px;font-size:15px;color:var(--muted)}
 <main id="app" data-k="<?= k ?>"><div class="center muted">…</div></main>
 <div class="toast" id="toast"></div>
 <script>
-const KEY = document.getElementById('app').dataset.k;
+// Two ways to run: inside Apps Script (google.script.run, key from the template) or as a static page (fetch, key from #k=).
+const EXEC_URL = 'https://script.google.com/macros/s/AKfycbxjzT6OUMaH1CIajHS09t53rN7A-XYc0cX6fTv9KSZoMMOWy6pg1vhPuUpHuxTMV8Sh/exec';
+const INSIDE = typeof google !== 'undefined' && google.script && google.script.run;
+const KEY = (INSIDE ? document.getElementById('app').dataset.k : (location.hash.match(/k=([A-Za-z0-9]+)/) || [])[1] || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 64);
 const L = {
  RU:{title:'Звонки шадханам',hello:'Здравствуйте, {name}!',mine:'Мои звонки',all:'Список',search:'Поиск: имя, город…',call:'Позвонить',wa:'WhatsApp',
    script:'Что сказать',profile:'Скопировать данные Элияху',copied:'Скопировано',busy:'{name} уже звонит',tip:'Заметка',giveBack:'Вернуть в список',
@@ -70,7 +73,10 @@ let D = null, tab = 'all', q = '', shown = 40, lang = 'HE';
 const form = {};   // id → {result, next}
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const run = (fn, ...a) => new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](KEY, ...a));
+const run = (fn, ...a) => INSIDE
+  ? new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](KEY, ...a))
+  : fetch(EXEC_URL, { method: 'POST', credentials: 'omit', redirect: 'follow', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ fn: fn, k: KEY, args: a }) })
+      .then(r => r.json()).then(j => { if (!j.ok) throw new Error(j.error || 'error'); return j.data; });
 function t(key, map){ let s = (D && D.texts[key + '_' + lang]) || (L[lang] || L.HE)[key] || L.EN[key] || key;
   Object.keys(map||{}).forEach(k => s = s.split('{'+k+'}').join(map[k])); return s; }
 function toast(m){ const x=$('#toast'); x.textContent=m; x.classList.add('show'); clearTimeout(x._h); x._h=setTimeout(()=>x.classList.remove('show'),2600); }
