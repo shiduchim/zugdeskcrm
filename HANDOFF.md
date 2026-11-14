@@ -1,14 +1,9 @@
 # Handoff
 _Last updated: 2026-11-14_
 
-## Helper app (built, waiting on user setup)
-Friends/family/hired people call shadchanim with a personal link (no Google login, no password).
-- Separate Apps Script project bound to its own sheet "zugdeskcrm – Helpers" (scope: only that sheet), deployed "Anyone". Code in `helper/`, auto-deployed by the same workflow.
-- Main app writes the List (who helpers may call) + reads Results/Reservations; hourly + when the app opens.
-- Call/WhatsApp button reserves the person (others see "X is calling"); reservation expires after 24h; results flow back (notes, names given → Suggested, "wants profile / Eliyahu should call" → your turn).
-- Main: Settings → Helpers (add, link, pause, what each sees: All / Russian / English / Picked); contact field "Helpers" (Only me / names).
-- Phone numbers visible to all helpers (user's decision). Fable only for: final safety review before sending links widely, or a bug failing twice.
-- Built + tested in Node (17 checks); main app auto-deploys. Not done yet: user one-time steps: (1) Settings → Helpers → Set up helpers, (2) helpers' sheet → Extensions → Apps Script → Project Settings → Script ID to Claude → Claude adds helper/.clasp.json, (3) Deploy → New deployment → Web app, Me, Anyone → URL to Claude → Claude sets HELPER_URL in Code.gs + HELPER_DEPLOYMENT_ID in deploy.yml, (4) add Mom, test on her iPhone (TESTS.md Helpers).
+## Helper app (live, 2026-11-14)
+Deployed and wired (helper/.clasp.json, HELPER_URL, HELPER_DEPLOYMENT_ID set; Mom's page opens in incognito).
+Left: user sends Mom her link (Settings → Helpers → Copy link) and tests on her iPhone (TESTS.md Helpers, remaining boxes). Fable only for a final safety review before sending links widely, or a bug failing twice.
 
 ## Now (2026-11-14)
 - Built + pushed (commit 7dbeb29): in-app Messages (preview-first, then edit) and App settings. Deploy result not yet confirmed by Claude; reload the app if the Messages button is missing.

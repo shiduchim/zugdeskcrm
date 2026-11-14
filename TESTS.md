@@ -50,7 +50,8 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - Import (Settings → Import contacts): file (CSV/TXT) or pasted rows; headers in EN/HE/RU recognised, or loose lines "Name 054-… mail@x"; preview shows new / already in list / do-not-contact / skipped before anything is saved; matches only by exact phone or email (same name with another phone = new person); new people get next IDs, Status New, chosen Source + Type, SourceRef "Imported <date>"; existing people get "also in <source>"; one Log line per import.
 
 ## Manual — Helpers (only you can do these)
-- [ ] Settings → Helpers → Set up helpers → a sheet "zugdeskcrm – Helpers" appears in Drive with tabs Helpers, List, Reservations, Results, Texts, Config; List is filled
+- [x] Settings → Helpers → Set up helpers → a sheet "zugdeskcrm – Helpers" appears in Drive with tabs Helpers, List, Reservations, Results, Texts, Config; List is filled
+- [x] Helper link opens in incognito (PC) with Mom's page in Russian, list 687 (2026-11-14; note: first deployment gave "Sorry, unable to open the file" — fixed by creating a NEW web-app deployment)
 - [ ] Add "Mom" (Russian speakers, RU) → Copy link → opens on her iPhone in Safari without any Google login, page in Russian
 - [ ] Call button opens the dialer; the person moves to "My calls"; on a second link (another helper) the same person shows "Mom is calling"
 - [ ] Save "We spoke" + "Eliyahu should call" + a note → within an hour (or when you open your app) it shows under "From your helpers — your turn" with the note
