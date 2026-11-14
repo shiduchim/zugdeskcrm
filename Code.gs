@@ -1387,7 +1387,7 @@ function srcGroup_(src) {
 
 /** Pure: the note a helper's result leaves on the contact. */
 function helperNote_(r) {
-  return ['[' + r.helper + ']', r.notes, HELPER_NEXT[r.next] ? '→ ' + HELPER_NEXT[r.next] : '', r.names ? 'Names given: ' + r.names : '']
+  return ['[' + r.helper + ']', r.notes, r.next ? '→ ' + (HELPER_NEXT[r.next] || r.next) : '', r.names ? 'Names given: ' + r.names : '']
     .filter(Boolean).join(' ').trim();
 }
 
@@ -1428,9 +1428,12 @@ function helperSync_(rebuildList) {
     for (let i = done; i < res.length; i++) {
       const r = { when: str_(res[i][0]), helper: str_(res[i][1]), id: str_(res[i][2]), result: str_(res[i][4]), next: str_(res[i][5]), notes: str_(res[i][6]), names: str_(res[i][7]) };
       const c = db.rows.find(x => x.ID === r.id), action = HELPER_ACTIONS[r.result];
-      if (c && action) {
+      if (c && r.result === 'note' && r.notes) {   // only a note: add it, status unchanged
+        patchContact_(db, c, { Notes: (c.Notes ? c.Notes + '\n' : '') + today_() + ': ' + helperNote_(r) });
+        log_(c, 'Helper: ' + r.helper, 'Note', r.notes);
+      } else if (c && action) {
         applyResult_(s, db, c, action, 'Helper: ' + r.helper, helperNote_(r));
-        if (action === 'spoke' && HELPER_NEXT[r.next]) patchContact_(db, c, { NeedsReply: 'YES', NextDate: today_() });
+        if (action === 'spoke' && r.next) patchContact_(db, c, { NeedsReply: 'YES', NextDate: today_() });
         if (r.names) saveSuggestions_(c, extractPeople(r.names, excludeFor_(c, s)), db);
       }
       props.setProperty('helper_synced', String(i + 1));

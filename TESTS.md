@@ -80,3 +80,5 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Helper page in Russian starts once with Russian + English + Book ticked; unticking is remembered (English/Hebrew pages start with nothing).
 - [ ] Helper page in Russian, sort Best first: Russian speakers first, then the rest, each in best-match order.
 - [ ] Helper page: "Eliyahu's profile:" row with Русский | עברית | English; each copies that language's profile (her own language first); toast names the language.
+- [ ] Helper My calls: notes box first (big, grows, mic hint); Save works with only a note ("Save note", person stays, note shows with date) or with a result ("Save and finish"); nothing filled → friendly reminder; tap a result again to undo.
+- [ ] Helper What next: "Something else" box (60 chars) replaces the buttons; her last 4 own texts become buttons on later cards (from the Helpers sheet). Main app: note-only adds note + history, status unchanged; own text shows as "→ text" and sets needs reply.

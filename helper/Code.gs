@@ -80,8 +80,8 @@ function h_load(k) {
   const doneSince = new Set(), tips = {};
   results.forEach(r => {
     const id = str_(r[2]);
-    if (str_(r[0]) > builtAt) doneSince.add(id);
-    if (str_(r[6])) tips[id] = str_(r[1]) + ': ' + str_(r[6]);
+    if (str_(r[0]) > builtAt && str_(r[4]) !== 'note') doneSince.add(id);   // a note alone keeps the person
+    if (str_(r[6])) tips[id] = str_(r[0]).slice(0, 10) + ' · ' + str_(r[1]) + ': ' + str_(r[6]);
   });
   const tr = {}, col = me.lang === 'RU' ? 1 : me.lang === 'EN' ? 2 : 0;
   if (col && sh_('Tr')) rows_('Tr').forEach(r => { if (str_(r[col])) tr[str_(r[0])] = str_(r[col]); });
@@ -97,7 +97,7 @@ function h_load(k) {
       mine: mine, by: h && !mine ? h.helper : '', tip: tips[row.ID] || '',
       tr: col ? { name: T(row.Name), city: T(row.City), spec: T(row.Specialty), why: String(row.Why || '').split(' · ').map(w => T(w) || w).join(' · ') } : null });
   });
-  return { me: me, items: items, texts: texts, profile: cfg['PROFILE_' + me.lang] || cfg.PROFILE_HE || '',
+  return { me: me, items: items, texts: texts, customs: customs_(results, me.name), profile: cfg['PROFILE_' + me.lang] || cfg.PROFILE_HE || '',
     profiles: { RU: cfg.PROFILE_RU || '', HE: cfg.PROFILE_HE || '', EN: cfg.PROFILE_EN || '' } };
 }
 
@@ -121,20 +121,33 @@ function h_release(k, id) {
   finally { lock.releaseLock(); }
 }
 
+/** Pure: this helper's own "What next" texts (not the fixed ones), newest first, max 4. */
+function customs_(results, name) {
+  const out = [];
+  for (let i = results.length - 1; i >= 0 && out.length < 4; i--) {
+    const r = results[i], v = str_(r[5]);
+    if (str_(r[1]) === name && v && NEXT.indexOf(v) < 0 && out.indexOf(v) < 0) out.push(v);
+  }
+  return out;
+}
+
+/** result 'note' = only a note: saved, status unchanged, the person stays with this helper. next = a fixed key or her own words (max 60). */
 function h_save(k, id, result, next, notes, names) {
   const me = who_(k);
-  if (RESULTS.indexOf(result) < 0) throw new Error('Unknown result');
-  if (NEXT.indexOf(next || '') < 0) next = '';
+  const noteOnly = result === 'note';
+  if (!noteOnly && RESULTS.indexOf(result) < 0) throw new Error('Unknown result');
+  if (noteOnly && !String(notes || '').trim()) throw new Error('Empty note');
+  next = result === 'spoke' ? String(next || '').replace(/\s+/g, ' ').trim().slice(0, 60) : '';
   const lock = LockService.getScriptLock(); lock.waitLock(15000);
   try {
     const row = rows_('List').find(r => str_(r[0]) === id);
     const name = row ? str_(row[1]) : '';
     const clean = s => String(s || '').replace(/^[=+\-@]/, "'$&").slice(0, 2000);   // never a formula
-    sh_('Results').appendRow([now_(), me.name, id, name, result, result === 'spoke' ? next : '', clean(notes), clean(names)]);
-    sh_('Reservations').appendRow([id, me.name, now_(), 'Done']);
+    sh_('Results').appendRow([now_(), me.name, id, name, result, clean(next), clean(notes), noteOnly ? '' : clean(names)]);
+    sh_('Reservations').appendRow([id, me.name, now_(), noteOnly ? 'Active' : 'Done']);   // a note renews the 24h hold
     return { ok: true };
   } finally { lock.releaseLock(); }
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { canSee_: canSee_, holds_: holds_, API_: API_ };
+if (typeof module !== 'undefined') module.exports = { canSee_: canSee_, holds_: holds_, customs_: customs_, API_: API_ };

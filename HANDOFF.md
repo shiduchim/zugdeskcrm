@@ -5,7 +5,7 @@ _Last updated: 2026-11-14_
 - Live in both apps: Filters panel (counts, live list, closes with Done / outside tap / Esc / phone Back), "Filters: … · Change" line + Clear all (no removable tags), Country group (Country field, else phone code), main app quick Russian / WhatsApp.
 - Helper page: title "{name}'s list", small Original/Russian pill, sticky My calls / List switch, links for What to say + "Eliyahu's profile: Русский | עברית | English" copy, result grid, clearer "I won't call — put back in the main list" + toast, no quick buttons. Russian-language helpers start once with Russian + English + Book ticked and Best first puts Russian speakers on top. Mom's Show must stay **All** (Russian would hide English speakers).
 - Not tested on a real phone: Samsung Internet Back button inside the Apps Script page, Mom's iPhone, real data. Profile language buttons appear after the hourly helper sync.
-- Unanswered from earlier: "My calls" option A/B/C (result buttons on every list card / open on My calls first) — probably moot now that the switch is at the top; ask once.
+- My calls card redone (Fable review): notes first, note-only save, custom "What next" buttons. Check on Mom's phone that a note-only save shows in your app after the hourly sync.
 
 ## Helper app (live, 2026-11-14)
 Deployed and wired (helper/.clasp.json, HELPER_URL, HELPER_DEPLOYMENT_ID set; Mom's page opens in incognito).

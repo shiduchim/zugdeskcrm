@@ -182,4 +182,13 @@ t('settingsPatch_: MY_PHONE keeps its leading zero as text', () => {
   const p = A.settingsPatch_(SETROWS, { MY_PHONE: '050-1234567' });
   assert.strictEqual(p.writes[0].value, '050-1234567');
 });
+t('customs_: her own What-next words, newest first, unique, max 4, not the fixed ones', () => {
+  const r = (who, next) => ['2026-11-14 10:00:00', who, 'C1', 'N', 'spoke', next, '', ''];
+  const res = [r('Mom', 'a'), r('Mom', 'profile'), r('Mom', 'b'), r('Ann', 'z'), r('Mom', 'c'), r('Mom', 'd'), r('Mom', 'e'), r('Mom', 'b'), r('Mom', '')];
+  assert.deepStrictEqual(H.customs_(res, 'Mom'), ['b', 'e', 'd', 'c']);
+});
+t('helperNote_: a custom What-next text is shown as is', () => {
+  assert.strictEqual(A.helperNote_({ helper: 'Mom', notes: 'hi', next: 'send photo', names: '' }), '[Mom] hi → send photo');
+  assert.strictEqual(A.helperNote_({ helper: 'Mom', notes: '', next: 'call', names: '' }), "[Mom] → wants Eliyahu to call");
+});
 console.log(n + ' checks passed');
