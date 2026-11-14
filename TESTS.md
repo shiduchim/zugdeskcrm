@@ -90,3 +90,4 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Best first: Chabad on top (helper: then Russian speakers for Russian helpers), crossed out always last even if Chabad (helper page + main Contacts).
 - [ ] Helper chips always in her language (Original mode switches only name, city, specialty).
 - [ ] Ranking (2026-11-14): Israel first, then Russian speakers above Chabad, crossed out last — Contacts list order + first autopilot emails Sunday are Russian-speaking Israelis (node tests cover the order).
+- [ ] Email "how I found you" line: book/insert contacts only; referred = "{by} suggested…"; Gmail/Web search/others = no line (unit-tested).
