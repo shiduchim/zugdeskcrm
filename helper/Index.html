@@ -159,10 +159,10 @@ function render(){
   const hasTr = D.items.some(x => x.tr);
   let h = `<div class="top"><h1 dir="auto">${esc(t('listOf', {name: D.me.name}))}</h1>` +
     (hasTr ? `<div class="trsw"><button class="${!showTr?'on':''}" aria-pressed="${!showTr}" onclick="setTr(false)">${esc(t('orig'))}</button><button class="${showTr?'on':''}" aria-pressed="${showTr}" onclick="setTr(true)">${esc(t('trans'))}</button></div>` : '') + `</div>
-    <div class="seg" role="tablist">${[['all', t('all') + ' (' + list.length + ')'], ['mine', t('mine') + ' (' + mine.length + ')'], ['past', t('past')]].map(b =>
+    <div class="seg" role="tablist">${(tabs => lang === 'HE' ? tabs : tabs.reverse())([['all', t('all') + ' (' + list.length + ')'], ['mine', t('mine') + ' (' + mine.length + ')'], ['past', t('past')]]).map(b =>   /* To call always on the right */
       `<button role="tab" aria-selected="${tab===b[0]}" class="${tab===b[0]?'cur':''}" onclick="setTab('${b[0]}')">${esc(b[1])}</button>`).join('')}</div>
-    <div class="links"><button onclick="toggle('scr')">${esc(t('script'))}</button>${profHtml()}</div>
-    <div class="script" id="scr" dir="auto">${esc(scriptText())}</div>`;
+` + (tab === 'all' ? `<div class="links"><button onclick="toggle('scr')">${esc(t('script'))}</button>${profHtml()}</div>
+    <div class="script" id="scr" dir="auto">${esc(scriptText())}</div>` : '');   // only on To call
   if (tab === 'mine') h += mine.length ? mine.map(cardHtml).join('') : `<div class="center muted">${esc(t('emptyMine'))}</div>`;
   else if (tab === 'past') h += pastHtml();
   else {
