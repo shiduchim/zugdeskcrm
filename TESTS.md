@@ -91,3 +91,4 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Helper chips always in her language (Original mode switches only name, city, specialty).
 - [ ] Ranking (2026-11-14): Israel first, then Russian speakers above Chabad, crossed out last — Contacts list order + first autopilot emails Sunday are Russian-speaking Israelis (node tests cover the order).
 - [ ] Email "how I found you" line: book/insert contacts only; referred = "{by} suggested…"; Gmail/Web search/others = no line (unit-tested).
+- Chat commands: Name__Commands.csv → close/note/set/delete/restore applied, file renamed with 'N done, N failed'; wrong name refused; deleted contact in hidden Deleted tab and its ID not reused; Contacts index.csv appears in Drive root after hourly run.

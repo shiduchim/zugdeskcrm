@@ -953,6 +953,11 @@ function importInbox_() {
       catch (e) { log_(null, 'Import', 'Import inbox error', name + ': ' + e); }
       continue;
     }
+    if (/^commands$/i.test(parts[1] || '')) {
+      try { const r = applyCommands_(csvRows_(f.getBlob().getDataAsString('UTF-8')), parts[0]); f.setName('Imported ' + today_() + ' – ' + name + ' – ' + r.done + ' done, ' + r.failed.length + ' failed' + (r.failed.length ? ': ' + r.failed.join('; ') : '').slice(0, 300)); }
+      catch (e) { log_(null, 'Import', 'Import inbox error', name + ': ' + e); }
+      continue;
+    }
     if (/^donotcontact$/i.test(parts[1] || '')) {
       try { const n = addDoNotContact_(csvRows_(f.getBlob().getDataAsString('UTF-8')), parts[0]); f.setName('Imported ' + today_() + ' – ' + name + ' – ' + n + ' added to Do-not-contact'); }
       catch (e) { log_(null, 'Import', 'Import inbox error', name + ': ' + e); }
@@ -994,6 +999,118 @@ function addDoNotContact_(rows, source) {
   return n;
 }
 
+/* ---------- Chat commands (Claude manages contacts from the chat) ----------
+   File "Name__Commands.csv" in the Import inbox, columns: id, name, action, field, value.
+   Actions: close / reopen / delete / restore / note / set. Nothing is erased: delete moves the row to the hidden "Deleted" tab.
+   The name must match the contact (guards against a stale index). Every change is logged with the old value. */
+const CMD_FIELDS = ['Name','City','Sector','Specialty','Languages','Hours','Phone1','Phone2','Email','Other','ReferredBy','Status','CloseReason','NextDate','Lang','Boost','Type','Helpers','Country'];
+const CMD_STATUS = ['New','Contacted','Talking','Later','Closed'];
+
+/** Pure: one CSV row → {ok, cmd} or {ok:false, why}. */
+function parseCommand_(r) {
+  const id = String(r.id || '').trim().toUpperCase(), action = String(r.action || '').trim().toLowerCase();
+  const name = String(r.name || '').trim(), value = String(r.value == null ? '' : r.value).trim();
+  const fk = String(r.field || '').trim(), field = CMD_FIELDS.find(f => f.toLowerCase() === fk.toLowerCase()) || '';
+  if (!/^C\d{4,}$/.test(id)) return { ok: false, why: 'bad id "' + id + '"' };
+  if (!name) return { ok: false, why: id + ' no name given' };
+  if (['close','reopen','delete','restore','note','set'].indexOf(action) < 0) return { ok: false, why: id + ' unknown action "' + action + '"' };
+  if (action === 'note' && !value) return { ok: false, why: id + ' empty note' };
+  if (action === 'set') {
+    if (!field) return { ok: false, why: id + ' field not allowed "' + fk + '"' };
+    if (field === 'Status' && CMD_STATUS.indexOf(value) < 0) return { ok: false, why: id + ' bad status' };
+    if (field === 'NextDate' && value && !/^\d{4}-\d{2}-\d{2}$/.test(value)) return { ok: false, why: id + ' date must be YYYY-MM-DD' };
+    if (field === 'Lang' && value && ['HE','RU','EN'].indexOf(value) < 0) return { ok: false, why: id + ' Lang must be HE/RU/EN' };
+    if (field === 'Type' && TYPES.indexOf(value) < 0) return { ok: false, why: id + ' bad type' };
+  }
+  return { ok: true, cmd: { id: id, name: name, action: action, field: field, value: value } };
+}
+
+/** Pure: does the name in the command match the contact's name? (same words, ignoring case/punctuation/order) */
+function nameMatches_(given, actual) {
+  const w = x => String(x || '').toLowerCase().replace(/["'׳״.,()\-]/g, ' ').split(/\s+/).filter(Boolean);
+  const g = w(given), a = w(actual);
+  return g.length > 0 && g.every(x => a.indexOf(x) >= 0);
+}
+
+function applyCommands_(rows, source) {
+  const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  let done = 0; const failed = [];
+  try {
+    rows.forEach(r => {
+      const p = parseCommand_(r);
+      if (!p.ok) { failed.push(p.why); return; }
+      try { applyCommand_(p.cmd, source); done++; } catch (e) { failed.push(p.cmd.id + ' ' + String(e.message || e)); }
+    });
+  } finally { lock.releaseLock(); }
+  if (failed.length) log_(null, 'Chat', 'Commands failed', source + ': ' + failed.join('; ').slice(0, 500));
+  try { writeContactsIndex_(); } catch (e) {}
+  return { done: done, failed: failed };
+}
+
+function applyCommand_(cmd, source) {
+  const by = ' (from chat: ' + source + ')';
+  if (cmd.action === 'restore') return restoreContact_(cmd, by);
+  const db = loadContacts_(), c = db.rows.find(x => x.ID === cmd.id);
+  if (!c) throw new Error('not found');
+  if (!nameMatches_(cmd.name, c.Name)) throw new Error('name does not match "' + c.Name + '"');
+  if (cmd.action === 'close') {
+    patchContact_(db, c, { Status: 'Closed', CloseReason: cmd.value || 'Removed by owner', NextDate: '' });
+    log_(c, 'Chat', 'Closed', (cmd.value || 'Removed by owner') + by);
+  } else if (cmd.action === 'reopen') {
+    patchContact_(db, c, { Status: 'New', CloseReason: '' });
+    log_(c, 'Chat', 'Reopened', by.trim());
+  } else if (cmd.action === 'note') {
+    patchContact_(db, c, { Notes: c.Notes ? c.Notes + '\n' + today_() + ': ' + cmd.value : today_() + ': ' + cmd.value });
+    log_(c, 'Chat', 'Note added', cmd.value.slice(0, 200) + by);
+  } else if (cmd.action === 'set') {
+    const old = c[cmd.field] || '';
+    const v = /^(Phone1|Phone2)$/.test(cmd.field) && normPhone_(cmd.value) ? normPhone_(cmd.value).local : cmd.value;
+    patchContact_(db, c, { [cmd.field]: v });
+    log_(c, 'Chat', 'Changed ' + cmd.field, 'to "' + v + '". Old value: ' + (old || '(empty)') + by);
+  } else if (cmd.action === 'delete') {
+    const del = ensureSheet_('Deleted', db.head.concat(['DeletedAt']));
+    const dhead = del.getRange(1, 1, 1, del.getLastColumn()).getValues()[0].map(String);
+    const row = dhead.map(h => h === 'DeletedAt' ? now_() : (c[h] || ''));
+    del.getRange(del.getLastRow() + 1, 1, 1, row.length).setNumberFormat('@').setValues([row]);
+    if (!del.isSheetHidden()) del.hideSheet();
+    const props = PropertiesService.getScriptProperties(), num = parseInt(c.ID.slice(1), 10);
+    if (num > (parseInt(props.getProperty('max_deleted_id') || '0', 10) || 0)) props.setProperty('max_deleted_id', String(num));
+    db.sh.deleteRow(c._row);
+    log_(c, 'Chat', 'Deleted', 'moved to the Deleted tab' + by);
+  }
+}
+
+function restoreContact_(cmd, by) {
+  const del = ss_().getSheetByName('Deleted');
+  if (!del) throw new Error('no Deleted tab');
+  const vals = del.getDataRange().getValues(), dhead = vals[0].map(String);
+  let i = -1;
+  for (let k = vals.length - 1; k > 0; k--) if (String(vals[k][0]) === cmd.id) { i = k; break; }
+  if (i < 0) throw new Error('not in Deleted tab');
+  const o = {}; dhead.forEach((h, j) => (o[h] = str_(vals[i][j])));
+  if (!nameMatches_(cmd.name, o.Name)) throw new Error('name does not match "' + o.Name + '"');
+  const db = loadContacts_();
+  if (db.rows.some(x => x.ID === cmd.id)) throw new Error('already in Contacts');
+  const row = db.head.map(h => o[h] || '');
+  db.sh.getRange(db.sh.getLastRow() + 1, 1, 1, row.length).setNumberFormat('@').setValues([row]);
+  del.deleteRow(i + 1);
+  log_(o, 'Chat', 'Restored', 'back from the Deleted tab' + by);
+}
+
+/** Private Drive file "zugdeskcrm – Contacts index.csv" (no notes) so Claude can look people up cheaply. Rewritten every hour. */
+const INDEX_COLS = ['ID','Name','City','Phone1','Phone2','Email','Status','CloseReason','Type','Lang','NextDate','Source','ReferredBy'];
+function writeContactsIndex_() {
+  const db = loadContacts_();
+  const q = v => /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  const csv = [INDEX_COLS.join(',')].concat(db.rows.map(c => INDEX_COLS.map(h => q(String(c[h] || '').replace(/\r?\n/g, ' '))).join(','))).join('\n');
+  const props = PropertiesService.getScriptProperties();
+  let f = null;
+  try { f = DriveApp.getFileById(props.getProperty('INDEX_ID')); if (f.isTrashed()) f = null; } catch (e) {}
+  if (f) { f.setContent(csv); return; }
+  f = DriveApp.getRootFolder().createFile('zugdeskcrm – Contacts index.csv', csv, 'text/csv');
+  props.setProperty('INDEX_ID', f.getId());
+}
+
 /** Pure: CSV text (with header row) → array of objects with lower-case keys. */
 function csvRows_(text) {
   const t = String(text).replace(/^﻿/, ''), out = []; let row = [], cell = '', q = false;
@@ -1011,7 +1128,8 @@ function csvRows_(text) {
 }
 
 function nextId_(db) {
-  const n = db.rows.map(c => parseInt(String(c.ID).replace(/\D/g, ''), 10) || 0).reduce((a, b) => Math.max(a, b), 0);
+  const del = parseInt(PropertiesService.getScriptProperties().getProperty('max_deleted_id') || '0', 10) || 0;   // deleted IDs are never reused
+  const n = db.rows.map(c => parseInt(String(c.ID).replace(/\D/g, ''), 10) || 0).reduce((a, b) => Math.max(a, b), del);
   return 'C' + String(n + 1).padStart(4, '0');
 }
 
@@ -1124,6 +1242,7 @@ function hourlyJob() {
     try { importInbox_(); } catch (e) { log_(null, 'Import', 'Import inbox error', String(e)); }
     scanReplies_(); sendBatch_();
     try { helperSync_(true); } catch (e) { log_(null, 'Helpers', 'Helper sync error', String(e).slice(0, 200)); }
+    try { writeContactsIndex_(); } catch (e) { log_(null, 'Chat', 'Index error', String(e).slice(0, 200)); }
   });
 }
 
@@ -1590,4 +1709,4 @@ function api_newHelperLink(name) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, sourceLine_: sourceLine_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };
+if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, sourceLine_: sourceLine_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_, parseCommand_: parseCommand_, nameMatches_: nameMatches_ };

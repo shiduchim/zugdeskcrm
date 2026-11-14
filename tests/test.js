@@ -229,6 +229,26 @@ t('helperPool_: "Set aside: <helper>" leaves every helper\'s list', () => {
   ];
   assert.deepStrictEqual(A.helperPool_(rows, S, () => false, new Set(), '2026-11-14').map(r => r[0]), ['C2']);
 });
+t('parseCommand_: valid close / note / set', () => {
+  assert.ok(A.parseCommand_({ id: 'c0012', name: 'רחל', action: 'Close' }).ok);
+  assert.strictEqual(A.parseCommand_({ id: 'C0012', name: 'x', action: 'set', field: 'nextdate', value: '2026-12-01' }).cmd.field, 'NextDate');
+  assert.ok(A.parseCommand_({ id: 'C0012', name: 'x', action: 'note', value: 'spoke Sunday' }).ok);
+});
+t('parseCommand_: refuses bad id, no name, unknown action, unsafe field, bad values', () => {
+  assert.ok(!A.parseCommand_({ id: '12', name: 'x', action: 'close' }).ok);
+  assert.ok(!A.parseCommand_({ id: 'C0012', name: '', action: 'close' }).ok);
+  assert.ok(!A.parseCommand_({ id: 'C0012', name: 'x', action: 'wipe' }).ok);
+  assert.ok(!A.parseCommand_({ id: 'C0012', name: 'x', action: 'set', field: 'ID', value: 'C0001' }).ok);
+  assert.ok(!A.parseCommand_({ id: 'C0012', name: 'x', action: 'set', field: 'Status', value: 'Gone' }).ok);
+  assert.ok(!A.parseCommand_({ id: 'C0012', name: 'x', action: 'set', field: 'NextDate', value: '1/12' }).ok);
+  assert.ok(!A.parseCommand_({ id: 'C0012', name: 'x', action: 'note', value: '' }).ok);
+});
+t('nameMatches_: same words any order, refuses other names', () => {
+  assert.ok(A.nameMatches_('Larisa', 'Larisa Ivanova'));
+  assert.ok(A.nameMatches_('רחל יולפסאן', 'יולפסאן רחל'));
+  assert.ok(!A.nameMatches_('Rivka', 'Larisa Ivanova'));
+  assert.ok(!A.nameMatches_('', 'Larisa'));
+});
 console.log(n + ' checks passed');
 
 // source line: book contacts only (referral wins)
