@@ -265,10 +265,10 @@ function setF(k, v){
   saveF();
 }
 function clearF(){ fl = FL0(); saveF(); }
-function startF(){   // once per phone: Russian-speaking helpers start with Book + Russian ticked (they can untick)
-  try { if (localStorage.getItem('h_start') === '1') return; localStorage.setItem('h_start', '1'); } catch(e){ return; }
+function startF(){   // once per phone: Russian-speaking helpers start with Book + Russian + English ticked (they can untick)
+  try { if (localStorage.getItem('h_start2') === '1') return; localStorage.setItem('h_start2', '1'); } catch(e){ return; }
   if (lang !== 'RU') return;
-  fl.lang = ['ru']; fl.src = free_().some(x => x.src === 'Book') ? ['Book'] : []; saveF();
+  fl.lang = ['ru', 'en']; fl.src = free_().some(x => x.src === 'Book') ? ['Book'] : []; saveF();
 }
 function dropStale(){   // remembered filters that no longer exist in the list
   const free = free_();
