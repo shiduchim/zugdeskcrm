@@ -191,4 +191,23 @@ t('helperNote_: a custom What-next text is shown as is', () => {
   assert.strictEqual(A.helperNote_({ helper: 'Mom', notes: 'hi', next: 'send photo', names: '' }), '[Mom] hi → send photo');
   assert.strictEqual(A.helperNote_({ helper: 'Mom', notes: '', next: 'call', names: '' }), "[Mom] → wants Eliyahu to call");
 });
+t('past_: her finished people, newest first, notes kept, no phone after stop/wrong/inactive or when closed', () => {
+  const R = (when, who, id, res, notes, tel) => [when, who, id, 'Name ' + id, res, '', notes || '', '', tel ? '050' : '', tel || '', 'Tzfat'];
+  const res = [
+    R('2026-11-10 10:00:00', 'Mom', 'C1', 'spoke', 'nice', '+97250'),
+    R('2026-11-11 10:00:00', 'Mom', 'C2', 'noanswer', '', '+97251'),
+    R('2026-11-12 10:00:00', 'Ann', 'C2', 'stop', '', ''),
+    R('2026-11-12 11:00:00', 'Mom', 'C3', 'note', 'only a note', '+97252'),
+    R('2026-11-13 10:00:00', 'Mom', 'C4', 'spoke', '', '+97253'),
+    R('2026-11-13 12:00:00', 'Mom', 'C1', 'note', 'later note', ''),
+    R('2026-11-14 09:00:00', 'Mom', 'C5', 'spoke', '', '+97254')
+  ];
+  const out = H.past_(res, 'Mom', new Set(['C5']), new Set(['C4']), new Set(['C1']));
+  assert.deepStrictEqual(out.map(p => p.id), ['C1', 'C4', 'C2']);   // C3 only a note, C5 held now
+  const c1 = out[0];
+  assert.deepStrictEqual(c1.notes.map(n => n.text), ['nice', 'later note']);
+  assert.strictEqual(c1.tel, '+97250'); assert.strictEqual(c1.inList, true); assert.strictEqual(c1.result, 'spoke');
+  assert.strictEqual(out[1].tel, '');   // closed in the main app
+  assert.strictEqual(out[2].tel, '');   // someone got "stop"
+});
 console.log(n + ' checks passed');

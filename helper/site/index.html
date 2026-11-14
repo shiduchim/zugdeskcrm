@@ -67,7 +67,7 @@ label{display:block;margin:12px 0 4px;font-size:15px;color:var(--muted)}
 .trsw button{min-height:0;height:100%;padding:0 12px;border:0;border-radius:0;font-size:13px;background:transparent}
 .trsw button.on{background:var(--blue);color:var(--blue-ink)}
 .seg{display:flex;gap:4px;padding:4px;background:var(--line);border-radius:14px;position:sticky;top:0;z-index:5;margin:10px 0 4px;box-shadow:0 0 0 8px var(--bg)}
-.seg button{flex:1;border:0;background:transparent;font-weight:600;color:var(--muted);min-height:48px;border-radius:10px}
+.seg button{flex:1;padding:6px;font-size:15px;line-height:1.2;border:0;background:transparent;font-weight:600;color:var(--muted);min-height:48px;border-radius:10px}
 .seg button.cur{background:var(--card);color:var(--blue);box-shadow:0 1px 3px rgba(0,0,0,.18)}
 .links{display:flex;flex-wrap:wrap;gap:4px 16px;margin:0 0 4px}
 .links{align-items:center}
@@ -83,6 +83,7 @@ label{display:block;margin:12px 0 4px;font-size:15px;color:var(--muted)}
 .hint{color:var(--muted);font-size:15px;margin-top:4px}
 .center0{text-align:center}
 .card .save{width:100%;min-height:52px;margin-top:14px;font-size:18px;font-weight:600}
+.pnote{margin-top:6px;font-size:16px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .card .row .primary{min-height:52px;font-size:17px}
 .fchip.on{background:var(--blue);color:var(--blue-ink);border-color:var(--blue)}
@@ -98,21 +99,21 @@ const EXEC_URL = 'https://script.google.com/macros/s/AKfycbxjzT6OUMaH1CIajHS09t5
 const INSIDE = typeof google !== 'undefined' && google.script && google.script.run;
 const KEY = (INSIDE ? document.getElementById('app').dataset.k : (location.hash.match(/k=([A-Za-z0-9]+)/) || [])[1] || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 64);
 const L = {
- RU:{title:'Звонки шадханам',listOf:'Список: {name}',hello:'Здравствуйте, {name}!',mine:'Мои звонки',all:'Список',search:'Поиск: имя, город…',call:'Позвонить',wa:'WhatsApp',
+ RU:{title:'Звонки шадханам',listOf:'Список: {name}',hello:'Здравствуйте, {name}!',mine:'После звонка',all:'Позвонить',past:'Готово',callAgain:'Позвонить снова',addNote:'Добавить заметку',elSees:'Элияху увидит эту заметку',needNote:'Напишите заметку',emptyPast:'Здесь будут люди, по которым вы нажали «Сохранить и завершить».',empty0:'Никого не нашли.',foundPast:'Найдено в «{tab}»: {n}',search:'Поиск: имя, город…',call:'Позвонить',wa:'WhatsApp',
    script:'Что сказать',profile:'Скопировать профиль Элияху',copied:'Скопировано',busy:'{name} уже звонит',tip:'Заметка',giveBack:'Не буду звонить — вернуть в общий список',gaveBack:'Возвращено в общий список',
    save:'Сохранить',saved:'Сохранено, спасибо!',notes:'Заметки о разговоре',noteHint:'Можно не печатать: нажмите на микрофон на клавиатуре и говорите',noteEx:'Например: просила позвонить после праздников',saveNote:'Сохранить заметку',saveFinish:'Сохранить и завершить',staysMine:'Человек останется в «{tab}»',noteSaved:'Заметка сохранена',needOne:'Напишите заметку или выберите, чем закончился звонок',other:'Другое (своими словами)',names:'Имена и телефоны других шадханов, если дали',
    nextQ:'Что дальше?',next_profile:'Отправить профиль Элияху',next_call:'Пусть Элияху позвонит',next_:'Ничего',
    res_spoke:'Поговорили',res_noanswer:'Не ответили',res_callback:'Перезвонить позже',res_wrong:'Неверный номер',res_inactive:'Больше не занимается',res_stop:'Просили не звонить',
    pick:'Чем закончился звонок?',hours:'Часы',empty:'Сейчас некого звонить. Спасибо!',emptyMine:'Нажмите «Позвонить» в списке — человек появится здесь.',
    more:'Показать ещё',link:'Ссылка не работает. Попросите новую у Элияху.',err:'Что-то пошло не так: ',taken:'{name} уже взял(а) этого человека',orig:'Оригинал',trans:'Русский',sort:'Сортировка',s_best:'Лучшие сначала',s_city:'Город',s_name:'Имя',s_ru:'Русскоязычные сначала',s_src:'Источник',filters:'Фильтры',done:'Готово',reset:'Сбросить',showN:'Показать: {n}',findCity:'Найти город',g_city:'Город',g_country:'Страна',pcopy:'Профиль Элияху:',change:'Изменить',clearAll:'Сбросить всё',fOn:'Включены фильтры',c_unknown:'Не указана',g_lang:'Язык',g_src:'Источник',g_more:'Ещё',remove:'Убрать',filter:'Фильтр',f_city:'Все города',f_lang:'Все языки',f_src:'Все источники',f_mob:'Только мобильные',f_clear:'Сбросить фильтры',lg_ru:'Русский',lg_en:'Английский',lg_he:'Иврит',lg_yi:'Идиш',lg_fr:'Французский',lg_es:'Испанский'},
- HE:{title:'שיחות לשדכנים',listOf:'הרשימה של {name}',hello:'שלום {name}!',mine:'השיחות שלי',all:'רשימה',search:'חיפוש: שם, עיר…',call:'להתקשר',wa:'וואטסאפ',
+ HE:{title:'שיחות לשדכנים',listOf:'הרשימה של {name}',hello:'שלום {name}!',mine:'אחרי השיחה',all:'להתקשר',past:'בוצע',callAgain:'להתקשר שוב',addNote:'להוסיף הערה',elSees:'אליהו יראה את ההערה',needNote:'כתבו הערה',emptyPast:'כאן יופיעו האנשים שסיימתם איתם („לשמור ולסיים”).',empty0:'לא נמצא אף אחד.',foundPast:'נמצא ב„{tab}”: {n}',search:'חיפוש: שם, עיר…',call:'להתקשר',wa:'וואטסאפ',
    script:'מה לומר',profile:'להעתיק את הפרופיל של אליהו',copied:'הועתק',busy:'{name} כבר מתקשר/ת',tip:'הערה',giveBack:'לא אתקשר — להחזיר לרשימה הכללית',gaveBack:'הוחזר לרשימה הכללית',
    save:'שמירה',saved:'נשמר, תודה!',notes:'הערות על השיחה',noteHint:'אפשר לדבר במקום להקליד: המיקרופון במקלדת',noteEx:'לדוגמה: ביקשה להתקשר אחרי החגים',saveNote:'לשמור הערה',saveFinish:'לשמור ולסיים',staysMine:'האדם יישאר ב„{tab}”',noteSaved:'ההערה נשמרה',needOne:'כתבו הערה או בחרו איך הסתיימה השיחה',other:'אחר (במילים שלכם)',names:'שמות וטלפונים של שדכנים נוספים, אם נתנו',
    nextQ:'מה הלאה?',next_profile:'לשלוח את הפרופיל של אליהו',next_call:'שאליהו יתקשר',next_:'כלום',
    res_spoke:'דיברנו',res_noanswer:'לא ענו',res_callback:'להתקשר שוב אחר כך',res_wrong:'מספר שגוי',res_inactive:'כבר לא פעיל/ה',res_stop:'ביקשו לא להתקשר',
    pick:'איך הסתיימה השיחה?',hours:'שעות',empty:'אין כרגע למי להתקשר. תודה!',emptyMine:'לחצו "להתקשר" ברשימה – האדם יופיע כאן.',
    more:'עוד',link:'הקישור לא פעיל. בקשו קישור חדש מאליהו.',err:'משהו השתבש: ',taken:'{name} כבר לקח/ה את האדם הזה',sort:'מיון',s_best:'הכי מתאימים קודם',s_city:'עיר',s_name:'שם',s_ru:'דוברי רוסית קודם',s_src:'מקור',filters:'סינון',done:'סיום',reset:'איפוס',showN:'הצגת {n}',findCity:'חיפוש עיר',g_city:'עיר',g_country:'מדינה',pcopy:'הפרופיל של אליהו:',change:'שינוי',clearAll:'נקה הכול',fOn:'סינון פעיל',c_unknown:'לא ידוע',g_lang:'שפה',g_src:'מקור',g_more:'עוד',remove:'הסרה',filter:'סינון',f_city:'כל הערים',f_lang:'כל השפות',f_src:'כל המקורות',f_mob:'רק ניידים',f_clear:'ניקוי סינון',lg_ru:'רוסית',lg_en:'אנגלית',lg_he:'עברית',lg_yi:'יידיש',lg_fr:'צרפתית',lg_es:'ספרדית'},
- EN:{title:'Shadchan calls',listOf:"{name}'s list",hello:'Hello {name}!',mine:'My calls',all:'List',search:'Search: name, city…',call:'Call',wa:'WhatsApp',
+ EN:{title:'Shadchan calls',listOf:"{name}'s list",hello:'Hello {name}!',mine:'After call',all:'To call',past:'Done',callAgain:'Call again',addNote:'Add a note',elSees:'Eliyahu will see this note',needNote:'Write a note',emptyPast:'People you finished ("Save and finish") appear here.',empty0:'Nobody found.',foundPast:'Found in "{tab}": {n}',search:'Search: name, city…',call:'Call',wa:'WhatsApp',
    script:'What to say',profile:'Copy Eliyahu\'s profile',copied:'Copied',busy:'{name} is calling',tip:'Note',giveBack:"I won't call — put back in the main list",gaveBack:'Back in the main list',
    save:'Save',saved:'Saved, thank you!',notes:'Notes about the call',noteHint:'No need to type: tap the microphone on the keyboard and speak',noteEx:'For example: asked to call after the holidays',saveNote:'Save note',saveFinish:'Save and finish',staysMine:'This person stays in "{tab}"',noteSaved:'Note saved',needOne:'Write a note or pick how the call ended',other:'Something else (your own words)',names:'Names and numbers of other shadchanim, if they gave any',
    nextQ:'What next?',next_profile:'Send Eliyahu\'s profile',next_call:'Eliyahu should call',next_:'Nothing',
@@ -145,7 +146,7 @@ async function load(){
   try { D = await run('h_load'); lang = D.me.lang; document.documentElement.dir = lang === 'HE' ? 'rtl' : 'ltr'; document.documentElement.lang = lang.toLowerCase(); startF(); dropStale(); render(); updateSheet(); }
   catch(e){ fail(e); }
 }
-function busyTyping(){ return sheetOpen || Object.values(form).some(f => f.result || f.notes || f.names || f.other) || (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement.id !== 'q'); }
+function busyTyping(){ return sheetOpen || Object.values(form).some(f => f.result || f.notes || f.names || f.other) || Object.values(pform).some(f => f.open) || (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement.id !== 'q'); }
 setInterval(() => { if (document.visibilityState === 'visible' && D && !busyTyping()) load(); }, 60000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && D && !busyTyping()) load(); });
 
@@ -157,21 +158,24 @@ function render(){
   const hasTr = D.items.some(x => x.tr);
   let h = `<div class="top"><h1 dir="auto">${esc(t('listOf', {name: D.me.name}))}</h1>` +
     (hasTr ? `<div class="trsw"><button class="${!showTr?'on':''}" aria-pressed="${!showTr}" onclick="setTr(false)">${esc(t('orig'))}</button><button class="${showTr?'on':''}" aria-pressed="${showTr}" onclick="setTr(true)">${esc(t('trans'))}</button></div>` : '') + `</div>
-    <div class="seg" role="tablist"><button role="tab" aria-selected="${tab==='mine'}" class="${tab==='mine'?'cur':''}" onclick="setTab('mine')">${esc(t('mine'))} (${mine.length})</button>
-      <button role="tab" aria-selected="${tab==='all'}" class="${tab==='all'?'cur':''}" onclick="setTab('all')">${esc(t('all'))} (${list.length})</button></div>
+    <div class="seg" role="tablist">${[['all', t('all') + ' (' + list.length + ')'], ['mine', t('mine') + ' (' + mine.length + ')'], ['past', t('past')]].map(b =>
+      `<button role="tab" aria-selected="${tab===b[0]}" class="${tab===b[0]?'cur':''}" onclick="setTab('${b[0]}')">${esc(b[1])}</button>`).join('')}</div>
     <div class="links"><button onclick="toggle('scr')">${esc(t('script'))}</button>${profHtml()}</div>
     <div class="script" id="scr" dir="auto">${esc(scriptText())}</div>`;
   if (tab === 'mine') h += mine.length ? mine.map(cardHtml).join('') : `<div class="center muted">${esc(t('emptyMine'))}</div>`;
+  else if (tab === 'past') h += pastHtml();
   else {
     h += `<input id="q" dir="auto" placeholder="${esc(t('search'))}" value="${esc(q)}" oninput="q=this.value;shown=40;renderKeep()">`;
     h += barHtml();
-    h += list.length ? list.slice(0, shown).map(cardHtml).join('') : `<div class="center muted">${esc(t('empty'))}${nFl() ? `<div class="row"><button onclick="clearF()">${esc(t('f_clear'))}</button></div>` : ''}</div>`;
+    const inPast = ql && !list.length ? pastFind(ql).length : 0;
+    if (inPast) h += `<div class="row"><button onclick="pq=q;pshown=40;setTab('past')">${esc(t('foundPast', {tab: t('past'), n: inPast}))}</button></div>`;
+    h += list.length ? list.slice(0, shown).map(cardHtml).join('') : inPast ? '' : `<div class="center muted">${esc(t('empty'))}${nFl() ? `<div class="row"><button onclick="clearF()">${esc(t('f_clear'))}</button></div>` : ''}</div>`;
     if (list.length > shown) h += `<div class="row"><button onclick="shown+=40;render()">${esc(t('more'))}</button></div>`;
   }
   $('#app').innerHTML = h;
   document.querySelectorAll('textarea.note').forEach(e => { if (e.value) grow(e); });
 }
-function renderKeep(){ const p = $('#q') && $('#q').selectionStart; render(); const i = $('#q'); if (i){ i.focus(); try{ i.setSelectionRange(p,p); }catch(e){} } }
+function renderKeep(id){ id = id || 'q'; const p = $('#' + id) && $('#' + id).selectionStart; render(); const i = $('#' + id); if (i){ i.focus(); try{ i.setSelectionRange(p,p); }catch(e){} } }
 // sorting: busy people last; then the chosen order; best match breaks ties (rank = order from the main app)
 function shown_(x, f){ return (showTr && x.tr && x.tr[f]) || x[f] || ''; }
 function sorter(){
@@ -345,9 +349,44 @@ function otherNext(id, v){   // her own words replace the buttons; no re-render,
 }
 function grow(el){ el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight + 2, Math.round(innerHeight * 0.4)) + 'px'; }
 
+// Done (History): people she finished, newest first; search, call again, add a note
+let pq = '', pshown = 40; const pform = {};
+const nextLabel = n => !n ? '' : ['profile', 'call'].indexOf(n) >= 0 ? t('next_' + n) : n;
+function pastFind(ql){ return (D.past || []).filter(p => !ql || (p.name + ' ' + p.city + ' ' + (p.tr ? p.tr.name + ' ' + p.tr.city : '')).toLowerCase().indexOf(ql) >= 0); }
+function pastHtml(){
+  const all = D.past || [], l = pastFind(pq.trim().toLowerCase());
+  if (!all.length) return `<div class="center muted">${esc(t('emptyPast'))}</div>`;
+  let h = `<input id="pq" dir="auto" placeholder="${esc(t('search'))}" value="${esc(pq)}" oninput="pq=this.value;pshown=40;renderKeep('pq')">`;
+  h += l.length ? l.slice(0, pshown).map(pastCard).join('') : `<div class="center muted">${esc(t('empty0'))}</div>`;
+  if (l.length > pshown) h += `<div class="row"><button onclick="pshown+=40;render()">${esc(t('more'))}</button></div>`;
+  return h;
+}
+function pastCard(p){
+  const nm = (showTr && p.tr && p.tr.name) || p.name, city = (showTr && p.tr && p.tr.city) || p.city, f = pform[p.id] || {};
+  const how = t('res_' + p.result) + (p.next ? ' → ' + nextLabel(p.next) : '');
+  const live = p.inList && D.items.some(i => i.id === p.id && !i.by);   // back on the list: Call again reserves them like a normal call
+  let h = `<div class="card" id="p-${p.id}"><p class="name" dir="auto">${esc(nm)}</p>${nm !== p.name ? `<div class="muted orig" dir="auto">${esc(p.name)}</div>` : ''}
+    ${city ? `<div class="muted" dir="auto">${esc(city)}</div>` : ''}<div class="muted" dir="auto">${esc(p.at)} · ${esc(how)}</div>
+    ${p.notes.map(n => `<div class="pnote" dir="auto"><span class="muted">${esc(n.at)}</span> ${esc(n.text)}</div>`).join('')}
+    <div class="row">${p.tel ? `<a class="btn primary" href="tel:${esc(p.tel)}" ${live ? `onclick="hold('${p.id}')"` : ''}>${esc(t('callAgain'))} ${esc(p.phone)}</a>` : ''}
+      ${f.open ? '' : `<button onclick="pOpen('${p.id}')">${esc(t('addNote'))}</button>`}</div>`;
+  if (f.open) h += `<textarea id="pn-${p.id}" class="note" dir="auto" rows="3" oninput="pform['${p.id}'].text=this.value;grow(this)">${esc(f.text || '')}</textarea>
+    <div class="hint">${esc(t('elSees'))}</div><button class="good save" onclick="pSave('${p.id}')">${esc(t('saveNote'))}</button>`;
+  return h + `</div>`;
+}
+function pOpen(id){ pform[id] = { open: true, text: '' }; render(); const a = $('#pn-' + id); if (a) a.focus(); }
+async function pSave(id){
+  const f = pform[id] || {}, text = (f.text || '').trim(); if (!text) return toast(t('needNote'));
+  const b = document.querySelector('#p-' + id + ' .good'); if (b) b.disabled = true;
+  try { await run('h_save', id, 'note', '', text, '');
+    const p = (D.past || []).find(x => x.id === id); if (p) p.notes = p.notes.concat([{ at: today(), text: text }]).slice(-5);
+    delete pform[id]; toast(t('noteSaved')); render(); }
+  catch(e){ if (b) b.disabled = false; fail(e); }
+}
+const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
 function hold(id){
   const x = D.items.find(i => i.id === id); if (!x || x.mine) return;
-  x.mine = true; form[id] = form[id] || {};
+  x.mine = true; form[id] = form[id] || {}; D.past = (D.past || []).filter(p => p.id !== id);
   run('h_reserve', id).then(r => { if (!r.ok){ x.mine = false; x.by = r.by; delete form[id]; toast(t('taken', {name: r.by})); render(); } }).catch(fail);
   setTimeout(() => { tab = 'mine'; render(); }, 400);
 }
@@ -362,10 +401,14 @@ async function save(id){
   const b = document.querySelector('#c-'+id+' .good'); if (b) b.disabled = true;
   try { await run('h_save', id, res, next, f.notes || '', res === 'spoke' ? f.names || '' : '');
     if (res === 'note') {   // stays in My calls; the note shows on the card
-      const x = D.items.find(i => i.id === id), d = new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
-      if (x) x.tip = d + ' · ' + D.me.name + ': ' + note;
+      const x = D.items.find(i => i.id === id);
+      if (x) x.tip = today() + ' · ' + D.me.name + ': ' + note;
       delete form[id]; toast(t('noteSaved')); render(); return;
     }
+    { const x = D.items.find(i => i.id === id), bad = ['stop', 'wrong', 'inactive'].indexOf(res) >= 0, ph = x && x.phones[0];
+      const old = (D.past || []).find(p => p.id === id), notes = ((old && old.notes) || []).concat(note ? [{ at: today(), text: note }] : []).slice(-5);
+      if (x) D.past = [{ id: id, name: x.name, city: x.city, tr: x.tr ? { name: x.tr.name, city: x.tr.city } : null, at: today(), result: res, next: next, notes: notes,
+        phone: bad || !ph ? '' : ph.local, tel: bad || !ph ? '' : ph.tel, inList: false }].concat((D.past || []).filter(p => p.id !== id)); }
     if (next && ['profile', 'call'].indexOf(next) < 0) D.customs = [next].concat((D.customs || []).filter(c => c !== next)).slice(0, 4);
     delete form[id]; D.items = D.items.filter(i => i.id !== id); toast(t('saved')); render(); }
   catch(e){ if (b) b.disabled = false; fail(e); }

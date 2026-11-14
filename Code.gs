@@ -1345,7 +1345,7 @@ const H_TABS = {
   Helpers: ['Name', 'Key', 'Active', 'Show', 'Lang', 'Added'],
   List: ['ID', 'Name', 'City', 'Languages', 'Hours', 'Phone1', 'Tel1', 'Mobile1', 'Phone2', 'Tel2', 'Mobile2', 'Specialty', 'Why', 'For', 'Source', 'Country'],
   Reservations: ['ContactID', 'Helper', 'At', 'State'],
-  Results: ['When', 'Helper', 'ContactID', 'Name', 'Result', 'Next', 'Notes', 'Names'],
+  Results: ['When', 'Helper', 'ContactID', 'Name', 'Result', 'Next', 'Notes', 'Names', 'Phone', 'Tel', 'City'],
   Texts: ['Key', 'Value', 'Explanation'],
   Config: ['Key', 'Value']
 };
@@ -1460,7 +1460,9 @@ function helperRebuild_(hs, s, db) {
   const at = hTime_();
   const np = normPhone_(String(s.MY_PHONE || '').trim()), ph = np ? np.local : String(s.MY_PHONE || '').trim();   // Israeli number (calls)
   const prof = (lang, label) => (s['PROFILE_' + lang] || '') + (s['PROFILE_' + lang] && ph ? '\n\n' + label + ph : '');
-  hSet_(hs, { BuiltAt: at, PROFILE_HE: prof('HE', 'טלפון של אליהו: '), PROFILE_RU: prof('RU', 'Телефон Элияху: '), PROFILE_EN: prof('EN', "Eliyahu's phone: ") });
+  const rs = hs.getSheetByName('Results'); rs.getRange(1, 1, 1, H_TABS.Results.length).setValues([H_TABS.Results]);   // header can grow
+  const noCall = db.rows.filter(c => blocked_(c, dnc) || (c.Status || '') === 'Closed').map(c => c.ID).join(',');   // History hides Call again for these
+  hSet_(hs, { NoCall: noCall, BuiltAt: at, PROFILE_HE: prof('HE', 'טלפון של אליהו: '), PROFILE_RU: prof('RU', 'Телефон Элияху: '), PROFILE_EN: prof('EN', "Eliyahu's phone: ") });
   PropertiesService.getScriptProperties().setProperty('helper_built', at);
 }
 

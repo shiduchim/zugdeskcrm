@@ -86,9 +86,10 @@ function h_load(k) {
   const tr = {}, col = me.lang === 'RU' ? 1 : me.lang === 'EN' ? 2 : 0;
   if (col && sh_('Tr')) rows_('Tr').forEach(r => { if (str_(r[col])) tr[str_(r[0])] = str_(r[col]); });
   const T = x => tr[String(x || '').trim()] || '';
-  const items = [];
+  const items = [], listIds = new Set();
   rows_('List').forEach(v => {
     const row = {}; head.forEach((h, i) => (row[h] = str_(v[i])));
+    if (row.ID) listIds.add(row.ID);
     if (!row.ID || doneSince.has(row.ID) || !canSee_(me, row)) return;
     const h = holds[row.ID];
     const mine = !!(h && h.helper === me.name);
@@ -97,7 +98,10 @@ function h_load(k) {
       mine: mine, by: h && !mine ? h.helper : '', tip: tips[row.ID] || '',
       tr: col ? { name: T(row.Name), city: T(row.City), spec: T(row.Specialty), why: String(row.Why || '').split(' · ').map(w => T(w) || w).join(' · ') } : null });
   });
-  return { me: me, items: items, texts: texts, customs: customs_(results, me.name), profile: cfg['PROFILE_' + me.lang] || cfg.PROFILE_HE || '',
+  const heldByMe = new Set(Object.keys(holds).filter(id => holds[id].helper === me.name));
+  const past = past_(results, me.name, heldByMe, new Set(String(cfg.NoCall || '').split(',').filter(Boolean)), listIds);
+  past.forEach(p => { p.tr = col ? { name: T(p.name), city: T(p.city) } : null; });
+  return { me: me, items: items, texts: texts, past: past, customs: customs_(results, me.name), profile: cfg['PROFILE_' + me.lang] || cfg.PROFILE_HE || '',
     profiles: { RU: cfg.PROFILE_RU || '', HE: cfg.PROFILE_HE || '', EN: cfg.PROFILE_EN || '' } };
 }
 
@@ -121,6 +125,31 @@ function h_release(k, id) {
   finally { lock.releaseLock(); }
 }
 
+/** Pure: this helper's finished people (History), newest first, max 300. Results row: When, Helper, ID, Name, Result, Next, Notes, Names, Phone, Tel, City.
+ *  No call button after stop / wrong / inactive (by anyone) or when the main app lists the person as closed / do-not-contact. */
+function past_(results, name, held, noCall, listIds) {
+  const last = {}, mine = {};
+  results.forEach(r => {
+    const id = str_(r[2]), res = str_(r[4]);
+    if (!id) return;
+    if (res && res !== 'note') last[id] = res;
+    if (str_(r[1]) !== name) return;
+    const p = mine[id] = mine[id] || { id: id, name: '', city: '', phone: '', tel: '', at: '', result: '', next: '', notes: [] };
+    p.at = str_(r[0]);
+    if (str_(r[3])) p.name = str_(r[3]);
+    if (str_(r[10])) p.city = str_(r[10]);
+    if (str_(r[9])) { p.phone = str_(r[8]); p.tel = str_(r[9]); }
+    if (res && res !== 'note') { p.result = res; p.next = str_(r[5]); }
+    if (str_(r[6])) p.notes.push({ at: str_(r[0]).slice(0, 10), text: str_(r[6]) });
+  });
+  return Object.keys(mine).map(id => mine[id]).filter(p => p.result && !held.has(p.id))
+    .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)).slice(0, 300).map(p => {
+      const bad = ['stop', 'wrong', 'inactive'].indexOf(last[p.id]) >= 0 || noCall.has(p.id);
+      return { id: p.id, name: p.name, city: p.city, at: p.at.slice(0, 10), result: p.result, next: p.next, notes: p.notes.slice(-5),
+        phone: bad ? '' : p.phone, tel: bad ? '' : p.tel, inList: listIds.has(p.id) };
+    });
+}
+
 /** Pure: this helper's own "What next" texts (not the fixed ones), newest first, max 4. */
 function customs_(results, name) {
   const out = [];
@@ -141,13 +170,20 @@ function h_save(k, id, result, next, notes, names) {
   const lock = LockService.getScriptLock(); lock.waitLock(15000);
   try {
     const row = rows_('List').find(r => str_(r[0]) === id);
-    const name = row ? str_(row[1]) : '';
+    const held = holds_(rows_('Reservations'), Date.now())[id], heldByMe = !!(held && held.helper === me.name);
+    const prev = rows_('Results').filter(r => str_(r[2]) === id && str_(r[1]) === me.name).pop();   // History: a person she already finished
+    if (!row && !prev) throw new Error('Not on your list');
+    if (!noteOnly && !heldByMe && !row) throw new Error('Not on your list');
+    const name = row ? str_(row[1]) : str_(prev[3]), city = row ? str_(row[2]) : str_(prev[10] || '');
+    const bad = ['stop', 'wrong', 'inactive'].indexOf(result) >= 0;
+    const phone = bad ? '' : row ? str_(row[5]) : str_(prev[8] || ''), tel = bad ? '' : row ? str_(row[6]) : str_(prev[9] || '');
     const clean = s => String(s || '').replace(/^[=+\-@]/, "'$&").slice(0, 2000);   // never a formula
-    sh_('Results').appendRow([now_(), me.name, id, name, result, clean(next), clean(notes), noteOnly ? '' : clean(names)]);
-    sh_('Reservations').appendRow([id, me.name, now_(), noteOnly ? 'Active' : 'Done']);   // a note renews the 24h hold
+    sh_('Results').appendRow([now_(), me.name, id, name, result, clean(next), clean(notes), noteOnly ? '' : clean(names), phone, tel, city]);
+    if (!noteOnly) sh_('Reservations').appendRow([id, me.name, now_(), 'Done']);
+    else if (heldByMe) sh_('Reservations').appendRow([id, me.name, now_(), 'Active']);   // a note renews her 24h hold; from History it holds nobody
     return { ok: true };
   } finally { lock.releaseLock(); }
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { canSee_: canSee_, holds_: holds_, customs_: customs_, API_: API_ };
+if (typeof module !== 'undefined') module.exports = { canSee_: canSee_, holds_: holds_, customs_: customs_, past_: past_, API_: API_ };

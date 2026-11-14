@@ -6,6 +6,7 @@ _Last updated: 2026-11-14_
 - Helper page: title "{name}'s list", small Original/Russian pill, sticky My calls / List switch, links for What to say + "Eliyahu's profile: Русский | עברית | English" copy, result grid, clearer "I won't call — put back in the main list" + toast, no quick buttons. Russian-language helpers start once with Russian + English + Book ticked and Best first puts Russian speakers on top. Mom's Show must stay **All** (Russian would hide English speakers).
 - Not tested on a real phone: Samsung Internet Back button inside the Apps Script page, Mom's iPhone, real data. Profile language buttons appear after the hourly helper sync.
 - My calls card redone (Fable review): notes first, note-only save, custom "What next" buttons. Check on Mom's phone that a note-only save shows in your app after the hourly sync.
+- Tabs now Позвонить | После звонка | Готово (Done = history with search, Call again, Add note). Results tab has new columns Phone, Tel, City; older results have no phone, so no Call again for them. Main app writes Config NoCall each rebuild.
 
 ## Helper app (live, 2026-11-14)
 Deployed and wired (helper/.clasp.json, HELPER_URL, HELPER_DEPLOYMENT_ID set; Mom's page opens in incognito).
