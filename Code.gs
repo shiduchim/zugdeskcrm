@@ -1358,7 +1358,8 @@ function helperSS_() {
   if (!id) return null;
   try { return SpreadsheetApp.openById(id); } catch (e) { return null; }
 }
-function helperUrl_() { return settings_().HELPER_URL || HELPER_URL; }
+const HELPER_PAGE = 'https://shiduchim.github.io/zugdeskcrm.helper/';   // static page (works with several Google accounts); key after #
+function helperUrl_() { return settings_().HELPER_URL || HELPER_PAGE; }
 function hTime_() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss'); }
 
 /** Pure: who helpers may call, best first. skip = IDs you are handling yourself today. */
@@ -1523,7 +1524,7 @@ function api_helpers() {
   const url = helperUrl_();
   const helpers = hs.getSheetByName('Helpers').getDataRange().getValues().slice(1).filter(r => r[0]).map((r, i) => ({
     row: i + 2, name: str_(r[0]), active: str_(r[2]) !== 'NO', show: str_(r[3]) || 'All', lang: str_(r[4]) || 'HE',
-    link: url ? url + '?k=' + str_(r[1]) : ''
+    link: url ? url + (/github\.io/.test(url) ? '#k=' : '?k=') + str_(r[1]) : ''
   }));
   const results = hs.getSheetByName('Results').getDataRange().getValues().slice(1).slice(-15).reverse()
     .map(r => ({ when: str_(r[0]).slice(0, 16), helper: str_(r[1]), id: str_(r[2]), name: str_(r[3]), result: str_(r[4]), notes: str_(r[6]) }));
