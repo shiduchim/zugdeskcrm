@@ -870,16 +870,25 @@ async function ensureDir(force){
 }
 /* filters: one Filters button opens a sheet (bottom on phone, side on PC); the list updates as you tick; tags above the list remove one filter */
 const F_TAGS = [['lang','Language',[['ru','Russian speakers'],['en','English']]], ['comm','Community',[['chabad','Chabad'],['bt','Baalei teshuva']]],
-  ['loc','Location',[['il','In Israel'],['abroad','Abroad'],['near','Near Tzfat']]], ['reach','Can reach by',[['wa','WhatsApp'],['mail','Email']]]];
+  ['loc','Location',[['near','Near Tzfat']]], ['reach','Can reach by',[['wa','WhatsApp'],['mail','Email']]]];
 const F_WHO = [['shadchan','Shadchanim'],['connector','Connectors'],['all','Everyone']];
 const F_LABEL = {}; F_TAGS.forEach(g => g[2].forEach(o => F_LABEL[o[0]] = o[1]));
 let cWho = 'shadchan', cSort = '', fOpen = false;
-const cSrcs = new Set();
+const cSrcs = new Set(), cCtry = new Set();
 try { const o = JSON.parse(localStorage.getItem('c_fl') || '{}');
-  (o.tags || []).forEach(x => F_LABEL[x] && cTags.add(x)); (o.srcs || []).forEach(x => cSrcs.add(x));
+  (o.tags || []).forEach(x => F_LABEL[x] && cTags.add(x)); (o.srcs || []).forEach(x => cSrcs.add(x)); (o.ctry || []).forEach(x => cCtry.add(x));
   if (F_WHO.some(w => w[0] === o.who)) cWho = o.who; cSort = o.sort || ''; } catch(e){}
-function saveF(){ try { localStorage.setItem('c_fl', JSON.stringify({tags:[...cTags], srcs:[...cSrcs], who:cWho, sort:cSort})); } catch(e){} }
+function saveF(){ try { localStorage.setItem('c_fl', JSON.stringify({tags:[...cTags], srcs:[...cSrcs], ctry:[...cCtry], who:cWho, sort:cSort})); } catch(e){} }
 const SLASH = '<svg class="slash" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="3.6" y1="12.4" x2="12.4" y2="3.6" stroke="currentColor" stroke-width="1.6"/></svg>';
+// country: the contact's Country field, else from the phone code
+const CTRY = [['Israel',/^(israel|isr|il|ישראל|израиль)$/],['USA',/^(usa|us|u\.s\.a?\.?|united states|america|сша|ארה"?ב|ארה״ב|ארצות הברית)$/],['Canada',/^(canada|канада|קנדה)$/],
+  ['UK',/^(uk|u\.k\.|england|united kingdom|great britain|англия|великобритания|אנגליה|בריטניה)$/],['Russia',/^(russia|россия|רוסיה)$/],['Ukraine',/^(ukraine|украина|אוקראינה)$/],['France',/^(france|франция|צרפת)$/]];
+function countryOf(c){
+  const s = String(c.country || '').trim();
+  if (s) { const m = CTRY.find(x => x[1].test(s.toLowerCase())); return m ? m[0] : s; }
+  const d = String(((c.phones || [])[0] || {}).tel || '').replace(/\D/g, '');
+  return /^972/.test(d) ? 'Israel' : /^1/.test(d) ? 'USA' : 'Unknown';
+}
 function whoOk(c){
   const t = c.type || 'Shadchan';
   return cWho === 'all' || (cWho === 'connector' ? t === 'Connector' : t === 'Shadchan');
@@ -913,10 +922,11 @@ function fPass(c, skip){
     const on = g[2].filter(o => cTags.has(o[0]));
     if (on.length && !on.some(o => tagTest(c, o[0]))) return false;
   }
+  if (skip !== 'ctry' && cCtry.size && !cCtry.has(countryOf(c))) return false;
   return skip === 'src' || !cSrcs.size || cSrcs.has(srcGroup(c.source));
 }
 function fBase(){ const show = $('#cshow').value; return DIR ? DIR.ids.map(id=>CARDS[id]).filter(c => c && whoOk(c) && showOk(c, show)) : []; }
-function fCount(){ return cTags.size + cSrcs.size + (cWho !== 'shadchan' ? 1 : 0); }
+function fCount(){ return cTags.size + cSrcs.size + cCtry.size + (cWho !== 'shadchan' ? 1 : 0); }
 function sortNow(){ const show = $('#cshow').value; return cSort || (show==='talking'||show==='contacted' ? 'last' : show==='later' ? 'next' : 'best'); }
 function renderFBar(){
   const n = fCount(), s = sortNow(), q = $('#q').value.trim();
@@ -928,21 +938,25 @@ function renderFBar(){
     <button class="${cTags.has('wa')?'on':''}" onclick="fToggle('wa')">WhatsApp</button>`;
   const tag = (label, js) => `<button aria-label="Remove ${esc(label)}" onclick="${js}"><span dir="auto">${esc(label)}</span>${SLASH}</button>`;
   $('#fchips').innerHTML = !n ? '' : (cWho !== 'shadchan' ? tag(F_WHO.find(w=>w[0]===cWho)[1], "fWho('shadchan')") : '') +
-    [...cTags].map(k => tag(F_LABEL[k], `fToggle('${k}')`)).join('') +
+    [...cCtry].map(v => tag(v, `fCtry(${esc(JSON.stringify(v))})`)).join('') + [...cTags].map(k => tag(F_LABEL[k], `fToggle('${k}')`)).join('') +
     [...cSrcs].map(v => tag(v, `fSrc(${esc(JSON.stringify(v))})`)).join('') +
     `<button class="quiet" onclick="fClear()">Clear all</button>`;
 }
 function fChanged(){ saveF(); resetPaging(); fUpdate(); }
 function fToggle(k){ cTags.has(k) ? cTags.delete(k) : cTags.add(k); fChanged(); }
+function fCtry(v){ cCtry.has(v) ? cCtry.delete(v) : cCtry.add(v); fChanged(); }
 function fSrc(v){ cSrcs.has(v) ? cSrcs.delete(v) : cSrcs.add(v); fChanged(); }
 function fWho(v){ cWho = v; fChanged(); }
-function fClear(){ cTags.clear(); cSrcs.clear(); cWho = 'shadchan'; fChanged(); }
+function fClear(){ cTags.clear(); cSrcs.clear(); cCtry.clear(); cWho = 'shadchan'; fChanged(); }
 function fSheetHtml(){
   const base = fBase(), srcs = {}; base.forEach(c => { const g = srcGroup(c.source); srcs[g] = (srcs[g]||0) + 1; });
   cSrcs.forEach(v => srcs[v] = srcs[v] || 0);
+  const cn = {}; base.forEach(c => { const k = countryOf(c); cn[k] = (cn[k]||0) + 1; }); cCtry.forEach(v => cn[v] = cn[v] || 0);
   const opt = (type, g, v, label, js) => `<label class="fopt" data-g="${g}" data-v="${esc(v)}"><input type="${type}" name="f-${g}" onchange="${js}"><span dir="auto">${esc(label)}</span><small></small></label>`;
   let h = `<div class="fs-head"><b>Filters</b><button class="btn primary" onclick="closeFilters()">Done</button></div><div class="fs-body">`;
   h += `<h4>Who</h4>` + F_WHO.map(w => opt('radio', 'who', w[0], w[1], `fWho('${w[0]}')`)).join('');
+  const cks = Object.keys(cn).sort((a,b) => (a==='Unknown') - (b==='Unknown') || cn[b]-cn[a]);
+  if (cks.length > 1) h += `<h4>Country</h4>` + cks.map(v => opt('checkbox', 'ctry', v, v, `fCtry(${esc(JSON.stringify(v))})`)).join('');
   F_TAGS.forEach(g => { h += `<h4>${g[1]}</h4>` + g[2].map(o => opt('checkbox', g[0], o[0], o[1], `fToggle('${o[0]}')`)).join(''); });
   h += `<h4>Where they came from</h4>` + Object.keys(srcs).sort((a,b)=>srcs[b]-srcs[a]).map(v => opt('checkbox', 'src', v, v, `fSrc(${esc(JSON.stringify(v))})`)).join('');
   return h + `</div><div class="fs-foot"><button class="btn" onclick="fClear()">Reset</button><button class="btn primary" id="fshow" onclick="closeFilters()"></button></div>`;
@@ -953,6 +967,7 @@ function fUpdate(){   // counts and ticks in place, nothing is rebuilt
   document.querySelectorAll('#fsheet .fopt').forEach(el => {
     const g = el.dataset.g, v = el.dataset.v; let on, n = null;
     if (g === 'who') on = cWho === v;
+    else if (g === 'ctry'){ on = cCtry.has(v); n = base.filter(c => fPass(c, 'ctry') && countryOf(c) === v).length; }
     else if (g === 'src'){ on = cSrcs.has(v); n = base.filter(c => fPass(c, 'src') && srcGroup(c.source) === v).length; }
     else { on = cTags.has(v); n = base.filter(c => fPass(c, g) && tagTest(c, v)).length; }
     el.querySelector('input').checked = on;

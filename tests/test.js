@@ -78,7 +78,7 @@ t('helperPool_: only shadchanim with a phone, not "Only me", not blocked, not ha
   const out = A.helperPool_(rows, S, c => c.ID === 'C5', new Set(['C6']), '2026-11-13');
   assert.deepStrictEqual(out.map(r => r[0]).sort(), ['C1', 'C7', 'C9']);
   const c1 = out.find(r => r[0] === 'C1');
-  assert.strictEqual(c1[6], '+972501234567'); assert.strictEqual(c1[7], 'YES'); assert.strictEqual(out.find(r => r[0] === 'C9')[13], 'Mom');
+  assert.strictEqual(c1[6], '+972501234567'); assert.strictEqual(c1[7], 'YES'); assert.strictEqual(out.find(r => r[0] === 'C9')[13], 'Mom'); assert.strictEqual(c1.length, 16);
 });
 t('helperTexts_: name, city, specialty and each why chip, once', () => {
   const r = ['C1', 'קיי אסתר', 'צפת', '', '', '', '', '', '', '', '', 'רוסים', 'Chabad · Tzfat', ''];

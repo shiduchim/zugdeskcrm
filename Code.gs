@@ -1343,7 +1343,7 @@ function scanBounces_(db) {
 const HELPER_URL = 'https://script.google.com/macros/s/AKfycbxjzT6OUMaH1CIajHS09t53rN7A-XYc0cX6fTv9KSZoMMOWy6pg1vhPuUpHuxTMV8Sh/exec';
 const H_TABS = {
   Helpers: ['Name', 'Key', 'Active', 'Show', 'Lang', 'Added'],
-  List: ['ID', 'Name', 'City', 'Languages', 'Hours', 'Phone1', 'Tel1', 'Mobile1', 'Phone2', 'Tel2', 'Mobile2', 'Specialty', 'Why', 'For', 'Source'],
+  List: ['ID', 'Name', 'City', 'Languages', 'Hours', 'Phone1', 'Tel1', 'Mobile1', 'Phone2', 'Tel2', 'Mobile2', 'Specialty', 'Why', 'For', 'Source', 'Country'],
   Reservations: ['ContactID', 'Helper', 'At', 'State'],
   Results: ['When', 'Helper', 'ContactID', 'Name', 'Result', 'Next', 'Notes', 'Names'],
   Texts: ['Key', 'Value', 'Explanation'],
@@ -1374,7 +1374,7 @@ function helperPool_(rows, s, isBlocked, skip, today) {
   }).map(c => ({ c: c, sc: scoreContact(c, s) })).sort((a, b) => b.sc.score - a.sc.score).map(x => {
     const ph = phonesOf_(x.c);
     const p = i => ph[i] ? [ph[i].local, '+' + ph[i].intl, ph[i].mobile ? 'YES' : ''] : ['', '', ''];
-    return [x.c.ID, x.c.Name, x.c.City, x.c.Languages, x.c.Hours].concat(p(0), p(1), [x.c.Specialty, x.sc.why.join(' · '), x.c.Helpers || '', srcGroup_(x.c.Source)]);
+    return [x.c.ID, x.c.Name, x.c.City, x.c.Languages, x.c.Hours].concat(p(0), p(1), [x.c.Specialty, x.sc.why.join(' · '), x.c.Helpers || '', srcGroup_(x.c.Source), x.c.Country || '']);
   });
 }
 
