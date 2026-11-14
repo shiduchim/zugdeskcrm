@@ -215,17 +215,14 @@ function groups(){   // [key, title, [[value, label]]]
 function count(key, val){ return free_().filter(x => passes(x, key) && (key === 'country' ? countryOf(x) === val : key === 'city' ? x.city === val : key === 'src' ? x.src === val : key === 'lang' ? hasLang(x, val) : isMob(x))).length; }
 function resultCount(){ return free_().filter(x => passes(x)).length; }
 function barHtml(){
-  const n = nFl(), quickRu = lang === 'RU' && free_().some(x => hasLang(x, 'ru')), ru = fl.lang.indexOf('ru') >= 0;
+  const n = nFl();
   let h = `<div class="bar"><button class="${n?'on':''}" onclick="openSheet()">${esc(t('filters'))}${n ? ' (' + n + ')' : ''}</button>
     <select aria-label="${esc(t('sort'))}" onchange="setSort(this.value)">${['best','city','name'].map(o =>
       `<option value="${o}" ${sortBy===o?'selected':''}>${esc(t('s_'+o))}</option>`).join('')}</select>
 </div>`;
-  h += `<div class="chipsf"><button class="fchip ${fl.mob?'on':''}" aria-pressed="${fl.mob}" onclick="setF('mob')">${esc(t('f_mob'))}</button>` +
-    (quickRu ? `<button class="fchip ${ru?'on':''}" aria-pressed="${ru}" onclick="setF('lang','ru')">${esc(t('lg_ru'))}</button>` : '');
-  h += `</div>`;
-  // the other filters (no quick button): one text line that opens the Filters sheet; nothing disappears on a stray tap
-  const on = [['country', fl.country.map(countryLabel)], ['lang', fl.lang.filter(v => !(quickRu && v === 'ru')).map(v => t('lg_' + v))],
-    ['src', fl.src.map(srcLabel)], ['city', fl.city.map(cityLabel)]].filter(g => g[1].length);
+  // every filter that is on: one text line that opens the Filters sheet; nothing disappears on a stray tap
+  const on = [['country', fl.country.map(countryLabel)], ['lang', fl.lang.map(v => t('lg_' + v))],
+    ['src', fl.src.map(srcLabel)], ['city', fl.city.map(cityLabel)], ['mob', fl.mob ? [t('f_mob')] : []]].filter(g => g[1].length);
   if (on.length) {
     const names = [].concat(...on.map(g => g[1]));
     h += `<div class="fsum"><button class="fline" aria-label="${esc(t('fOn') + ': ' + names.join(', ') + '. ' + t('change'))}" onclick="openSheet('${on[0][0]}')"><span class="t">${esc(t('filters'))}: ${names.map(x => `<bdi>${esc(x)}</bdi>`).join(', ')} · <u>${esc(t('change'))}</u></span></button><button class="quiet" onclick="clearF()">${esc(t('clearAll'))}</button></div>`;
