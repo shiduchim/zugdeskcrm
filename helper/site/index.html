@@ -83,6 +83,7 @@ label{display:block;margin:12px 0 4px;font-size:15px;color:var(--muted)}
 .hint{color:var(--muted);font-size:15px;margin-top:4px}
 .center0{text-align:center}
 .card .save{width:100%;min-height:52px;margin-top:14px;font-size:18px;font-weight:600}
+.chip.lang{background:transparent;color:var(--blue);border:1.5px solid var(--blue);font-weight:600}
 .pnote{margin-top:6px;font-size:16px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .card .row .primary{min-height:52px;font-size:17px}
@@ -310,11 +311,12 @@ function cardHtml(x){
   if (showTr && x.tr) x = Object.assign({}, x, { name: x.tr.name || x.name, city: x.tr.city || x.city, spec: x.tr.spec || x.spec, why: x.tr.why || x.why });
   const lc = Array.from(String(x.langs || '')).filter(c => /[^\s,.]/.test(c)), lk = lc.map(c => Object.keys(LANGS).find(k => LANGS[k] === c));
   const lw = lk.length && lk.every(Boolean) ? lk.map(k => t('lg_' + k)).join(', ') : x.langs;   // book letters → words
-  const meta = [x.city, lw, sortBy === 'src' ? x.src : ''].filter(Boolean).map(esc).join(' • ');
+  const meta = [x.city, lk.length && lk.every(Boolean) ? '' : lw, sortBy === 'src' ? x.src : ''].filter(Boolean).map(esc).join(' • ');
   let h = `<div class="card ${x.by?'busy':''}" id="c-${x.id}">
     <p class="name" dir="auto">${esc(x.name)}</p>${orig?`<div class="muted orig" dir="auto">${esc(orig)}</div>`:''}${meta?`<div class="muted" dir="auto">${meta}</div>`:''}
     ${x.hours?`<div class="muted" dir="auto">${esc(t('hours'))}: ${esc(x.hours)}</div>`:''}
     ${x.spec?`<div dir="auto" style="margin-top:4px">${esc(x.spec)}</div>`:''}
+    ${lk.length && lk.every(Boolean) ? `<div class="chips">${lk.map(k => `<span class="chip lang">${esc(t('lg_' + k))}</span>`).join('')}</div>` : ''}
     ${x.why?`<div class="chips">${x.why.split(' · ').map(w=>`<span class="chip" dir="auto">${esc(w)}</span>`).join('')}</div>`:''}
     ${x.tip?`<div class="tag" dir="auto">${esc(t('tip'))} – ${esc(x.tip)}</div>`:''}`;
   if (x.by) return h + `<div class="tag">${esc(t('busy', {name: x.by}))}</div></div>`;

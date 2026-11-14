@@ -1374,7 +1374,7 @@ function helperPool_(rows, s, isBlocked, skip, today) {
   }).map(c => ({ c: c, sc: scoreContact(c, s) })).sort((a, b) => b.sc.score - a.sc.score).map(x => {
     const ph = phonesOf_(x.c);
     const p = i => ph[i] ? [ph[i].local, '+' + ph[i].intl, ph[i].mobile ? 'YES' : ''] : ['', '', ''];
-    return [x.c.ID, x.c.Name, x.c.City, x.c.Languages, x.c.Hours].concat(p(0), p(1), [x.c.Specialty, x.sc.why.join(' · '), x.c.Helpers || '', srcGroup_(x.c.Source), x.c.Country || '']);
+    return [x.c.ID, x.c.Name, x.c.City, x.c.Languages, x.c.Hours].concat(p(0), p(1), [x.c.Specialty, x.sc.why.filter(w => w !== 'Speaks Russian').join(' · '), x.c.Helpers || '', srcGroup_(x.c.Source), x.c.Country || '']);
   });
 }
 
