@@ -1027,7 +1027,7 @@ function renderContacts(){
   } else base = all.filter(c => whoOk(c) && showOk(c, show) && fPass(c));
   let list = base;
   const by = {
-    best: (a,b)=>(b.rank||0)-(a.rank||0),
+    best: (a,b)=>((b.why||[]).indexOf('Chabad')>=0) - ((a.why||[]).indexOf('Chabad')>=0) || (b.rank||0)-(a.rank||0),   // Chabad on top
     name: (a,b)=>String(a.name).localeCompare(String(b.name),'he'),
     last: (a,b)=>String(b.lastContact||'').localeCompare(String(a.lastContact||'')),
     next: (a,b)=>(a.nextDate?0:1)-(b.nextDate?0:1) || String(a.nextDate||'').localeCompare(String(b.nextDate||''))
