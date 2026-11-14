@@ -97,7 +97,7 @@ Status and order: see HANDOFF.md.
 9. **"WhatsApp check" screen**: everyone messaged in the last 2 weeks without a reply → one tap "Replied" (user keeps a WhatsApp list "Shidduchim").
 10. Optional: import exported WhatsApp chats (.txt) from Drive; SMS import if Android (backup app → Drive), not possible on iPhone.
 11. **"What works" panel**: reply rates by channel and by source.
-12. Gmail import: the user exported ~2,800 shidduch-related conversations (label `shid`) + contacts via Takeout; those are being processed in the Claude.ai chat and will arrive as an updated data file. Many are newsletters (ChabadMatch, SawYouAtSinai). People suggested to him or their families are **not** shadchanim and must never get autopilot emails.
+12. ~~Gmail import~~ **Done 2026-11-14**: Takeout scanned locally by `find_shadchanim.py` (details + full conversations), 366 replies reviewed, imported as Shadchan / Connector / Organization / Other ("Gmail no answer") + DoNotContact; families/friends/newsletters not imported.
 
 ---
 

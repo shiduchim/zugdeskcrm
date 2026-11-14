@@ -1,7 +1,7 @@
 # Handoff
-_Last updated: 2026-11-12_
+_Last updated: 2026-11-14_
 
-## Building now (2026-11-13): Helper app
+## Helper app (built, waiting on user setup)
 Friends/family/hired people call shadchanim with a personal link (no Google login, no password).
 - Separate Apps Script project bound to its own sheet "zugdeskcrm – Helpers" (scope: only that sheet), deployed "Anyone". Code in `helper/`, auto-deployed by the same workflow.
 - Main app writes the List (who helpers may call) + reads Results/Reservations; hourly + when the app opens.
