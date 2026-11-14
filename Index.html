@@ -456,7 +456,8 @@ async function loadToday(rebuild){
     T = await run('api_today', !!rebuild); T.loadedAt = Date.now();
     if (!DIR && !dirReq) setTimeout(()=>ensureDir().catch(()=>{}), 1500);
     profiles = T.profiles; references = T.references || {};
-    $('#date').textContent = new Date(T.date+'T12:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+    { const d = new Date(T.date+'T12:00'); let he = ''; try { he = d.toLocaleDateString('he-u-ca-hebrew',{day:'numeric',month:'long'}); } catch(e){}
+      $('#date').innerHTML = esc(d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})) + (he ? ' · <bdi>' + esc(he) + '</bdi>' : ''); }
     renderToday();
   }catch(e){ fail(e); }
 }
