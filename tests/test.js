@@ -80,6 +80,10 @@ t('helperPool_: only shadchanim with a phone, not "Only me", not blocked, not ha
   const c1 = out.find(r => r[0] === 'C1');
   assert.strictEqual(c1[6], '+972501234567'); assert.strictEqual(c1[7], 'YES'); assert.strictEqual(out.find(r => r[0] === 'C9')[13], 'Mom');
 });
+t('helperTexts_: name, city, specialty and each why chip, once', () => {
+  const r = ['C1', 'קיי אסתר', 'צפת', '', '', '', '', '', '', '', '', 'רוסים', 'Chabad · Tzfat', ''];
+  assert.deepStrictEqual(A.helperTexts_([r, r]), ['קיי אסתר', 'צפת', 'רוסים', 'Chabad', 'Tzfat']);
+});
 t('helperNote_: name, notes, next step, names', () => {
   assert.strictEqual(A.helperNote_({ helper: 'Mom', notes: 'nice lady', next: 'call', names: 'Rivka 050-1112223' }),
     "[Mom] nice lady → wants Eliyahu to call Names given: Rivka 050-1112223");

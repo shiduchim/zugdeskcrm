@@ -69,3 +69,4 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Settings → App settings: change e.g. emails per day → Save; AUTO_EMAIL is not listed (only the Email screen switches autopilot); Email screen → "See and edit messages" opens Messages
 - [ ] Node: settingsSections_ / settingsPatch_ (tests/test.js)
 - [ ] Helper static page (no Google cookies): `<pages-url>/#k=<key>` opens in a NORMAL multi-account Chrome window and on iPhone; Call/Save work; old `/exec?k=` link still works.
+- [ ] Helper page: Оригинал / Русский switch on top; Russian shows translated city/description/chips and 'Name (Hebrew name)'; choice remembered; Hebrew helpers see no switch. Translations fill in ~150 per refresh (hidden tab Tr in helpers sheet).

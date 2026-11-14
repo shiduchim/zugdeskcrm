@@ -1444,9 +1444,30 @@ function helperRebuild_(hs, s, db) {
   const w = H_TABS.List.length;
   if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, w).clearContent();
   if (rows.length) sh.getRange(2, 1, rows.length, w).setValues(rows);
+  try { helperTranslate_(hs, rows); } catch (e) { console.log('translate: ' + e); }   // never blocks the list
   const at = hTime_();
   hSet_(hs, { BuiltAt: at, PROFILE_HE: s.PROFILE_HE || '', PROFILE_RU: s.PROFILE_RU || '', PROFILE_EN: s.PROFILE_EN || '' });
   PropertiesService.getScriptProperties().setProperty('helper_built', at);
+}
+
+/** Pure: the texts of List rows a helper may want translated (name, city, specialty, each why chip). */
+function helperTexts_(rows) {
+  const out = new Set();
+  rows.forEach(r => { [r[1], r[2], r[11]].concat(String(r[12] || '').split(' · ')).forEach(x => { x = String(x || '').trim(); if (x) out.add(x); }); });
+  return Array.from(out);
+}
+
+/** Machine translation to Russian + English, kept in the helpers' sheet tab "Tr" (each text translated once, max 150 per run). */
+function helperTranslate_(hs, rows) {
+  let sh = hs.getSheetByName('Tr');
+  if (!sh) { sh = hs.insertSheet('Tr'); sh.getRange(1, 1, 1, 3).setValues([['Text', 'RU', 'EN']]); sh.setFrozenRows(1); sh.hideSheet(); }
+  const have = new Set(sh.getDataRange().getValues().slice(1).map(r => String(r[0])));
+  const todo = helperTexts_(rows).filter(x => !have.has(x)).slice(0, 150), add = [], t0 = Date.now();
+  for (const x of todo) {
+    if (Date.now() - t0 > 60e3) break;
+    try { add.push([x, LanguageApp.translate(x, '', 'ru'), LanguageApp.translate(x, '', 'en')]); } catch (e) { break; }   // quota: try next run
+  }
+  if (add.length) { sh.getRange(sh.getLastRow() + 1, 1, add.length, 3).setNumberFormat('@').setValues(add); }
 }
 
 function hSet_(hs, map) {
@@ -1534,4 +1555,4 @@ function api_newHelperLink(name) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };
+if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };

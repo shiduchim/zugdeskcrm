@@ -83,6 +83,9 @@ function h_load(k) {
     if (str_(r[0]) > builtAt) doneSince.add(id);
     if (str_(r[6])) tips[id] = str_(r[1]) + ': ' + str_(r[6]);
   });
+  const tr = {}, col = me.lang === 'RU' ? 1 : me.lang === 'EN' ? 2 : 0;
+  if (col && sh_('Tr')) rows_('Tr').forEach(r => { if (str_(r[col])) tr[str_(r[0])] = str_(r[col]); });
+  const T = x => tr[String(x || '').trim()] || '';
   const items = [];
   rows_('List').forEach(v => {
     const row = {}; head.forEach((h, i) => (row[h] = str_(v[i])));
@@ -91,7 +94,8 @@ function h_load(k) {
     const mine = !!(h && h.helper === me.name);
     items.push({ id: row.ID, name: row.Name, city: row.City, langs: row.Languages, hours: row.Hours, spec: row.Specialty, why: row.Why,
       phones: [[row.Phone1, row.Tel1, row.Mobile1], [row.Phone2, row.Tel2, row.Mobile2]].filter(p => p[0]).map(p => ({ local: p[0], tel: p[1], mobile: p[2] === 'YES' })),
-      mine: mine, by: h && !mine ? h.helper : '', tip: tips[row.ID] || '' });
+      mine: mine, by: h && !mine ? h.helper : '', tip: tips[row.ID] || '',
+      tr: col ? { name: T(row.Name), city: T(row.City), spec: T(row.Specialty), why: String(row.Why || '').split(' · ').map(w => T(w) || w).join(' · ') } : null });
   });
   return { me: me, items: items, texts: texts, profile: cfg['PROFILE_' + me.lang] || cfg.PROFILE_HE || '' };
 }

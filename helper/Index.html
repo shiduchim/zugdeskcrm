@@ -53,7 +53,7 @@ const L = {
    nextQ:'Что дальше?',next_profile:'Отправить данные Элияху',next_call:'Пусть Элияху позвонит',next_:'Ничего',
    res_spoke:'Поговорили',res_noanswer:'Не ответили',res_callback:'Перезвонить позже',res_wrong:'Неверный номер',res_inactive:'Больше не занимается',res_stop:'Просили не звонить',
    pick:'Выберите результат',hours:'Часы',empty:'Сейчас некого звонить. Спасибо!',emptyMine:'Нажмите «Позвонить» в списке — человек появится здесь.',
-   more:'Показать ещё',link:'Ссылка не работает. Попросите новую у Элияху.',err:'Что-то пошло не так: ',taken:'{name} уже взял(а) этого человека'},
+   more:'Показать ещё',link:'Ссылка не работает. Попросите новую у Элияху.',err:'Что-то пошло не так: ',taken:'{name} уже взял(а) этого человека',orig:'Оригинал',trans:'Русский'},
  HE:{title:'שיחות לשדכנים',hello:'שלום {name}!',mine:'השיחות שלי',all:'רשימה',search:'חיפוש: שם, עיר…',call:'להתקשר',wa:'וואטסאפ',
    script:'מה לומר',profile:'להעתיק את הפרטים של אליהו',copied:'הועתק',busy:'{name} כבר מתקשר/ת',tip:'הערה',giveBack:'להחזיר לרשימה',
    save:'שמירה',saved:'נשמר, תודה!',notes:'מה נאמר (אפשר בקול – המיקרופון במקלדת)',names:'שמות וטלפונים של שדכנים נוספים, אם נתנו',
@@ -67,8 +67,9 @@ const L = {
    nextQ:'What next?',next_profile:'Send Eliyahu\'s details',next_call:'Eliyahu should call',next_:'Nothing',
    res_spoke:'We spoke',res_noanswer:'No answer',res_callback:'Call back later',res_wrong:'Wrong number',res_inactive:'Not active anymore',res_stop:'Asked not to call',
    pick:'Pick a result',hours:'Hours',empty:'Nobody to call right now. Thank you!',emptyMine:'Tap "Call" in the list and the person appears here.',
-   more:'Show more',link:'This link is not active. Ask Eliyahu for a new one.',err:'Something went wrong: ',taken:'{name} already took this person'}
+   more:'Show more',link:'This link is not active. Ask Eliyahu for a new one.',err:'Something went wrong: ',taken:'{name} already took this person',orig:'Original',trans:'English'}
 };
+let showTr = true; try { showTr = localStorage.getItem('h_tr') !== '0'; } catch(e){}
 let D = null, tab = 'all', q = '', shown = 40, lang = 'HE';
 const form = {};   // id → {result, next}
 const $ = s => document.querySelector(s);
@@ -94,9 +95,11 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 function render(){
   const mine = D.items.filter(x => x.mine);
   const ql = q.toLowerCase();
-  const list = D.items.filter(x => !x.mine && (!ql || (x.name + ' ' + x.city + ' ' + x.spec).toLowerCase().indexOf(ql) >= 0))
+  const list = D.items.filter(x => !x.mine && (!ql || (x.name + ' ' + x.city + ' ' + x.spec + ' ' + (x.tr ? x.tr.name + ' ' + x.tr.city + ' ' + x.tr.spec : '')).toLowerCase().indexOf(ql) >= 0))
     .sort((a, b) => (a.by ? 1 : 0) - (b.by ? 1 : 0));
-  let h = `<h1>${esc(t('title'))}</h1><div class="muted">${esc(t('hello', {name: D.me.name}))}</div>
+  const hasTr = D.items.some(x => x.tr);
+  let h = (hasTr ? `<div class="tabs"><button class="${!showTr?'on':''}" onclick="setTr(false)">${esc(t('orig'))}</button><button class="${showTr?'on':''}" onclick="setTr(true)">${esc(t('trans'))}</button></div>` : '') +
+    `<h1>${esc(t('title'))}</h1><div class="muted">${esc(t('hello', {name: D.me.name}))}</div>
     <div class="row"><button onclick="toggle('scr')">${esc(t('script'))}</button>${D.profile ? `<button onclick="copyProfile()">${esc(t('profile'))}</button>` : ''}</div>
     <div class="script" id="scr" dir="auto">${esc(scriptText())}</div>
     <div class="tabs"><button class="${tab==='mine'?'on':''}" onclick="setTab('mine')">${esc(t('mine'))} (${mine.length})</button>
@@ -110,12 +113,14 @@ function render(){
   $('#app').innerHTML = h;
 }
 function renderKeep(){ const p = $('#q') && $('#q').selectionStart; render(); const i = $('#q'); if (i){ i.focus(); try{ i.setSelectionRange(p,p); }catch(e){} } }
+function setTr(v){ showTr = v; try { localStorage.setItem('h_tr', v ? '1' : '0'); } catch(e){} render(); }
 function setTab(x){ tab = x; render(); window.scrollTo(0,0); }
 // the call script is in the Texts tab of the helpers' sheet (SCRIPT_RU / SCRIPT_HE / SCRIPT_EN)
 function scriptText(){ return (D.texts['SCRIPT_' + lang] || D.texts.SCRIPT_HE || '').split('{helper}').join(D.me.name); }
 function toggle(id){ $('#'+id).classList.toggle('open'); }
 
 function cardHtml(x){
+  if (showTr && x.tr) x = Object.assign({}, x, { name: x.tr.name ? x.tr.name + ' (' + x.name + ')' : x.name, city: x.tr.city || x.city, spec: x.tr.spec || x.spec, why: x.tr.why || x.why });
   const meta = [x.city, x.langs].filter(Boolean).map(esc).join(' • ');
   let h = `<div class="card ${x.by?'busy':''}" id="c-${x.id}">
     <p class="name" dir="auto">${esc(x.name)}</p>${meta?`<div class="muted" dir="auto">${meta}</div>`:''}
