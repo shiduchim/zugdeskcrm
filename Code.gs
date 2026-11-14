@@ -13,7 +13,7 @@ const C_HEADERS = ['ID','Name','City','Sector','Specialty','Languages','Symbol',
   'EmailStatus','EmailSentAt','EmailFollowupAt','EmailThreadIds','EmailLastSeen','Lang','Boost','CrossedOut','InZugDesk','Notes',
   'AskedReferralsAt','Type','Helpers','Country'];
 const S_HEADERS = ['When','FromID','FromName','Name','Phone','Phone2','Email','Text','Status','ContactID'];
-const SCHEMA = '6';
+const SCHEMA = '7';
 
 /** Adds new tabs/columns/settings to an older sheet without touching existing data. */
 function schema_() {
@@ -51,6 +51,10 @@ function schema_() {
   const s = settings_();
   if (s.SKIP_DATES === undefined) st.appendRow(['SKIP_DATES', '', 'Dates with no automatic emails (Yom Tov, fast days), e.g. 2026-12-25, 2027-03-23']);
   if (s.EMAILS_PER_DAY === '20') setSetting_('EMAILS_PER_DAY', '5');   // start slowly; raise over 2–3 weeks
+  // v7: automatic weekly increase 10 → 20 → 30 → 40 (well under Gmail's 100/day for scripts)
+  if (s.EMAILS_PER_DAY === '5') setSetting_('EMAILS_PER_DAY', '10');
+  if (s.EMAILS_PER_DAY_MAX === undefined) st.appendRow(['EMAILS_PER_DAY_MAX', '40', 'Most emails per day once fully warmed up (Gmail allows scripts 100; stay well below).']);
+  if (s.EMAIL_RAMP === undefined) st.appendRow(['EMAIL_RAMP', 'YES', 'YES = start at EMAILS_PER_DAY and add that many each week until EMAILS_PER_DAY_MAX. NO = always EMAILS_PER_DAY.']);
   p.setProperty('schema', SCHEMA);
 }
 
@@ -965,15 +969,28 @@ function api_status() {
   return {
     autoEmail: String(s.AUTO_EMAIL).toUpperCase() === 'ON',
     sentToday: parseInt(props.getProperty('sent_' + t) || '0', 10),
-    perDay: num_(s, 'EMAILS_PER_DAY', 20), days: s.EMAIL_DAYS, hours: s.EMAIL_START_HOUR + ':00–' + s.EMAIL_END_HOUR + ':00',
+    perDay: capToday_(s), perDayMax: num_(s, 'EMAILS_PER_DAY_MAX', 40), days: s.EMAIL_DAYS, hours: s.EMAIL_START_HOUR + ':00–' + s.EMAIL_END_HOUR + ':00',
     queue: queue, sent: by('Sent'), followedUp: by('Followed up'), replied: by('Replied'), bounced: by('Bounced'),
     bouncesToday: parseInt(props.getProperty('bounce_' + t) || '0', 10), pausedReason: props.getProperty('paused_reason') || props.getProperty('send_problem') || '',
     lastRun: props.getProperty('last_run') || '', me: me_(), sheetUrl: ss_().getUrl()
   };
 }
 
+/** Pure: today's email limit. Week 1 = start, week 2 = 2×start … up to max. */
+function emailCap_(start, max, ramp, since, today) {
+  if (!ramp || !since) return Math.min(start, max || start);
+  const days = Math.max(0, Math.floor((Date.parse(today) - Date.parse(since)) / 864e5));
+  return Math.min(max, start * (1 + Math.floor(days / 7)));
+}
+function capToday_(s) {
+  return emailCap_(num_(s, 'EMAILS_PER_DAY', 10), num_(s, 'EMAILS_PER_DAY_MAX', 40), String(s.EMAIL_RAMP).toUpperCase() !== 'NO',
+    PropertiesService.getScriptProperties().getProperty('auto_since') || '', today_());
+}
+
 function api_setAutopilot(on) {
   setSetting_('AUTO_EMAIL', on ? 'ON' : 'OFF');
+  const pp = PropertiesService.getScriptProperties();
+  if (on && !pp.getProperty('auto_since')) pp.setProperty('auto_since', today_());   // the weekly increase counts from the first day
   if (on) PropertiesService.getScriptProperties().deleteProperty('paused_reason');
   ensureTrigger_();
   PropertiesService.getScriptProperties().deleteProperty('plan_' + today_());
@@ -1062,7 +1079,7 @@ function sendBatch_() {
   const props = PropertiesService.getScriptProperties();
   const key = 'sent_' + today_();
   let sentToday = parseInt(props.getProperty(key) || '0', 10);
-  const cap = num_(s, 'EMAILS_PER_DAY', 20);
+  const cap = capToday_(s);
   // spread the day's emails over the remaining hours
   const hoursLeft = Math.max(1, num_(s, 'EMAIL_END_HOUR', 19) - hour);
   let budget = Math.min(cap - sentToday, Math.ceil((cap - sentToday) / hoursLeft));
@@ -1419,4 +1436,4 @@ function api_newHelperLink(name) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };
+if (typeof module !== 'undefined') module.exports = { emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };

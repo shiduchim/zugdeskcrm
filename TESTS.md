@@ -63,4 +63,4 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Settings → Separate lists → Organizations / Never answered open their own lists; tapping a name opens the card
 - [ ] Contact card → Details: Country field saves
 - [ ] After an import, a contact you already had keeps its group (e.g. Book) and gets the new note added once (not twice)
-
+- [ ] Email screen shows "up to 10 a day today, rising each week to 40" after turning the autopilot on; Settings tab has EMAILS_PER_DAY 10, EMAILS_PER_DAY_MAX 40, EMAIL_RAMP YES

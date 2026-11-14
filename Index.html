@@ -942,7 +942,7 @@ function renderEmail(s){
   $('#v-email').innerHTML = `<h2>Email autopilot</h2>
     ${s.pausedReason?`<div class="card" style="border-color:var(--amber);background:var(--amber-soft)">${esc(s.pausedReason)}</div>`:''}
     <div class="card">
-      <div class="switch"><div><b>${s.autoEmail?'On':'Off'}</b><div class="meta">${esc(s.days)} • ${esc(s.hours)} • up to ${s.perDay} a day</div></div>
+      <div class="switch"><div><b>${s.autoEmail?'On':'Off'}</b><div class="meta">${esc(s.days)} • ${esc(s.hours)} • up to ${s.perDay} a day${s.perDayMax && s.perDay < s.perDayMax ? ' today, rising each week to '+s.perDayMax : ''}</div></div>
       <button class="btn ${s.autoEmail?'':'primary'}" onclick="setAuto(${!s.autoEmail})">${s.autoEmail?'Turn off':'Turn on'}</button></div>
       <div class="stat">
         <div><b>${s.sentToday}</b><span>sent today</span></div>

@@ -132,4 +132,14 @@ t('import history: new rows keep status/dates; merge moves status forward only',
   assert.deepStrictEqual([out.add[0].Status, out.add[0].NeedsReply, out.add[0].SourceRef], ['Talking', 'YES', 'Gmail emails 2025–2026']);
   assert.strictEqual(out.add[1].Status, undefined);   // 'Closed' is not accepted from a file → stays New
 });
+
+t('emailCap_: 10 → 20 → 30 → 40 by week, never above max; off = fixed', () => {
+  assert.strictEqual(A.emailCap_(10, 40, true, '2026-11-15', '2026-11-15'), 10);
+  assert.strictEqual(A.emailCap_(10, 40, true, '2026-11-15', '2026-11-21'), 10);
+  assert.strictEqual(A.emailCap_(10, 40, true, '2026-11-15', '2026-11-22'), 20);
+  assert.strictEqual(A.emailCap_(10, 40, true, '2026-11-15', '2026-12-06'), 40);
+  assert.strictEqual(A.emailCap_(10, 40, true, '2026-11-15', '2027-03-01'), 40);
+  assert.strictEqual(A.emailCap_(10, 40, false, '2026-11-15', '2027-03-01'), 10);
+  assert.strictEqual(A.emailCap_(10, 40, true, '', '2027-03-01'), 10);
+});
 console.log(n + ' checks passed');
