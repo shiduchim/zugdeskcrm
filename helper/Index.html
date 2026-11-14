@@ -8,6 +8,7 @@
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#121A22;--card:#1B2631;--ink:#E6EDF3;--muted:#9AAABA;--line:#2C3A48;--blue:#5B9BE0;--blue-ink:#0E1620;--green:#6BC28F;--green-ink:#0E1620;--green-soft:#1C3328;--amber:#E0B35E;--amber-soft:#3A2F1A;--red:#E58A80;color-scheme:dark}}
 :root[data-theme=dark]{--bg:#121A22;--card:#1B2631;--ink:#E6EDF3;--muted:#9AAABA;--line:#2C3A48;--blue:#5B9BE0;--blue-ink:#0E1620;--green:#6BC28F;--green-ink:#0E1620;--green-soft:#1C3328;--amber:#E0B35E;--amber-soft:#3A2F1A;--red:#E58A80;color-scheme:dark}
 .thm{min-width:44px;min-height:44px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:22px;font-size:18px;cursor:pointer}
+.thm span{display:inline-block;width:18px;height:18px;border-radius:50%;border:2px solid currentColor;background:linear-gradient(90deg,currentColor 50%,transparent 50%);vertical-align:middle}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.45 -apple-system,"Segoe UI",Rubik,Arial,sans-serif}
 main{max-width:640px;margin:0 auto;padding:12px 16px 80px}
@@ -161,7 +162,7 @@ function render(){
     .map((x, i) => Object.assign(x, { rank: i })).sort(sorter());
   const hasTr = D.items.some(x => x.tr);
   let h = `<div class="top"><h1 dir="auto">${esc(t('listOf', {name: D.me.name}))}</h1>` +
-    `<button class="thm" onclick="flipTheme()" aria-label="Dark / light">${isDark() ? '☀' : '☾'}</button>` +
+    `<button class="thm" onclick="flipTheme()" aria-label="Dark / light"><span></span></button>` +
     (hasTr ? `<div class="trsw"><button class="${!showTr?'on':''}" aria-pressed="${!showTr}" onclick="setTr(false)">${esc(t('orig'))}</button><button class="${showTr?'on':''}" aria-pressed="${showTr}" onclick="setTr(true)">${esc(t('trans'))}</button></div>` : '') + `</div>
     <div class="seg" role="tablist">${(tabs => lang === 'HE' ? tabs : tabs.reverse())([['all', t('all') + ' (' + list.length + ')'], ['mine', t('mine') + ' (' + mine.length + ')'], ['past', t('past')]]).map(b =>   /* To call always on the right */
       `<button role="tab" aria-selected="${tab===b[0]}" class="${tab===b[0]?'cur':''}" onclick="setTab('${b[0]}')">${esc(b[1])}</button>`).join('')}</div>
