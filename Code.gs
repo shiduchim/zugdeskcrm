@@ -1431,9 +1431,10 @@ function helperSync_(rebuildList) {
     for (let i = done; i < res.length; i++) {
       const r = { when: str_(res[i][0]), helper: str_(res[i][1]), id: str_(res[i][2]), result: str_(res[i][4]), next: str_(res[i][5]), notes: str_(res[i][6]), names: str_(res[i][7]) };
       const c = db.rows.find(x => x.ID === r.id), action = HELPER_ACTIONS[r.result];
-      if (c && r.result === 'note' && r.notes) {   // only a note: add it, status unchanged
+      if (c && r.result === 'note' && (r.notes || r.names)) {   // only a note: add it, status unchanged
         patchContact_(db, c, { Notes: (c.Notes ? c.Notes + '\n' : '') + today_() + ': ' + helperNote_(r) });
         log_(c, 'Helper: ' + r.helper, 'Note', r.notes);
+        if (r.names) saveSuggestions_(c, extractPeople(r.names, excludeFor_(c, s)), db);
       } else if (c && r.result === 'notfit') {   // a helper's "Not for us" is a suggestion: off the helpers' list, owner decides
         if (c.Status !== 'Closed') patchContact_(db, c, { Helpers: 'Set aside: ' + r.helper, Notes: (c.Notes ? c.Notes + '\n' : '') + today_() + ': [' + r.helper + '] Not for us: ' + (r.notes || '') });
         log_(c, 'Helper: ' + r.helper, 'Set aside', r.notes);

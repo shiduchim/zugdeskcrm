@@ -165,7 +165,7 @@ function h_save(k, id, result, next, notes, names) {
   const me = who_(k);
   const noteOnly = result === 'note';
   if (!noteOnly && RESULTS.indexOf(result) < 0) throw new Error('Unknown result');
-  if (noteOnly && !String(notes || '').trim()) throw new Error('Empty note');
+  if (noteOnly && !String(notes || '').trim() && !String(names || '').trim()) throw new Error('Empty note');
   next = result === 'spoke' ? String(next || '').replace(/\s+/g, ' ').trim().slice(0, 60) : '';
   const lock = LockService.getScriptLock(); lock.waitLock(15000);
   try {
@@ -178,7 +178,7 @@ function h_save(k, id, result, next, notes, names) {
     const bad = ['stop', 'wrong', 'inactive', 'notfit'].indexOf(result) >= 0;
     const phone = bad ? '' : row ? str_(row[5]) : str_(prev[8] || ''), tel = bad ? '' : row ? str_(row[6]) : str_(prev[9] || '');
     const clean = s => String(s || '').replace(/^[=+\-@]/, "'$&").slice(0, 2000);   // never a formula
-    sh_('Results').appendRow([now_(), me.name, id, name, result, clean(next), clean(notes), noteOnly ? '' : clean(names), phone, tel, city]);
+    sh_('Results').appendRow([now_(), me.name, id, name, result, clean(next), clean(notes), clean(names), phone, tel, city]);
     if (!noteOnly) sh_('Reservations').appendRow([id, me.name, now_(), 'Done']);
     else if (heldByMe) sh_('Reservations').appendRow([id, me.name, now_(), 'Active']);   // a note renews her 24h hold; from History it holds nobody
     return { ok: true };
