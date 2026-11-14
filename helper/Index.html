@@ -310,6 +310,7 @@ function toggle(id){ $('#'+id).classList.toggle('open'); }
 
 function cardHtml(x){
   const orig = showTr && x.tr && x.tr.name && x.tr.name.trim() !== String(x.name).trim() ? x.name : '';
+  if (x.tr && x.tr.why) x = Object.assign({}, x, { why: x.tr.why });   // chips always in her language
   if (showTr && x.tr) x = Object.assign({}, x, { name: x.tr.name || x.name, city: x.tr.city || x.city, spec: x.tr.spec || x.spec, why: x.tr.why || x.why });
   const lc = Array.from(String(x.langs || '')).filter(c => /[^\s,.]/.test(c)), lk = lc.map(c => Object.keys(LANGS).find(k => LANGS[k] === c));
   const lw = lk.length && lk.every(Boolean) ? lk.map(k => t('lg_' + k)).join(', ') : x.langs;   // book letters → words

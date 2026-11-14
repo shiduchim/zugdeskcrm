@@ -88,3 +88,4 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] "Not for us": helper To call card → one-tap reason → off every helper's list, toast "Eliyahu will take a look"; main Today "Helpers set these aside" → Agree (Closed, Not a fit) / Keep (back to helpers). Main contact card "Not for me" + reason → Closed; "Back to new" undoes.
 - [ ] Helper after-call box "Who else did they suggest? Shadchanim, WhatsApp groups, links" → names/phones to Recommended, the rest in notes.
 - [ ] Best first: Chabad on top (helper: then Russian speakers for Russian helpers), crossed out always last even if Chabad (helper page + main Contacts).
+- [ ] Helper chips always in her language (Original mode switches only name, city, specialty).
