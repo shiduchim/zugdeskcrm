@@ -897,6 +897,11 @@ function importInbox_() {
     const f = files.next(), name = f.getName();
     if (/^Imported /.test(name) || !/\.csv$/i.test(name)) continue;
     const parts = name.replace(/\.csv$/i, '').split('__');
+    if (/^settings$/i.test(parts[1] || '')) {
+      try { const n = applySettings_(csvRows_(f.getBlob().getDataAsString('UTF-8')), parts[0]); f.setName('Imported ' + today_() + ' – ' + name + ' – ' + n + ' settings updated'); }
+      catch (e) { log_(null, 'Import', 'Import inbox error', name + ': ' + e); }
+      continue;
+    }
     if (/^donotcontact$/i.test(parts[1] || '')) {
       try { const n = addDoNotContact_(csvRows_(f.getBlob().getDataAsString('UTF-8')), parts[0]); f.setName('Imported ' + today_() + ' – ' + name + ' – ' + n + ' added to Do-not-contact'); }
       catch (e) { log_(null, 'Import', 'Import inbox error', name + ': ' + e); }
@@ -907,6 +912,19 @@ function importInbox_() {
       f.setName('Imported ' + today_() + ' – ' + name + ' – ' + res.add + ' added, ' + res.known + ' known (' + (res.merged || 0) + ' updated), ' + res.blocked + ' blocked, ' + res.skipped + ' skipped');
     } catch (e) { log_(null, 'Import', 'Import inbox error', name + ': ' + e); }
   }
+}
+
+/** Texts Claude may update from the chat (profile, message templates…). The old value is kept in the Log. */
+const TEXT_KEYS = /^(PROFILE|WA_INTRO|EMAIL_SUBJECT|EMAIL_BODY|EMAIL_FOLLOWUP|ASK_WA|ASK_EMAIL|ASK_SUBJECT|SOURCE_DIRECTORY|SOURCE_REFERRAL|CONTACT_LINE)_(HE|RU|EN)$|^(CALL_SCRIPT|SENDER_NAME|MY_PHONE|MY_WHATSAPP|WA_INCLUDE_PROFILE)$/;
+function applySettings_(rows, source) {
+  const s = settings_(); let n = 0;
+  rows.forEach(r => {
+    const k = String(r.key || '').trim(), v = String(r.value == null ? '' : r.value).replace(/\r\n/g, '\n');
+    if (!TEXT_KEYS.test(k) || s[k] === v) return;
+    log_(null, 'Settings', 'Changed ' + k, 'from ' + source + '. Old value: ' + (s[k] || '(empty)'));
+    setSetting_(k, v); n++;
+  });
+  return n;
 }
 
 /** Adds rows (email / phone / reason) to DoNotContact, skipping ones already there. */

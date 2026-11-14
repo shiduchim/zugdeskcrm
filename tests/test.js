@@ -142,4 +142,9 @@ t('emailCap_: 10 → 20 → 30 → 40 by week, never above max; off = fixed', ()
   assert.strictEqual(A.emailCap_(10, 40, false, '2026-11-15', '2027-03-01'), 10);
   assert.strictEqual(A.emailCap_(10, 40, true, '', '2027-03-01'), 10);
 });
+
+t('csvRows_ keeps multi-line quoted texts (profile settings file)', () => {
+  const r = A.csvRows_('key,value\nPROFILE_EN,"*Eliyahu*\n41 • Kohen\n\n*Work:*"\nSENDER_NAME,Eliyahu\n');
+  assert.strictEqual(r.length, 2); assert.strictEqual(r[0].value, '*Eliyahu*\n41 • Kohen\n\n*Work:*');
+});
 console.log(n + ' checks passed');
