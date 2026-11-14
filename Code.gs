@@ -1446,7 +1446,9 @@ function helperRebuild_(hs, s, db) {
   if (rows.length) sh.getRange(2, 1, rows.length, w).setValues(rows);
   try { helperTranslate_(hs, rows); } catch (e) { console.log('translate: ' + e); }   // never blocks the list
   const at = hTime_();
-  hSet_(hs, { BuiltAt: at, PROFILE_HE: s.PROFILE_HE || '', PROFILE_RU: s.PROFILE_RU || '', PROFILE_EN: s.PROFILE_EN || '' });
+  const np = normPhone_(String(s.MY_PHONE || '').trim()), ph = np ? np.local : String(s.MY_PHONE || '').trim();   // Israeli number (calls)
+  const prof = (lang, label) => (s['PROFILE_' + lang] || '') + (s['PROFILE_' + lang] && ph ? '\n\n' + label + ph : '');
+  hSet_(hs, { BuiltAt: at, PROFILE_HE: prof('HE', 'טלפון של אליהו: '), PROFILE_RU: prof('RU', 'Телефон Элияху: '), PROFILE_EN: prof('EN', "Eliyahu's phone: ") });
   PropertiesService.getScriptProperties().setProperty('helper_built', at);
 }
 
