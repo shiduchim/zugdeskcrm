@@ -204,7 +204,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const run = (fn, ...a) => new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](...a));
 let T = null;              // today data
-let profiles = {};
+let profiles = {}, references = {};
 let callScript = '';
 
 function todayStr(){ return new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Jerusalem'}); }
@@ -428,7 +428,7 @@ async function loadToday(rebuild){
   try{
     T = await run('api_today', !!rebuild); T.loadedAt = Date.now();
     if (!DIR && !dirReq) setTimeout(()=>ensureDir().catch(()=>{}), 1500);
-    profiles = T.profiles;
+    profiles = T.profiles; references = T.references || {};
     $('#date').textContent = new Date(T.date+'T12:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
     renderToday();
   }catch(e){ fail(e); }
@@ -645,6 +645,12 @@ function fallbackCopy(text){
   document.body.appendChild(ta); ta.select(); let ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
   ta.remove(); return ok;
 }
+async function copyRefs(lang){
+  const t = references[lang] || references.HE || references.EN || '';
+  if (!t) return toast('No references saved yet');
+  const ok = await copyText(t);
+  toast(ok ? 'References copied' : 'Copy blocked here');
+}
 async function copyProfile(lang){
   const ok = await copyText(profiles[lang]||profiles.HE);
   toast(ok ? 'Profile copied — paste it in WhatsApp' : 'Copy blocked here — open the contact and select the profile text');
@@ -703,6 +709,7 @@ function renderSheet(c, keepScroll){
           ${c.waUrl?`<a class="btn primary" href="${c.waUrl}" target="_blank">WhatsApp with message</a>`:''}
           ${c.email?`<a class="btn" href="mailto:${esc(c.email)}">Email</a>`:''}
           <button class="btn" onclick="copyProfile('${c.lang}')">Copy profile</button>
+          ${(references.HE||references.EN||references.RU)?`<button class="btn quiet" onclick="copyRefs('${c.lang}')">Copy references</button>`:''}
         </div>
         ${noteBox(c.id,'sn-')}
         <label>Result</label>

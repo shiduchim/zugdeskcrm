@@ -611,6 +611,7 @@ function api_today(rebuild) {
     counts: counts,
     autoEmail: String(s.AUTO_EMAIL).toUpperCase() === 'ON',
     profiles: { HE: s.PROFILE_HE || '', RU: s.PROFILE_RU || '', EN: s.PROFILE_EN || '' },
+    references: { HE: s.REFERENCES_HE || '', RU: s.REFERENCES_RU || '', EN: s.REFERENCES_EN || '' },
     callScript: s.CALL_SCRIPT || '',
     sheetUrl: ss_().getUrl(),
     helperNames: helperNames_()
@@ -915,7 +916,7 @@ function importInbox_() {
 }
 
 /** Texts Claude may update from the chat (profile, message templates…). The old value is kept in the Log. */
-const TEXT_KEYS = /^(PROFILE|WA_INTRO|EMAIL_SUBJECT|EMAIL_BODY|EMAIL_FOLLOWUP|ASK_WA|ASK_EMAIL|ASK_SUBJECT|SOURCE_DIRECTORY|SOURCE_REFERRAL|CONTACT_LINE)_(HE|RU|EN)$|^(CALL_SCRIPT|SENDER_NAME|MY_PHONE|MY_WHATSAPP|WA_INCLUDE_PROFILE)$/;
+const TEXT_KEYS = /^(PROFILE|REFERENCES|WA_INTRO|EMAIL_SUBJECT|EMAIL_BODY|EMAIL_FOLLOWUP|ASK_WA|ASK_EMAIL|ASK_SUBJECT|SOURCE_DIRECTORY|SOURCE_REFERRAL|CONTACT_LINE)_(HE|RU|EN)$|^(CALL_SCRIPT|SENDER_NAME|MY_PHONE|MY_WHATSAPP|WA_INCLUDE_PROFILE)$/;
 function applySettings_(rows, source) {
   const s = settings_(); let n = 0;
   rows.forEach(r => {
