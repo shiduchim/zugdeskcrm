@@ -84,21 +84,21 @@ const INSIDE = typeof google !== 'undefined' && google.script && google.script.r
 const KEY = (INSIDE ? document.getElementById('app').dataset.k : (location.hash.match(/k=([A-Za-z0-9]+)/) || [])[1] || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 64);
 const L = {
  RU:{title:'Звонки шадханам',listOf:'Список: {name}',hello:'Здравствуйте, {name}!',mine:'Мои звонки',all:'Список',search:'Поиск: имя, город…',call:'Позвонить',wa:'WhatsApp',
-   script:'Что сказать',profile:'Скопировать данные Элияху',copied:'Скопировано',busy:'{name} уже звонит',tip:'Заметка',giveBack:'Вернуть в список',
+   script:'Что сказать',profile:'Скопировать данные Элияху',copied:'Скопировано',busy:'{name} уже звонит',tip:'Заметка',giveBack:'Не буду звонить — вернуть в общий список',gaveBack:'Возвращено в общий список',
    save:'Сохранить',saved:'Сохранено, спасибо!',notes:'Что узнали (можно голосом — значок микрофона на клавиатуре)',names:'Имена и телефоны других шадханов, если дали',
    nextQ:'Что дальше?',next_profile:'Отправить данные Элияху',next_call:'Пусть Элияху позвонит',next_:'Ничего',
    res_spoke:'Поговорили',res_noanswer:'Не ответили',res_callback:'Перезвонить позже',res_wrong:'Неверный номер',res_inactive:'Больше не занимается',res_stop:'Просили не звонить',
    pick:'Выберите результат',hours:'Часы',empty:'Сейчас некого звонить. Спасибо!',emptyMine:'Нажмите «Позвонить» в списке — человек появится здесь.',
    more:'Показать ещё',link:'Ссылка не работает. Попросите новую у Элияху.',err:'Что-то пошло не так: ',taken:'{name} уже взял(а) этого человека',orig:'Оригинал',trans:'Русский',sort:'Сортировка',s_best:'Лучшие сначала',s_city:'Город',s_name:'Имя',s_ru:'Русскоязычные сначала',s_src:'Источник',filters:'Фильтры',done:'Готово',reset:'Сбросить',showN:'Показать: {n}',findCity:'Найти город',g_city:'Город',g_country:'Страна',c_unknown:'Не указана',g_lang:'Язык',g_src:'Источник',g_more:'Ещё',remove:'Убрать',filter:'Фильтр',f_city:'Все города',f_lang:'Все языки',f_src:'Все источники',f_mob:'Только мобильные',f_clear:'Сбросить фильтры',lg_ru:'Русский',lg_en:'Английский',lg_he:'Иврит',lg_yi:'Идиш',lg_fr:'Французский',lg_es:'Испанский'},
  HE:{title:'שיחות לשדכנים',listOf:'הרשימה של {name}',hello:'שלום {name}!',mine:'השיחות שלי',all:'רשימה',search:'חיפוש: שם, עיר…',call:'להתקשר',wa:'וואטסאפ',
-   script:'מה לומר',profile:'להעתיק את הפרטים של אליהו',copied:'הועתק',busy:'{name} כבר מתקשר/ת',tip:'הערה',giveBack:'להחזיר לרשימה',
+   script:'מה לומר',profile:'להעתיק את הפרטים של אליהו',copied:'הועתק',busy:'{name} כבר מתקשר/ת',tip:'הערה',giveBack:'לא אתקשר — להחזיר לרשימה הכללית',gaveBack:'הוחזר לרשימה הכללית',
    save:'שמירה',saved:'נשמר, תודה!',notes:'מה נאמר (אפשר בקול – המיקרופון במקלדת)',names:'שמות וטלפונים של שדכנים נוספים, אם נתנו',
    nextQ:'מה הלאה?',next_profile:'לשלוח את הפרטים של אליהו',next_call:'שאליהו יתקשר',next_:'כלום',
    res_spoke:'דיברנו',res_noanswer:'לא ענו',res_callback:'להתקשר שוב אחר כך',res_wrong:'מספר שגוי',res_inactive:'כבר לא פעיל/ה',res_stop:'ביקשו לא להתקשר',
    pick:'בחר/י תוצאה',hours:'שעות',empty:'אין כרגע למי להתקשר. תודה!',emptyMine:'לחצו "להתקשר" ברשימה – האדם יופיע כאן.',
    more:'עוד',link:'הקישור לא פעיל. בקשו קישור חדש מאליהו.',err:'משהו השתבש: ',taken:'{name} כבר לקח/ה את האדם הזה',sort:'מיון',s_best:'הכי מתאימים קודם',s_city:'עיר',s_name:'שם',s_ru:'דוברי רוסית קודם',s_src:'מקור',filters:'סינון',done:'סיום',reset:'איפוס',showN:'הצגת {n}',findCity:'חיפוש עיר',g_city:'עיר',g_country:'מדינה',c_unknown:'לא ידוע',g_lang:'שפה',g_src:'מקור',g_more:'עוד',remove:'הסרה',filter:'סינון',f_city:'כל הערים',f_lang:'כל השפות',f_src:'כל המקורות',f_mob:'רק ניידים',f_clear:'ניקוי סינון',lg_ru:'רוסית',lg_en:'אנגלית',lg_he:'עברית',lg_yi:'יידיש',lg_fr:'צרפתית',lg_es:'ספרדית'},
  EN:{title:'Shadchan calls',listOf:"{name}'s list",hello:'Hello {name}!',mine:'My calls',all:'List',search:'Search: name, city…',call:'Call',wa:'WhatsApp',
-   script:'What to say',profile:'Copy Eliyahu\'s details',copied:'Copied',busy:'{name} is calling',tip:'Note',giveBack:'Give back to the list',
+   script:'What to say',profile:'Copy Eliyahu\'s details',copied:'Copied',busy:'{name} is calling',tip:'Note',giveBack:"I won't call — put back in the main list",gaveBack:'Back in the main list',
    save:'Save',saved:'Saved, thank you!',notes:'What you heard (you can speak it: microphone on the keyboard)',names:'Names and numbers of other shadchanim, if they gave any',
    nextQ:'What next?',next_profile:'Send Eliyahu\'s details',next_call:'Eliyahu should call',next_:'Nothing',
    res_spoke:'We spoke',res_noanswer:'No answer',res_callback:'Call back later',res_wrong:'Wrong number',res_inactive:'Not active anymore',res_stop:'Asked not to call',
@@ -322,7 +322,7 @@ function hold(id){
   setTimeout(() => { tab = 'mine'; render(); }, 400);
 }
 async function giveBack(id){
-  try { await run('h_release', id); delete form[id]; const x = D.items.find(i => i.id === id); if (x) x.mine = false; render(); }
+  try { await run('h_release', id); delete form[id]; const x = D.items.find(i => i.id === id); if (x) x.mine = false; render(); toast(t('gaveBack')); }
   catch(e){ fail(e); }
 }
 async function save(id){
