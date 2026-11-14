@@ -362,10 +362,21 @@ function scoreContact(c, s) {
 
   if (phonesOf_(c).some(p => p.mobile)) score += W('W_MOBILE');
   if (c.ReferredBy) { score += W('W_REFERRED'); why.unshift('Recommended by ' + c.ReferredBy); }
-  if (c.CrossedOut === 'YES') { score -= W('W_CROSSED_OUT') + 1000; /* probably not active: always last */ why.push('Crossed out in book'); }
+  // Fixed order (user's choice): Israel above outside Israel, then Russian speakers above everyone else (incl. Chabad).
+  if (inIsrael_(c)) score += 2000;
+  if (ruLang || ruText) score += 1000;
+  if (c.CrossedOut === 'YES') { score -= W('W_CROSSED_OUT') + 10000; /* probably not active: always last */ why.push('Crossed out in book'); }
   if (c.InZugDesk === 'YES') score -= 1;
   score += parseFloat(c.Boost) || 0;
   return { score: Math.round(score * 10) / 10, why: why.slice(0, 4) };
+}
+
+/** Israel unless Country says otherwise, or (no Country) every phone is a US/Canada number. */
+function inIsrael_(c) {
+  const ctry = String(c.Country || '').trim().toLowerCase();
+  if (ctry) return /^(israel|isr|il|ישראל|израиль)$/.test(ctry);
+  const ph = phonesOf_(c);
+  return !ph.length || ph.some(p => /^972/.test(p.intl));
 }
 
 /* ------------------------------------------------------------------ */

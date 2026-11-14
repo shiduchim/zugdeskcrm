@@ -13,7 +13,19 @@ t('scoreContact: Chabad + Russian + Tzfat ranks high with chips', () => {
   const r = A.scoreContact({ Specialty: 'חב"ד, דוברי רוסית', Languages: 'ע,ר', City: 'צפת' }, S);
   assert.ok(r.score >= 12); assert.ok(r.why.includes('Chabad')); assert.ok(r.why.includes('In צפת'));
 });
-t('scoreContact: age limit below 41 is negative', () => assert.ok(A.scoreContact({ Specialty: 'גילאי 20-30' }, S).score < 0));
+t('scoreContact: age limit below 41 ranks lower', () => assert.ok(A.scoreContact({ Specialty: 'גילאי 20-30' }, S).score < A.scoreContact({ Specialty: '' }, S).score));
+t('scoreContact: Russian speaker above Chabad (not Russian), even with Tzfat + age fit', () => {
+  const ru = A.scoreContact({ Languages: 'ע,ר' }, S).score;
+  const ch = A.scoreContact({ Specialty: 'חב"ד גילאי 35-50', City: 'צפת', Languages: 'ע' }, S).score;
+  assert.ok(ru > ch);
+});
+t('scoreContact: Israel above outside Israel', () => {
+  const il = A.scoreContact({ Phone1: '04-6971234' }, S).score;
+  const us = A.scoreContact({ Phone1: '(718) 555-1234', Specialty: 'חב"ד', Languages: 'ר' }, S).score;
+  const us2 = A.scoreContact({ Country: 'USA', Languages: 'ר' }, S).score;
+  assert.ok(il > us); assert.ok(il > us2);
+});
+t('scoreContact: crossed out always last', () => assert.ok(A.scoreContact({ CrossedOut: 'YES', Languages: 'ר' }, S).score < A.scoreContact({ Country: 'USA' }, S).score));
 
 t('extractPeople: name + phone, excludes sender phone', () => {
   const ex = { phones: new Set(['972521111111']), emails: new Set() };
