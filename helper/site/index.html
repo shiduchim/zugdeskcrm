@@ -163,7 +163,7 @@ function sorter(){
   return (a, b) => ((a.by ? 1 : 0) - (b.by ? 1 : 0)) ||
     (by === 'city' ? cmp(shown_(a,'city') || '\uffff', shown_(b,'city') || '\uffff') :
      by === 'name' ? cmp(shown_(a,'name'), shown_(b,'name')) :
-     by === 'ru' ? ru(a) - ru(b) :
+     by === 'ru' || (by === 'best' && lang === 'RU') ? ru(a) - ru(b) :   // Russian-speaking helpers: Russian speakers first, then best match
      by === 'src' ? cmp(a.src || '\uffff', b.src || '\uffff') : 0) || (a.rank - b.rank);
 }
 // filters: one Filters button opens a sheet (bottom on phone, side on PC); list updates live; tags above the list remove one filter
