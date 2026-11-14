@@ -72,9 +72,9 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Helper page: Оригинал / Русский switch on top; Russian shows translated city/description/chips and 'Name (Hebrew name)'; choice remembered; Hebrew helpers see no switch. Translations fill in ~150 per refresh (hidden tab Tr in helpers sheet).
 - [ ] Helper 'Copy Eliyahu's details' ends with his Israeli phone (MY_PHONE) in the helper's language.
 - [ ] Helper page: Sort (Best / City / Name) works and is remembered.
-- [ ] Helper page: Filters sheet (City with search, Language, Source, Mobile only): list updates as you tick, counts per option, tags above the list remove one filter (circle-slash sign), Clear all; sheet closes with Done, Show N, outside tap, phone back button, Esc. Remembered per device.
+- [ ] Helper page: Filters sheet (City with search, Language, Source, Mobile only): list updates as you tick, counts per option, a text line "Filters: … · Change" above the list opens the sheet at that group (tapping it never removes a filter), Clear all; sheet closes with Done, Show N, outside tap, phone back button, Esc. Remembered per device.
 - [ ] Main app Contacts: Show stays visible; Filters sheet (Who, Language, Community, Location, Can reach by, Where they came from) with the same behaviour; quick Russian / WhatsApp buttons; Sort defaults to Last contact for Talking/Contacted and Next date for Later until picked; search hides filters.
-- [ ] Country filter (both apps): uses the Country field, else phone code (+972 Israel, +1 USA); group shows only with 2+ countries; tag removes it.
+- [ ] Country filter (both apps): uses the Country field, else phone code (+972 Israel, +1 USA); group shows only with 2+ countries; shows in the Filters: … · Change line.
 - [ ] Helper page top: title "{name}'s list" (no hello), small Original/Translation pill in the corner, My calls / List switch stays at the top while scrolling; What to say / Copy details are links; Mobile only / Russian are pills under Filters + Sort.
 - [ ] Helper My calls: results and What next in an even 2-column grid; Save greyed until a result is picked; "names of other shadchanim" box only after We spoke; languages shown as words.
 - [ ] Helper page in Russian starts once with Russian + English + Book ticked; unticking is remembered (English/Hebrew pages start with nothing).

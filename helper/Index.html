@@ -24,10 +24,14 @@ select{margin-bottom:10px;min-height:44px}
 .bar{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
 .bar > *{flex:1 1 auto;width:auto;margin:0;min-height:44px}
 .bar select{flex:1 1 150px}
-.bar > *{flex:1 1 0}
+.bar > *{flex:1 1 0;white-space:nowrap}
 .chipsf{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}
 .fchip{min-height:44px;padding:6px 12px;border-radius:999px;font-size:15px;background:var(--bg)}
-.fchip svg,.slash{width:16px;height:16px;flex:none;opacity:.7}
+.fsum{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+.fline{flex:1;justify-content:flex-start;text-align:start;border:0;background:transparent;padding:4px 2px;min-height:44px;font-size:15px;line-height:1.35}
+.fline .t{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.fline u{color:var(--blue);text-underline-offset:3px;white-space:nowrap}
+.fsum .quiet{flex:none;min-height:44px;padding:4px 6px;font-size:15px}
 #shade{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:30}
 #sheet{position:fixed;z-index:31;inset-inline:0;bottom:0;max-height:85dvh;display:flex;flex-direction:column;background:var(--card);color:var(--ink);border-radius:18px 18px 0 0;box-shadow:0 -6px 30px rgba(0,0,0,.2)}
 @media (min-width:900px){#sheet{inset-inline-start:auto;inset-inline-end:0;top:0;bottom:0;max-height:none;width:400px;border-radius:0}}
@@ -89,21 +93,21 @@ const L = {
    nextQ:'Что дальше?',next_profile:'Отправить данные Элияху',next_call:'Пусть Элияху позвонит',next_:'Ничего',
    res_spoke:'Поговорили',res_noanswer:'Не ответили',res_callback:'Перезвонить позже',res_wrong:'Неверный номер',res_inactive:'Больше не занимается',res_stop:'Просили не звонить',
    pick:'Выберите результат',hours:'Часы',empty:'Сейчас некого звонить. Спасибо!',emptyMine:'Нажмите «Позвонить» в списке — человек появится здесь.',
-   more:'Показать ещё',link:'Ссылка не работает. Попросите новую у Элияху.',err:'Что-то пошло не так: ',taken:'{name} уже взял(а) этого человека',orig:'Оригинал',trans:'Русский',sort:'Сортировка',s_best:'Лучшие сначала',s_city:'Город',s_name:'Имя',s_ru:'Русскоязычные сначала',s_src:'Источник',filters:'Фильтры',done:'Готово',reset:'Сбросить',showN:'Показать: {n}',findCity:'Найти город',g_city:'Город',g_country:'Страна',c_unknown:'Не указана',g_lang:'Язык',g_src:'Источник',g_more:'Ещё',remove:'Убрать',filter:'Фильтр',f_city:'Все города',f_lang:'Все языки',f_src:'Все источники',f_mob:'Только мобильные',f_clear:'Сбросить фильтры',lg_ru:'Русский',lg_en:'Английский',lg_he:'Иврит',lg_yi:'Идиш',lg_fr:'Французский',lg_es:'Испанский'},
+   more:'Показать ещё',link:'Ссылка не работает. Попросите новую у Элияху.',err:'Что-то пошло не так: ',taken:'{name} уже взял(а) этого человека',orig:'Оригинал',trans:'Русский',sort:'Сортировка',s_best:'Лучшие сначала',s_city:'Город',s_name:'Имя',s_ru:'Русскоязычные сначала',s_src:'Источник',filters:'Фильтры',done:'Готово',reset:'Сбросить',showN:'Показать: {n}',findCity:'Найти город',g_city:'Город',g_country:'Страна',change:'Изменить',clearAll:'Сбросить всё',fOn:'Включены фильтры',c_unknown:'Не указана',g_lang:'Язык',g_src:'Источник',g_more:'Ещё',remove:'Убрать',filter:'Фильтр',f_city:'Все города',f_lang:'Все языки',f_src:'Все источники',f_mob:'Только мобильные',f_clear:'Сбросить фильтры',lg_ru:'Русский',lg_en:'Английский',lg_he:'Иврит',lg_yi:'Идиш',lg_fr:'Французский',lg_es:'Испанский'},
  HE:{title:'שיחות לשדכנים',listOf:'הרשימה של {name}',hello:'שלום {name}!',mine:'השיחות שלי',all:'רשימה',search:'חיפוש: שם, עיר…',call:'להתקשר',wa:'וואטסאפ',
    script:'מה לומר',profile:'להעתיק את הפרטים של אליהו',copied:'הועתק',busy:'{name} כבר מתקשר/ת',tip:'הערה',giveBack:'לא אתקשר — להחזיר לרשימה הכללית',gaveBack:'הוחזר לרשימה הכללית',
    save:'שמירה',saved:'נשמר, תודה!',notes:'מה נאמר (אפשר בקול – המיקרופון במקלדת)',names:'שמות וטלפונים של שדכנים נוספים, אם נתנו',
    nextQ:'מה הלאה?',next_profile:'לשלוח את הפרטים של אליהו',next_call:'שאליהו יתקשר',next_:'כלום',
    res_spoke:'דיברנו',res_noanswer:'לא ענו',res_callback:'להתקשר שוב אחר כך',res_wrong:'מספר שגוי',res_inactive:'כבר לא פעיל/ה',res_stop:'ביקשו לא להתקשר',
    pick:'בחר/י תוצאה',hours:'שעות',empty:'אין כרגע למי להתקשר. תודה!',emptyMine:'לחצו "להתקשר" ברשימה – האדם יופיע כאן.',
-   more:'עוד',link:'הקישור לא פעיל. בקשו קישור חדש מאליהו.',err:'משהו השתבש: ',taken:'{name} כבר לקח/ה את האדם הזה',sort:'מיון',s_best:'הכי מתאימים קודם',s_city:'עיר',s_name:'שם',s_ru:'דוברי רוסית קודם',s_src:'מקור',filters:'סינון',done:'סיום',reset:'איפוס',showN:'הצגת {n}',findCity:'חיפוש עיר',g_city:'עיר',g_country:'מדינה',c_unknown:'לא ידוע',g_lang:'שפה',g_src:'מקור',g_more:'עוד',remove:'הסרה',filter:'סינון',f_city:'כל הערים',f_lang:'כל השפות',f_src:'כל המקורות',f_mob:'רק ניידים',f_clear:'ניקוי סינון',lg_ru:'רוסית',lg_en:'אנגלית',lg_he:'עברית',lg_yi:'יידיש',lg_fr:'צרפתית',lg_es:'ספרדית'},
+   more:'עוד',link:'הקישור לא פעיל. בקשו קישור חדש מאליהו.',err:'משהו השתבש: ',taken:'{name} כבר לקח/ה את האדם הזה',sort:'מיון',s_best:'הכי מתאימים קודם',s_city:'עיר',s_name:'שם',s_ru:'דוברי רוסית קודם',s_src:'מקור',filters:'סינון',done:'סיום',reset:'איפוס',showN:'הצגת {n}',findCity:'חיפוש עיר',g_city:'עיר',g_country:'מדינה',change:'שינוי',clearAll:'נקה הכול',fOn:'סינון פעיל',c_unknown:'לא ידוע',g_lang:'שפה',g_src:'מקור',g_more:'עוד',remove:'הסרה',filter:'סינון',f_city:'כל הערים',f_lang:'כל השפות',f_src:'כל המקורות',f_mob:'רק ניידים',f_clear:'ניקוי סינון',lg_ru:'רוסית',lg_en:'אנגלית',lg_he:'עברית',lg_yi:'יידיש',lg_fr:'צרפתית',lg_es:'ספרדית'},
  EN:{title:'Shadchan calls',listOf:"{name}'s list",hello:'Hello {name}!',mine:'My calls',all:'List',search:'Search: name, city…',call:'Call',wa:'WhatsApp',
    script:'What to say',profile:'Copy Eliyahu\'s details',copied:'Copied',busy:'{name} is calling',tip:'Note',giveBack:"I won't call — put back in the main list",gaveBack:'Back in the main list',
    save:'Save',saved:'Saved, thank you!',notes:'What you heard (you can speak it: microphone on the keyboard)',names:'Names and numbers of other shadchanim, if they gave any',
    nextQ:'What next?',next_profile:'Send Eliyahu\'s details',next_call:'Eliyahu should call',next_:'Nothing',
    res_spoke:'We spoke',res_noanswer:'No answer',res_callback:'Call back later',res_wrong:'Wrong number',res_inactive:'Not active anymore',res_stop:'Asked not to call',
    pick:'Pick a result',hours:'Hours',empty:'Nobody to call right now. Thank you!',emptyMine:'Tap "Call" in the list and the person appears here.',
-   more:'Show more',link:'This link is not active. Ask Eliyahu for a new one.',err:'Something went wrong: ',taken:'{name} already took this person',orig:'Original',trans:'English',sort:'Sort',s_best:'Best match first',s_city:'City',s_name:'Name',s_ru:'Russian speakers first',s_src:'Source',filters:'Filters',done:'Done',reset:'Reset',showN:'Show {n} people',findCity:'Find a city',g_city:'City',g_country:'Country',c_unknown:'Unknown',g_lang:'Language',g_src:'Source',g_more:'More',remove:'Remove',filter:'Filter',f_city:'All cities',f_lang:'All languages',f_src:'All sources',f_mob:'Mobile only',f_clear:'Clear filters',lg_ru:'Russian',lg_en:'English',lg_he:'Hebrew',lg_yi:'Yiddish',lg_fr:'French',lg_es:'Spanish'}
+   more:'Show more',link:'This link is not active. Ask Eliyahu for a new one.',err:'Something went wrong: ',taken:'{name} already took this person',orig:'Original',trans:'English',sort:'Sort',s_best:'Best match first',s_city:'City',s_name:'Name',s_ru:'Russian speakers first',s_src:'Source',filters:'Filters',done:'Done',reset:'Reset',showN:'Show {n} people',findCity:'Find a city',g_city:'City',g_country:'Country',change:'Change',clearAll:'Clear all',fOn:'Filters on',c_unknown:'Unknown',g_lang:'Language',g_src:'Source',g_more:'More',remove:'Remove',filter:'Filter',f_city:'All cities',f_lang:'All languages',f_src:'All sources',f_mob:'Mobile only',f_clear:'Clear filters',lg_ru:'Russian',lg_en:'English',lg_he:'Hebrew',lg_yi:'Yiddish',lg_fr:'French',lg_es:'Spanish'}
 };
 let showTr = true; try { showTr = localStorage.getItem('h_tr') !== '0'; } catch(e){}
 let sortBy = 'best'; try { sortBy = localStorage.getItem('h_sort') || 'best'; } catch(e){}
@@ -168,7 +172,8 @@ function sorter(){
      by === 'src' ? cmp(a.src || '\uffff', b.src || '\uffff') : 0) || (a.rank - b.rank);
 }
 // filters: one Filters button opens a sheet (bottom on phone, side on PC); list updates live; tags above the list remove one filter
-const SLASH = '<svg class="slash" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="3.6" y1="12.4" x2="12.4" y2="3.6" stroke="currentColor" stroke-width="1.6"/></svg>';
+const SRC_L = {Book: ['Книга', 'ספר']};
+function srcLabel(v){ const l = SRC_L[v]; return l ? (lang === 'RU' ? l[0] : lang === 'HE' ? l[1] : v) : v; }
 // country: the contact's Country field, else from the phone code
 const CTRY = [['Israel',/^(israel|isr|il|ישראל|израиль)$/],['USA',/^(usa|us|u\.s\.a?\.?|united states|america|сша|ארה"?ב|ארה״ב|ארצות הברית)$/],['Canada',/^(canada|канада|קנדה)$/],
   ['UK',/^(uk|u\.k\.|england|united kingdom|great britain|англия|великобритания|אנגליה|בריטניה)$/],['Russia',/^(russia|россия|רוסיה)$/],['Ukraine',/^(ukraine|украина|אוקראינה)$/],['France',/^(france|франция|צרפת)$/]];
@@ -196,7 +201,7 @@ function groups(){   // [key, title, [[value, label]]]
   const free = free_(), cmp = (a, b) => a[1].localeCompare(b[1], lang === 'RU' ? 'ru' : lang === 'HE' ? 'he' : 'en');
   const cities = Array.from(new Set(free.map(x => x.city).filter(Boolean))).map(c => [c, cityLabel(c)]).sort(cmp);
   const langs = Object.keys(LANGS).filter(k => free.some(x => hasLang(x, k))).map(k => [k, t('lg_' + k)]);
-  const srcs = Array.from(new Set(free.map(x => x.src).filter(Boolean))).sort().map(v => [v, v]);
+  const srcs = Array.from(new Set(free.map(x => x.src).filter(Boolean))).sort().map(v => [v, srcLabel(v)]);
   const cn = {}; free.forEach(x => { const c = countryOf(x); cn[c] = (cn[c] || 0) + 1; });
   const ctrs = Object.keys(cn).sort((a, b) => (a === '?') - (b === '?') || cn[b] - cn[a]).map(v => [v, countryLabel(v)]);
   return [['country', t('g_country'), ctrs.length > 1 || fl.country.length ? ctrs : []], ['lang', t('g_lang'), langs], ['src', t('g_src'), srcs], ['city', t('g_city'), cities]].filter(g => g[2].length);
@@ -211,17 +216,20 @@ function barHtml(){
 </div>`;
   h += `<div class="chipsf"><button class="fchip ${fl.mob?'on':''}" aria-pressed="${fl.mob}" onclick="setF('mob')">${esc(t('f_mob'))}</button>` +
     (quickRu ? `<button class="fchip ${ru?'on':''}" aria-pressed="${ru}" onclick="setF('lang','ru')">${esc(t('lg_ru'))}</button>` : '');
-  {
-    const tag = (k, v, label) => `<button class="fchip" aria-label="${esc(t('remove') + ': ' + label)}" onclick="setF('${k}',${v == null ? 'null' : esc(JSON.stringify(v))})"><span dir="auto">${esc(label)}</span>${SLASH}</button>`;
-    h += fl.country.map(v => tag('country', v, countryLabel(v))).join('') + fl.lang.filter(v => !(quickRu && v === 'ru')).map(v => tag('lang', v, t('lg_' + v))).join('') + fl.src.map(v => tag('src', v, v)).join('') +
-      fl.city.map(v => tag('city', v, cityLabel(v))).join('') + (n ? `<button class="quiet" onclick="clearF()">${esc(t('f_clear'))}</button>` : '') + `</div>`;
+  h += `</div>`;
+  // the other filters (no quick button): one text line that opens the Filters sheet; nothing disappears on a stray tap
+  const on = [['country', fl.country.map(countryLabel)], ['lang', fl.lang.filter(v => !(quickRu && v === 'ru')).map(v => t('lg_' + v))],
+    ['src', fl.src.map(srcLabel)], ['city', fl.city.map(cityLabel)]].filter(g => g[1].length);
+  if (on.length) {
+    const names = [].concat(...on.map(g => g[1]));
+    h += `<div class="fsum"><button class="fline" aria-label="${esc(t('fOn') + ': ' + names.join(', ') + '. ' + t('change'))}" onclick="openSheet('${on[0][0]}')"><span class="t">${esc(t('filters'))}: ${names.map(x => `<bdi>${esc(x)}</bdi>`).join(', ')} · <u>${esc(t('change'))}</u></span></button><button class="quiet" onclick="clearF()">${esc(t('clearAll'))}</button></div>`;
   }
   return h;
 }
 function sheetHtml(){
   let h = `<div class="sh-head"><b>${esc(t('filters'))}</b><button class="primary" onclick="closeSheet()">${esc(t('done'))}</button></div><div class="sh-body">`;
   groups().forEach(g => {
-    h += `<h4>${esc(g[1])}</h4>`;
+    h += `<h4 data-g="${g[0]}">${esc(g[1])}</h4>`;
     if (g[0] === 'city' && g[2].length > 8) h += `<input id="cityq" dir="auto" placeholder="${esc(t('findCity'))}" oninput="findCity(this.value)" style="margin-bottom:6px">`;
     h += g[2].map(o => `<label class="opt" data-k="${g[0]}" data-v="${esc(o[0])}" data-l="${esc(String(o[1]).toLowerCase())}"><input type="checkbox" ${fl[g[0]].indexOf(o[0])>=0?'checked':''} onchange="setF('${g[0]}',this.parentNode.dataset.v)"><span>${esc(o[1])}</span><small></small></label>`).join('');
   });
@@ -239,13 +247,14 @@ function updateSheet(){   // counts and ticks in place, so the city search keeps
   $('#shown').textContent = t('showN', {n: resultCount()});
 }
 function findCity(q){ q = q.trim().toLowerCase(); document.querySelectorAll('#sheet .opt[data-k="city"]').forEach(el => el.style.display = !q || el.dataset.l.indexOf(q) >= 0 || el.dataset.v.indexOf(q) >= 0 ? '' : 'none'); }
-function openSheet(){
+function openSheet(g){
   if (sheetOpen) return; sheetOpen = true;
   const sh = document.createElement('div'); sh.id = 'shade'; sh.onclick = () => closeSheet(); document.body.appendChild(sh);
   const el = document.createElement('div'); el.id = 'sheet'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.innerHTML = sheetHtml(); document.body.appendChild(el);
   document.body.classList.add('lock'); updateSheet();
   try { history.pushState({sheet: 1}, ''); } catch(e){}
   el.querySelector('.sh-head button').focus();
+  const h4 = g && el.querySelector('h4[data-g="' + g + '"]'); if (h4) h4.scrollIntoView({block: 'start'});
 }
 function hideSheet(){
   if (!sheetOpen) return; sheetOpen = false;

@@ -91,11 +91,16 @@ textarea{min-height:80px}
 .fbar select{flex:1 1 140px;min-width:0}
 .fbar button{padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:15px;cursor:pointer}
 .fbar button.on{background:var(--blue);color:var(--blue-ink);border-color:var(--blue)}
-.fbar > button:first-child{flex:0 1 auto;min-width:110px}
+.fbar > *{flex:1 1 40%}
+.fbar > button{white-space:nowrap}
 .fchips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px}
 .fchips button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
 .fchips button.quiet{border-color:transparent;background:transparent;color:var(--muted)}
-.slash{width:16px;height:16px;flex:none;opacity:.7}
+.fchips .fline{flex:1;justify-content:flex-start;text-align:start;border:0;background:transparent;border-radius:0;padding:4px 2px;font-size:15px;line-height:1.35}
+.fline .t{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.fline u{color:var(--blue);text-underline-offset:3px;white-space:nowrap}
+.fchips{align-items:center;flex-wrap:nowrap}
+.fchips .quiet{flex:none}
 #fshade{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:40}
 #fsheet{position:fixed;z-index:41;inset-inline:0;bottom:0;max-height:85dvh;display:flex;flex-direction:column;background:var(--surface);color:var(--ink);border-radius:18px 18px 0 0;box-shadow:0 -6px 30px rgba(0,0,0,.2)}
 @media (min-width:900px){#fsheet{inset-inline-start:auto;inset-inline-end:0;top:0;bottom:0;max-height:none;width:400px;border-radius:0}}
@@ -879,7 +884,6 @@ try { const o = JSON.parse(localStorage.getItem('c_fl') || '{}');
   (o.tags || []).forEach(x => F_LABEL[x] && cTags.add(x)); (o.srcs || []).forEach(x => cSrcs.add(x)); (o.ctry || []).forEach(x => cCtry.add(x));
   if (F_WHO.some(w => w[0] === o.who)) cWho = o.who; cSort = o.sort || ''; } catch(e){}
 function saveF(){ try { localStorage.setItem('c_fl', JSON.stringify({tags:[...cTags], srcs:[...cSrcs], ctry:[...cCtry], who:cWho, sort:cSort})); } catch(e){} }
-const SLASH = '<svg class="slash" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="3.6" y1="12.4" x2="12.4" y2="3.6" stroke="currentColor" stroke-width="1.6"/></svg>';
 // country: the contact's Country field, else from the phone code
 const CTRY = [['Israel',/^(israel|isr|il|ישראל|израиль)$/],['USA',/^(usa|us|u\.s\.a?\.?|united states|america|сша|ארה"?ב|ארה״ב|ארצות הברית)$/],['Canada',/^(canada|канада|קנדה)$/],
   ['UK',/^(uk|u\.k\.|england|united kingdom|great britain|англия|великобритания|אנגליה|בריטניה)$/],['Russia',/^(russia|россия|רוסיה)$/],['Ukraine',/^(ukraine|украина|אוקראינה)$/],['France',/^(france|франция|צרפת)$/]];
@@ -936,11 +940,11 @@ function renderFBar(){
       .map(o=>`<option value="${o[0]}" ${s===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select>
     <button class="${cTags.has('ru')?'on':''}" onclick="fToggle('ru')">Russian</button>
     <button class="${cTags.has('wa')?'on':''}" onclick="fToggle('wa')">WhatsApp</button>`;
-  const tag = (label, js) => `<button aria-label="Remove ${esc(label)}" onclick="${js}"><span dir="auto">${esc(label)}</span>${SLASH}</button>`;
-  $('#fchips').innerHTML = !n ? '' : (cWho !== 'shadchan' ? tag(F_WHO.find(w=>w[0]===cWho)[1], "fWho('shadchan')") : '') +
-    [...cCtry].map(v => tag(v, `fCtry(${esc(JSON.stringify(v))})`)).join('') + [...cTags].map(k => tag(F_LABEL[k], `fToggle('${k}')`)).join('') +
-    [...cSrcs].map(v => tag(v, `fSrc(${esc(JSON.stringify(v))})`)).join('') +
-    `<button class="quiet" onclick="fClear()">Clear all</button>`;
+  // the other filters (no quick button): one text line that opens the Filters sheet; nothing disappears on a stray tap
+  const on = [['who', cWho !== 'shadchan' ? [F_WHO.find(w=>w[0]===cWho)[1]] : []], ['ctry', [...cCtry]],
+    ...F_TAGS.map(g => [g[0], g[2].filter(o => cTags.has(o[0]) && o[0] !== 'ru' && o[0] !== 'wa').map(o => o[1])]), ['src', [...cSrcs]]].filter(g => g[1].length);
+  const names = [].concat(...on.map(g => g[1]));
+  $('#fchips').innerHTML = !on.length ? '' : `<button class="fline" aria-label="${esc('Filters on: ' + names.join(', ') + '. Change')}" onclick="openFilters('${on[0][0]}')"><span class="t">Filters: ${names.map(x => `<bdi>${esc(x)}</bdi>`).join(', ')} · <u>Change</u></span></button><button class="quiet" onclick="fClear()">Clear all</button>`;
 }
 function fChanged(){ saveF(); resetPaging(); fUpdate(); }
 function fToggle(k){ cTags.has(k) ? cTags.delete(k) : cTags.add(k); fChanged(); }
@@ -954,11 +958,11 @@ function fSheetHtml(){
   const cn = {}; base.forEach(c => { const k = countryOf(c); cn[k] = (cn[k]||0) + 1; }); cCtry.forEach(v => cn[v] = cn[v] || 0);
   const opt = (type, g, v, label, js) => `<label class="fopt" data-g="${g}" data-v="${esc(v)}"><input type="${type}" name="f-${g}" onchange="${js}"><span dir="auto">${esc(label)}</span><small></small></label>`;
   let h = `<div class="fs-head"><b>Filters</b><button class="btn primary" onclick="closeFilters()">Done</button></div><div class="fs-body">`;
-  h += `<h4>Who</h4>` + F_WHO.map(w => opt('radio', 'who', w[0], w[1], `fWho('${w[0]}')`)).join('');
+  h += `<h4 data-g="who">Who</h4>` + F_WHO.map(w => opt('radio', 'who', w[0], w[1], `fWho('${w[0]}')`)).join('');
   const cks = Object.keys(cn).sort((a,b) => (a==='Unknown') - (b==='Unknown') || cn[b]-cn[a]);
-  if (cks.length > 1) h += `<h4>Country</h4>` + cks.map(v => opt('checkbox', 'ctry', v, v, `fCtry(${esc(JSON.stringify(v))})`)).join('');
-  F_TAGS.forEach(g => { h += `<h4>${g[1]}</h4>` + g[2].map(o => opt('checkbox', g[0], o[0], o[1], `fToggle('${o[0]}')`)).join(''); });
-  h += `<h4>Where they came from</h4>` + Object.keys(srcs).sort((a,b)=>srcs[b]-srcs[a]).map(v => opt('checkbox', 'src', v, v, `fSrc(${esc(JSON.stringify(v))})`)).join('');
+  if (cks.length > 1) h += `<h4 data-g="ctry">Country</h4>` + cks.map(v => opt('checkbox', 'ctry', v, v, `fCtry(${esc(JSON.stringify(v))})`)).join('');
+  F_TAGS.forEach(g => { h += `<h4 data-g="${g[0]}">${g[1]}</h4>` + g[2].map(o => opt('checkbox', g[0], o[0], o[1], `fToggle('${o[0]}')`)).join(''); });
+  h += `<h4 data-g="src">Where they came from</h4>` + Object.keys(srcs).sort((a,b)=>srcs[b]-srcs[a]).map(v => opt('checkbox', 'src', v, v, `fSrc(${esc(JSON.stringify(v))})`)).join('');
   return h + `</div><div class="fs-foot"><button class="btn" onclick="fClear()">Reset</button><button class="btn primary" id="fshow" onclick="closeFilters()"></button></div>`;
 }
 function fUpdate(){   // counts and ticks in place, nothing is rebuilt
@@ -976,13 +980,14 @@ function fUpdate(){   // counts and ticks in place, nothing is rebuilt
   const k = base.filter(c => fPass(c)).length;
   $('#fshow').textContent = `Show ${k} ${k===1?'person':'people'}`;
 }
-function openFilters(){
+function openFilters(g){
   if (fOpen || !DIR) return; fOpen = true;
   const sh = document.createElement('div'); sh.id = 'fshade'; sh.onclick = closeFilters; document.body.appendChild(sh);
   const el = document.createElement('div'); el.id = 'fsheet'; el.setAttribute('role','dialog'); el.setAttribute('aria-modal','true'); el.innerHTML = fSheetHtml(); document.body.appendChild(el);
   document.body.classList.add('flock'); fUpdate();
   try { history.pushState({fsheet:1}, ''); } catch(e){}
   el.querySelector('.fs-head button').focus();
+  const h4 = g && el.querySelector('h4[data-g="' + g + '"]'); if (h4) h4.scrollIntoView({block: 'start'});
 }
 function hideFilters(){
   if (!fOpen) return; fOpen = false;
