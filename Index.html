@@ -1019,7 +1019,8 @@ function renderContacts(){
     last: (a,b)=>String(b.lastContact||'').localeCompare(String(a.lastContact||'')),
     next: (a,b)=>(a.nextDate?0:1)-(b.nextDate?0:1) || String(a.nextDate||'').localeCompare(String(b.nextDate||''))
   };
-  list = list.slice().sort(by[sort]||by.best);
+  const xo = c => (c.why || []).indexOf('Crossed out in book') >= 0 ? 1 : 0;   // crossed out in the book: always last
+  list = list.slice().sort((a, b) => xo(a) - xo(b) || (by[sort]||by.best)(a, b));
   $('#ccount').textContent = q ? `Searching everyone — ${list.length} found` : `${list.length} ${list.length===1?'person':'people'} here · ${all.length} contacts in total`;
   $('#clist').innerHTML = list.slice(0, cShown).map(rowHtml).join('')
     || `<div class="empty">${q?'No one matches that search.':'No one here right now.'}${!q && fCount() ? '<div style="margin-top:10px"><button class="btn" onclick="fClear()">Clear filters</button></div>' : ''}</div>`;

@@ -362,7 +362,7 @@ function scoreContact(c, s) {
 
   if (phonesOf_(c).some(p => p.mobile)) score += W('W_MOBILE');
   if (c.ReferredBy) { score += W('W_REFERRED'); why.unshift('Recommended by ' + c.ReferredBy); }
-  if (c.CrossedOut === 'YES') { score -= W('W_CROSSED_OUT'); why.push('Crossed out in book'); }
+  if (c.CrossedOut === 'YES') { score -= W('W_CROSSED_OUT') + 1000; /* probably not active: always last */ why.push('Crossed out in book'); }
   if (c.InZugDesk === 'YES') score -= 1;
   score += parseFloat(c.Boost) || 0;
   return { score: Math.round(score * 10) / 10, why: why.slice(0, 4) };

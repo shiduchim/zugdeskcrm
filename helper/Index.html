@@ -182,7 +182,8 @@ function shown_(x, f){ return (showTr && x.tr && x.tr[f]) || x[f] || ''; }
 function sorter(){
   const by = sortBy, ru = x => /ר/.test(x.langs || '') || /רוס/.test(x.spec || '') ? 0 : 1;
   const cmp = (a, b) => a.localeCompare(b, lang === 'RU' ? 'ru' : lang === 'HE' ? 'he' : 'en');
-  return (a, b) => ((a.by ? 1 : 0) - (b.by ? 1 : 0)) ||
+  const xo = x => /Crossed out in book/.test(x.why || '') ? 1 : 0;   // crossed out in the book: always last
+  return (a, b) => ((a.by ? 1 : 0) - (b.by ? 1 : 0)) || (xo(a) - xo(b)) ||
     (by === 'city' ? cmp(shown_(a,'city') || '\uffff', shown_(b,'city') || '\uffff') :
      by === 'name' ? cmp(shown_(a,'name'), shown_(b,'name')) :
      by === 'ru' || (by === 'best' && lang === 'RU') ? ru(a) - ru(b) :   // Russian-speaking helpers: Russian speakers first, then best match
