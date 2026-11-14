@@ -582,14 +582,14 @@ function api_today(rebuild) {
   const byId = {}; db.rows.forEach(c => (byId[c.ID] = c));
   const t = today_();
   const inPlan = new Set(plan.call.concat(plan.wa));
-  const replies = db.rows.filter(c => c.NeedsReply === 'YES' && c.Status !== 'Closed');
+  const replies = db.rows.filter(c => c.NeedsReply === 'YES' && c.Status !== 'Closed' && !isSeparate_(c));
   const checkins = db.rows
-    .filter(c => !inPlan.has(c.ID) && c.NeedsReply !== 'YES' && ['Contacted', 'Talking', 'Later'].indexOf(c.Status) >= 0
+    .filter(c => !inPlan.has(c.ID) && isShadchan_(c) && c.NeedsReply !== 'YES' && ['Contacted', 'Talking', 'Later'].indexOf(c.Status) >= 0
       && c.NextDate && c.NextDate <= t && !blocked_(c, dnc))
     .map(c => ({ c: c, sc: scoreContact(c, s).score })).sort((a, b) => b.sc - a.sc)
     .slice(0, num_(s, 'CHECKINS_PER_DAY', 8)).map(x => x.c);
   const recent = addDays_(-21);
-  const asks = db.rows.filter(c => c.Status === 'Talking' && !c.AskedReferralsAt && c.NeedsReply !== 'YES'
+  const asks = db.rows.filter(c => c.Status === 'Talking' && isShadchan_(c) && !c.AskedReferralsAt && c.NeedsReply !== 'YES'
       && (c.LastContact || '').slice(0, 10) >= recent && !blocked_(c, dnc))
     .map(c => ({ c: c, sc: scoreContact(c, s).score })).sort((a, b) => b.sc - a.sc)
     .slice(0, num_(s, 'ASKS_PER_DAY', 3)).map(x => x.c);
@@ -800,12 +800,27 @@ function planImport_(rows, existing, dnc) {
     if (hit) return out.known.push({ id: hit.ID, name: hit.Name, theirName: name, merge: mergePatch_(hit, r, ph, em) });
     if ((em && seenE[em]) || ph.some(p => seenP[p.intl])) return out.skipped.push({ name: name || em, why: 'twice in this list' });
     if (em) seenE[em] = 1; ph.forEach(p => (seenP[p.intl] = 1));
-    out.add.push({ Name: name || em, City: String(r.city || '').trim(), Phone1: ph[0] ? ph[0].local : '', Phone2: ph[1] ? ph[1].local : '',
+    out.add.push(Object.assign({ Name: name || em, City: String(r.city || '').trim(), Phone1: ph[0] ? ph[0].local : '', Phone2: ph[1] ? ph[1].local : '',
       Email: em, Notes: String(r.notes || '').trim(), Specialty: String(r.specialty || '').trim(), Languages: String(r.languages || '').trim(),
       Lang: ['HE', 'RU', 'EN'].indexOf(String(r.lang || '').trim().toUpperCase()) >= 0 ? String(r.lang).trim().toUpperCase() : '',
-      Country: String(r.country || '').trim() });
+      Country: String(r.country || '').trim() }, history_(r)));
   });
   return out;
+}
+
+/** Pure: optional history columns of an import row (status / lastcontact / lastchannel / nextdate / needsreply / sourceref). */
+const ST_ORDER = { New: 0, Contacted: 1, Later: 2, Talking: 3, Closed: 4 };
+function history_(r) {
+  const h = {};
+  const st = String(r.status || '').trim();
+  if (st === 'Contacted' || st === 'Talking') h.Status = st;
+  const d = s => /^\d{4}-\d{2}-\d{2}/.test(String(s || '').trim()) ? String(s).trim().slice(0, 16) : '';
+  if (d(r.lastcontact)) h.LastContact = d(r.lastcontact);
+  if (String(r.lastchannel || '').trim()) h.LastChannel = String(r.lastchannel).trim().slice(0, 40);
+  if (d(r.nextdate)) h.NextDate = d(r.nextdate).slice(0, 10);
+  if (/^yes$/i.test(String(r.needsreply || '').trim())) h.NeedsReply = 'YES';
+  if (String(r.sourceref || '').trim()) h.SourceRef = String(r.sourceref).trim().slice(0, 200);
+  return h;
 }
 
 /** Pure: what an import row adds to a contact you already have. Never overwrites; notes are appended once. */
@@ -821,6 +836,14 @@ function mergePatch_(c, r, ph, em) {
   if (r.country && !String(c.Country || '').trim()) patch.Country = String(r.country).trim();
   const lang = String(r.lang || '').trim().toUpperCase();
   if (['HE', 'RU', 'EN'].indexOf(lang) >= 0 && !c.Lang) patch.Lang = lang;
+  // history only moves forward: a newer last contact, a status further along, never back
+  const h = history_(r);
+  if (h.LastContact && h.LastContact > String(c.LastContact || '')) { patch.LastContact = h.LastContact; if (h.LastChannel) patch.LastChannel = h.LastChannel; }
+  if (h.Status && (ST_ORDER[h.Status] || 0) > (ST_ORDER[c.Status || 'New'] || 0) && c.Status !== 'Closed') {
+    patch.Status = h.Status;
+    if (h.NextDate && !c.NextDate) patch.NextDate = h.NextDate;
+  }
+  if (h.NeedsReply && c.Status !== 'Closed' && c.NeedsReply !== 'YES') patch.NeedsReply = 'YES';
   return patch;
 }
 
@@ -838,7 +861,8 @@ function api_import(rows, source, type, commit) {
     const date = today_();
     let n = parseInt(nextId_(db).slice(1), 10);
     const out = plan.add.map(r => {
-      const o = Object.assign({}, r, { ID: 'C' + String(n++).padStart(4, '0'), Source: source, SourceRef: 'Imported ' + date, Status: 'New', Type: type });
+      const o = Object.assign({ Status: 'New' }, r, { ID: 'C' + String(n++).padStart(4, '0'), Source: source, Type: type });
+      o.SourceRef = 'Imported ' + date + (r.SourceRef ? ' · ' + r.SourceRef : '');
       return db.head.map(h => o[h] || '');
     });
     if (out.length) {

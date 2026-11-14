@@ -115,4 +115,21 @@ t('isSeparate_: organizations and Other stay out of Contacts', () => {
   assert.ok(A.isSeparate_({ Type: 'Organization' })); assert.ok(A.isSeparate_({ Type: 'Other' }));
   assert.ok(!A.isSeparate_({ Type: 'Shadchan' })); assert.ok(!A.isSeparate_({ Type: 'Connector' }));
 });
+
+t('import history: new rows keep status/dates; merge moves status forward only', () => {
+  const ex = [{ ID: 'C1', Name: 'Old', Phone1: '050-1112223', Status: 'Talking', LastContact: '2026-01-01' },
+              { ID: 'C2', Name: 'Book', Phone1: '050-1112224', Status: 'New', LastContact: '' }];
+  const dnc = { emails: new Set(), phones: new Set() };
+  const rows = [
+    { name: 'A', phone: '050-1112223', status: 'Contacted', lastcontact: '2020-05-01', notes: 'n1' },
+    { name: 'B', phone: '050-1112224', status: 'Contacted', lastcontact: '2021-02-03', lastchannel: 'Email', nextdate: '2026-11-14', notes: 'n2' },
+    { name: 'C', email: 'c@x.com', status: 'Talking', needsreply: 'YES', lastcontact: '2026-08-01', sourceref: 'Gmail emails 2025–2026' },
+    { name: 'D', email: 'd@x.com', status: 'Closed' }];
+  const out = A.planImport_(rows, ex, dnc);
+  assert.strictEqual(out.known.length, 2); assert.strictEqual(out.add.length, 2);
+  assert.strictEqual(out.known[0].merge.Status, undefined); assert.strictEqual(out.known[0].merge.LastContact, undefined);   // Talking stays, older date ignored
+  assert.deepStrictEqual([out.known[1].merge.Status, out.known[1].merge.LastContact, out.known[1].merge.NextDate], ['Contacted', '2021-02-03', '2026-11-14']);
+  assert.deepStrictEqual([out.add[0].Status, out.add[0].NeedsReply, out.add[0].SourceRef], ['Talking', 'YES', 'Gmail emails 2025–2026']);
+  assert.strictEqual(out.add[1].Status, undefined);   // 'Closed' is not accepted from a file → stays New
+});
 console.log(n + ' checks passed');
