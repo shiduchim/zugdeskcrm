@@ -1335,10 +1335,10 @@ function sendBatch_() {
     && c.EmailSentAt && c.EmailSentAt.slice(0, 10) <= addDays_(-fuDays) && !blocked_(c, dnc) && validEmail_(c.Email));
   // 2) new emails, best leads first
   const fresh = db.rows.filter(c => (c.Status || 'New') === 'New' && isShadchan_(c) && !c.EmailStatus && validEmail_(c.Email) && !blocked_(c, dnc) && !busy.has(c.ID)
-    && !(String(s.SKIP_ZUGDESK).toUpperCase() === 'YES' && c.InZugDesk === 'YES'))
-    .map(c => ({ c: c, sc: scoreContact(c, s).score })).sort((a, b) => b.sc - a.sc).map(x => x.c);
+    && !(String(s.SKIP_ZUGDESK).toUpperCase() === 'YES' && c.InZugDesk === 'YES'));
+  const fresh2 = emailOrder_(fresh, s); // book contacts first, then best leads
 
-  const queue = followups.map(c => ({ c: c, fu: true })).concat(fresh.map(c => ({ c: c, fu: false })));
+  const queue = followups.map(c => ({ c: c, fu: true })).concat(fresh2.map(c => ({ c: c, fu: false })));
   for (const item of queue) {
     if (budget <= 0) break;
     const c = item.c, lang = pickLang_(c, s);
@@ -1513,6 +1513,12 @@ function helperPool_(rows, s, isBlocked, skip, today) {
 }
 
 /** Pure: source group shown to helpers (same as the Contacts screen bubbles; the insert sheet counts as Book). */
+/** Pure: order for first emails — book contacts first (user's choice), then best leads. */
+function emailOrder_(list, s) {
+  return list.map(c => ({ c: c, b: srcGroup_(c.Source) === 'Book' ? 1 : 0, sc: scoreContact(c, s).score }))
+    .sort((a, b) => b.b - a.b || b.sc - a.sc).map(x => x.c);
+}
+
 function srcGroup_(src) {
   const g = String(src || '').split(/\s[–—-]\s|[:(]/)[0].replace(/\s*(p\.?|page|עמ['׳]?)?\s*\d[\d\s,.-]*$/i, '').trim();
   if (/^(insert|book)\b|שדכנים חדשים|ספר/i.test(g)) return 'Book';
@@ -1709,4 +1715,4 @@ function api_newHelperLink(name) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, sourceLine_: sourceLine_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_, parseCommand_: parseCommand_, nameMatches_: nameMatches_ };
+if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, emailOrder_: emailOrder_, sourceLine_: sourceLine_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_, parseCommand_: parseCommand_, nameMatches_: nameMatches_ };

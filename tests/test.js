@@ -96,6 +96,10 @@ t('helperTexts_: name, city, specialty and each why chip, once', () => {
   const r = ['C1', 'קיי אסתר', 'צפת', '', '', '', '', '', '', '', '', 'רוסים', 'Chabad · Tzfat', ''];
   assert.deepStrictEqual(A.helperTexts_([r, r]), ['קיי אסתר', 'צפת', 'רוסים', 'Chabad', 'Tzfat']);
 });
+t('emailOrder_: book contacts get the first emails, then best leads', () => {
+  const o = A.emailOrder_([{ ID: 'w', Source: 'Web search', Languages: 'ר' }, { ID: 'b1', Source: 'Book p.12' }, { ID: 'b2', Source: 'Book p.40', Languages: 'ר' }], S).map(c => c.ID);
+  assert.deepStrictEqual(o, ['b2', 'b1', 'w']);
+});
 t('srcGroup_: book pages and the insert sheet are Book', () => {
   assert.strictEqual(A.srcGroup_('Book p. 45'), 'Book'); assert.strictEqual(A.srcGroup_('Insert – שדכנים חדשים'), 'Book');
   assert.strictEqual(A.srcGroup_('Gmail'), 'Gmail'); assert.strictEqual(A.srcGroup_(''), 'Other');

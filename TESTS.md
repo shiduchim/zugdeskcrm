@@ -92,3 +92,4 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Ranking (2026-11-14): Israel first, then Russian speakers above Chabad, crossed out last — Contacts list order + first autopilot emails Sunday are Russian-speaking Israelis (node tests cover the order).
 - [ ] Email "how I found you" line: book/insert contacts only; referred = "{by} suggested…"; Gmail/Web search/others = no line (unit-tested).
 - Chat commands: Name__Commands.csv → close/note/set/delete/restore applied, file renamed with 'N done, N failed'; wrong name refused; deleted contact in hidden Deleted tab and its ID not reused; Contacts index.csv appears in Drive root after hourly run.
+- [ ] Email autopilot: first emails go to book contacts (Source Book…) before other sources; within each group best leads first (`emailOrder_`, unit-tested).
