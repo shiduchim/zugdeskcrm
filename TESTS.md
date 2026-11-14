@@ -71,4 +71,6 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Helper static page (no Google cookies): `<pages-url>/#k=<key>` opens in a NORMAL multi-account Chrome window and on iPhone; Call/Save work; old `/exec?k=` link still works.
 - [ ] Helper page: Оригинал / Русский switch on top; Russian shows translated city/description/chips and 'Name (Hebrew name)'; choice remembered; Hebrew helpers see no switch. Translations fill in ~150 per refresh (hidden tab Tr in helpers sheet).
 - [ ] Helper 'Copy Eliyahu's details' ends with his Israeli phone (MY_PHONE) in the helper's language.
-- [ ] Helper page: Sort dropdown (Best / City / Name / Russian first / Source) works and is remembered; Source sort shows the source next to the city.
+- [ ] Helper page: Sort (Best / City / Name) works and is remembered.
+- [ ] Helper page: Filters sheet (City with search, Language, Source, Mobile only): list updates as you tick, counts per option, tags above the list remove one filter (circle-slash sign), Clear all; sheet closes with Done, Show N, outside tap, phone back button, Esc. Remembered per device.
+- [ ] Main app Contacts: Show stays visible; Filters sheet (Who, Language, Community, Location, Can reach by, Where they came from) with the same behaviour; quick Russian / WhatsApp buttons; Sort defaults to Last contact for Talking/Contacted and Next date for Later until picked; search hides filters.

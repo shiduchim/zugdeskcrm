@@ -86,7 +86,31 @@ textarea{min-height:80px}
 #clist{border:1px solid var(--line);border-radius:12px;overflow:hidden}
 #clist:has(.empty){border:0}
 .ctools{display:flex;gap:8px;margin-top:2px}
-#ctags{padding-top:6px}#ctags button{min-height:34px}
+.fbar{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 4px}
+.fbar > *{flex:1 1 auto;width:auto;min-height:44px;margin:0}
+.fbar select{flex:1 1 140px;min-width:0}
+.fbar button{padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:15px;cursor:pointer}
+.fbar button.on{background:var(--blue);color:var(--blue-ink);border-color:var(--blue)}
+.fbar > button:first-child{flex:0 1 auto;min-width:110px}
+.fchips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px}
+.fchips button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
+.fchips button.quiet{border-color:transparent;background:transparent;color:var(--muted)}
+.slash{width:16px;height:16px;flex:none;opacity:.7}
+#fshade{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:40}
+#fsheet{position:fixed;z-index:41;inset-inline:0;bottom:0;max-height:85dvh;display:flex;flex-direction:column;background:var(--surface);color:var(--ink);border-radius:18px 18px 0 0;box-shadow:0 -6px 30px rgba(0,0,0,.2)}
+@media (min-width:900px){#fsheet{inset-inline-start:auto;inset-inline-end:0;top:0;bottom:0;max-height:none;width:400px;border-radius:0}}
+.fs-head,.fs-foot{display:flex;gap:8px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+.fs-head b{flex:1;font-size:18px}
+.fs-foot{border-bottom:0;border-top:1px solid var(--line);padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+.fs-foot .primary{flex:1}
+.fs-body{overflow:auto;padding:4px 16px 12px;overscroll-behavior:contain}
+.fs-body h4{margin:16px 0 4px;font-size:15px}
+.fopt{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 4px;cursor:pointer}
+.fopt input{width:22px;height:22px;min-height:0;flex:none;margin:0;padding:0}
+.fopt span{flex:1;unicode-bidi:isolate}
+.fopt small{color:var(--muted)}
+.fopt.zero{opacity:.45}
+body.flock{overflow:hidden}
 .ctools select{flex:1;min-width:0}
 .fdrop{position:relative;margin:8px 0 4px}
 .fdrop summary{list-style:none;display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);cursor:pointer;font-size:15px}
@@ -171,26 +195,13 @@ label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
   <section id="v-today"><div class="loading">Loading today…</div></section>
   <section id="v-contacts" hidden>
     <input id="q" placeholder="Search anyone: name, city, phone, email…" autocomplete="off" dir="auto" aria-label="Search">
-    <div class="filters" id="srcs" aria-label="Where they came from"></div>
     <div class="ctools">
-      <select id="cwho" aria-label="Who">
-        <option value="shadchan">Shadchanim</option><option value="connector">Connectors</option><option value="all">Everyone</option>
-      </select>
       <select id="cshow" aria-label="Show">
         <option value="ready">Ready to contact</option><option value="talking">Talking</option><option value="contacted">Contacted</option>
         <option value="later">Later</option><option value="closed">Closed</option><option value="all">Everyone</option>
       </select>
-      <select id="csort" aria-label="Sort">
-        <option value="best">Best first</option><option value="name">Name</option><option value="last">Last contact</option><option value="next">Next date</option>
-      </select>
     </div>
-    <details class="fdrop" id="ctags"><summary>Filter<b id="ctagn"></b></summary><div class="fpanel">
-      <label><input type="checkbox" value="ru">Russian speakers</label><label><input type="checkbox" value="chabad">Chabad</label>
-      <label><input type="checkbox" value="bt">Baalei teshuva</label><label><input type="checkbox" value="en">English</label>
-      <label><input type="checkbox" value="il">In Israel</label><label><input type="checkbox" value="abroad">Abroad</label>
-      <label><input type="checkbox" value="near">Near Tzfat</label>
-      <label><input type="checkbox" value="wa">Has WhatsApp</label><label><input type="checkbox" value="mail">Has email</label>
-      <button type="button" id="ctagclear">Clear</button></div></details>
+    <div id="fwrap"><div class="fbar" id="fbar"></div><div class="fchips" id="fchips"></div></div>
     <div class="status" id="ccount" style="margin:2px 4px 8px"></div>
     <div class="list" id="clist"></div>
     <div id="cmore" class="loading" hidden>Loading more…</div>
@@ -831,7 +842,7 @@ async function addReceived(id){
 }
 
 /* ---------- Contacts (everyone loaded once; filter/sort/search on the device) ---------- */
-let DIR = null, dirReq = null, cSrc = 'all', cShown = 60, qTimer = null;
+let DIR = null, dirReq = null, cShown = 60, qTimer = null;
 const cTags = new Set();
 function srcGroup(src){
   let g = String(src||'').split(/\s[–—-]\s|[:(]/)[0].replace(/\s*(p\.?|page|עמ['׳]?)?\s*\d[\d\s,.-]*$/i,'').trim();
@@ -857,9 +868,21 @@ async function ensureDir(force){
   }, e=>{ dirReq = null; throw e; });
   try{ await dirReq; if (!$('#v-contacts').hidden) renderContacts(); }catch(e){ fail(e); }
 }
+/* filters: one Filters button opens a sheet (bottom on phone, side on PC); the list updates as you tick; tags above the list remove one filter */
+const F_TAGS = [['lang','Language',[['ru','Russian speakers'],['en','English']]], ['comm','Community',[['chabad','Chabad'],['bt','Baalei teshuva']]],
+  ['loc','Location',[['il','In Israel'],['abroad','Abroad'],['near','Near Tzfat']]], ['reach','Can reach by',[['wa','WhatsApp'],['mail','Email']]]];
+const F_WHO = [['shadchan','Shadchanim'],['connector','Connectors'],['all','Everyone']];
+const F_LABEL = {}; F_TAGS.forEach(g => g[2].forEach(o => F_LABEL[o[0]] = o[1]));
+let cWho = 'shadchan', cSort = '', fOpen = false;
+const cSrcs = new Set();
+try { const o = JSON.parse(localStorage.getItem('c_fl') || '{}');
+  (o.tags || []).forEach(x => F_LABEL[x] && cTags.add(x)); (o.srcs || []).forEach(x => cSrcs.add(x));
+  if (F_WHO.some(w => w[0] === o.who)) cWho = o.who; cSort = o.sort || ''; } catch(e){}
+function saveF(){ try { localStorage.setItem('c_fl', JSON.stringify({tags:[...cTags], srcs:[...cSrcs], who:cWho, sort:cSort})); } catch(e){} }
+const SLASH = '<svg class="slash" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="3.6" y1="12.4" x2="12.4" y2="3.6" stroke="currentColor" stroke-width="1.6"/></svg>';
 function whoOk(c){
-  const who = $('#cwho') ? $('#cwho').value : 'shadchan', t = c.type || 'Shadchan';
-  return who === 'all' || (who === 'connector' ? t === 'Connector' : t === 'Shadchan');
+  const t = c.type || 'Shadchan';
+  return cWho === 'all' || (cWho === 'connector' ? t === 'Connector' : t === 'Shadchan');
 }
 function showOk(c, show){
   const st = c.status || 'New';
@@ -868,36 +891,108 @@ function showOk(c, show){
   if (show==='all') return true;
   return st.toLowerCase()===show && !c.blocked;
 }
-function tagOk(c){
-  if (cTags.has('ru') && !c.ru) return false;
+function tagTest(c, k){
   const w = c.why||[], ph = c.phones||[], il = ph.some(p=>/^tel:\+972/.test(p.tel));
-  if (cTags.has('chabad') && w.indexOf('Chabad')<0) return false;
-  if (cTags.has('bt') && w.indexOf('Baalei teshuva')<0) return false;
-  if (cTags.has('en') && c.lang!=='EN') return false;
-  if (cTags.has('il') && !il) return false;
-  if (cTags.has('abroad') && (il || !ph.length)) return false;
-  if (cTags.has('near') && !w.some(x=>x==='Nearby'||/^In /.test(x))) return false;
-  if (cTags.has('wa') && !ph.some(p=>p.mobile)) return false;
-  if (cTags.has('mail') && !c.email) return false;
+  switch (k){
+    case 'ru': return !!c.ru;
+    case 'chabad': return w.indexOf('Chabad')>=0;
+    case 'bt': return w.indexOf('Baalei teshuva')>=0;
+    case 'en': return c.lang==='EN';
+    case 'il': return il;
+    case 'abroad': return !il && ph.length>0;
+    case 'near': return w.some(x=>x==='Nearby'||/^In /.test(x));
+    case 'wa': return ph.some(p=>p.mobile);
+    case 'mail': return !!c.email;
+  }
   return true;
 }
+/* any ticked option inside a group may match; every group must match. skip = leave one group out (for its counts) */
+function fPass(c, skip){
+  for (const g of F_TAGS){
+    if (g[0] === skip) continue;
+    const on = g[2].filter(o => cTags.has(o[0]));
+    if (on.length && !on.some(o => tagTest(c, o[0]))) return false;
+  }
+  return skip === 'src' || !cSrcs.size || cSrcs.has(srcGroup(c.source));
+}
+function fBase(){ const show = $('#cshow').value; return DIR ? DIR.ids.map(id=>CARDS[id]).filter(c => c && whoOk(c) && showOk(c, show)) : []; }
+function fCount(){ return cTags.size + cSrcs.size + (cWho !== 'shadchan' ? 1 : 0); }
+function sortNow(){ const show = $('#cshow').value; return cSort || (show==='talking'||show==='contacted' ? 'last' : show==='later' ? 'next' : 'best'); }
+function renderFBar(){
+  const n = fCount(), s = sortNow(), q = $('#q').value.trim();
+  $('#fwrap').hidden = !!q;
+  $('#fbar').innerHTML = `<button class="${n?'on':''}" onclick="openFilters()">Filters${n?' ('+n+')':''}</button>
+    <select id="csort" aria-label="Sort" onchange="cSort=this.value;saveF();resetPaging()">${[['best','Best first'],['name','Name'],['last','Last contact'],['next','Next date']]
+      .map(o=>`<option value="${o[0]}" ${s===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select>
+    <button class="${cTags.has('ru')?'on':''}" onclick="fToggle('ru')">Russian</button>
+    <button class="${cTags.has('wa')?'on':''}" onclick="fToggle('wa')">WhatsApp</button>`;
+  const tag = (label, js) => `<button aria-label="Remove ${esc(label)}" onclick="${js}"><span dir="auto">${esc(label)}</span>${SLASH}</button>`;
+  $('#fchips').innerHTML = !n ? '' : (cWho !== 'shadchan' ? tag(F_WHO.find(w=>w[0]===cWho)[1], "fWho('shadchan')") : '') +
+    [...cTags].map(k => tag(F_LABEL[k], `fToggle('${k}')`)).join('') +
+    [...cSrcs].map(v => tag(v, `fSrc(${esc(JSON.stringify(v))})`)).join('') +
+    `<button class="quiet" onclick="fClear()">Clear all</button>`;
+}
+function fChanged(){ saveF(); resetPaging(); fUpdate(); }
+function fToggle(k){ cTags.has(k) ? cTags.delete(k) : cTags.add(k); fChanged(); }
+function fSrc(v){ cSrcs.has(v) ? cSrcs.delete(v) : cSrcs.add(v); fChanged(); }
+function fWho(v){ cWho = v; fChanged(); }
+function fClear(){ cTags.clear(); cSrcs.clear(); cWho = 'shadchan'; fChanged(); }
+function fSheetHtml(){
+  const base = fBase(), srcs = {}; base.forEach(c => { const g = srcGroup(c.source); srcs[g] = (srcs[g]||0) + 1; });
+  cSrcs.forEach(v => srcs[v] = srcs[v] || 0);
+  const opt = (type, g, v, label, js) => `<label class="fopt" data-g="${g}" data-v="${esc(v)}"><input type="${type}" name="f-${g}" onchange="${js}"><span dir="auto">${esc(label)}</span><small></small></label>`;
+  let h = `<div class="fs-head"><b>Filters</b><button class="btn primary" onclick="closeFilters()">Done</button></div><div class="fs-body">`;
+  h += `<h4>Who</h4>` + F_WHO.map(w => opt('radio', 'who', w[0], w[1], `fWho('${w[0]}')`)).join('');
+  F_TAGS.forEach(g => { h += `<h4>${g[1]}</h4>` + g[2].map(o => opt('checkbox', g[0], o[0], o[1], `fToggle('${o[0]}')`)).join(''); });
+  h += `<h4>Where they came from</h4>` + Object.keys(srcs).sort((a,b)=>srcs[b]-srcs[a]).map(v => opt('checkbox', 'src', v, v, `fSrc(${esc(JSON.stringify(v))})`)).join('');
+  return h + `</div><div class="fs-foot"><button class="btn" onclick="fClear()">Reset</button><button class="btn primary" id="fshow" onclick="closeFilters()"></button></div>`;
+}
+function fUpdate(){   // counts and ticks in place, nothing is rebuilt
+  if (!fOpen) return;
+  const base = fBase();
+  document.querySelectorAll('#fsheet .fopt').forEach(el => {
+    const g = el.dataset.g, v = el.dataset.v; let on, n = null;
+    if (g === 'who') on = cWho === v;
+    else if (g === 'src'){ on = cSrcs.has(v); n = base.filter(c => fPass(c, 'src') && srcGroup(c.source) === v).length; }
+    else { on = cTags.has(v); n = base.filter(c => fPass(c, g) && tagTest(c, v)).length; }
+    el.querySelector('input').checked = on;
+    el.querySelector('small').textContent = n == null ? '' : n; el.classList.toggle('zero', n === 0);
+  });
+  const k = base.filter(c => fPass(c)).length;
+  $('#fshow').textContent = `Show ${k} ${k===1?'person':'people'}`;
+}
+function openFilters(){
+  if (fOpen || !DIR) return; fOpen = true;
+  const sh = document.createElement('div'); sh.id = 'fshade'; sh.onclick = closeFilters; document.body.appendChild(sh);
+  const el = document.createElement('div'); el.id = 'fsheet'; el.setAttribute('role','dialog'); el.setAttribute('aria-modal','true'); el.innerHTML = fSheetHtml(); document.body.appendChild(el);
+  document.body.classList.add('flock'); fUpdate();
+  try { history.pushState({fsheet:1}, ''); } catch(e){}
+  el.querySelector('.fs-head button').focus();
+}
+function hideFilters(){
+  if (!fOpen) return; fOpen = false;
+  ['#fsheet','#fshade'].forEach(x => { const e = $(x); if (e) e.remove(); });
+  document.body.classList.remove('flock');
+}
+function closeFilters(){   // Done / outside tap / Esc go back one step, so the phone's back button stays in sync
+  if (!fOpen) return;
+  if (history.state && history.state.fsheet){ try { history.back(); return; } catch(e){} }
+  hideFilters();
+}
+window.addEventListener('popstate', hideFilters);
+document.addEventListener('keydown', e => { if (fOpen && e.key === 'Escape'){ e.stopImmediatePropagation(); closeFilters(); } }, true);
 function renderContacts(){
   if (!DIR) return;
-  const q = $('#q').value.trim().toLowerCase(), show = $('#cshow').value, sort = $('#csort').value;
+  const q = $('#q').value.trim().toLowerCase(), show = $('#cshow').value, sort = sortNow();
+  renderFBar();
   const all = DIR.ids.map(id=>CARDS[id]).filter(Boolean);
   let base;
   if (q){
     const qd = q.replace(/\D/g,'');
     base = all.filter(c => (c.name+' '+(c.city||'')+' '+(c.email||'')+' '+(c.specialty||'')+' '+(c.referredBy||'')).toLowerCase().indexOf(q)>=0
       || (qd.length>=3 && (c.phones||[]).some(p=>p.local.replace(/\D/g,'').indexOf(qd.replace(/^972/,'0'))>=0)));
-  } else base = all.filter(c => whoOk(c) && showOk(c, show) && tagOk(c));
-  // source bubbles: counts follow the current Show / search
-  const counts = {}; base.forEach(c=>{ const g=srcGroup(c.source); counts[g]=(counts[g]||0)+1; });
-  const groups = Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
-  if (cSrc!=='all' && !counts[cSrc] && !groups.length) cSrc='all';
-  $('#srcs').innerHTML = [`<button data-s="all" class="${cSrc==='all'?'on':''}">Everyone<b>${base.length}</b></button>`]
-    .concat(groups.map(g=>`<button data-s="${esc(g)}" class="${cSrc===g?'on':''}" dir="auto">${esc(g)}<b>${counts[g]}</b></button>`)).join('');
-  let list = cSrc==='all' ? base : base.filter(c=>srcGroup(c.source)===cSrc);
+  } else base = all.filter(c => whoOk(c) && showOk(c, show) && fPass(c));
+  let list = base;
   const by = {
     best: (a,b)=>(b.rank||0)-(a.rank||0),
     name: (a,b)=>String(a.name).localeCompare(String(b.name),'he'),
@@ -905,10 +1000,9 @@ function renderContacts(){
     next: (a,b)=>(a.nextDate?0:1)-(b.nextDate?0:1) || String(a.nextDate||'').localeCompare(String(b.nextDate||''))
   };
   list = list.slice().sort(by[sort]||by.best);
-  $('#ctags').style.display = q ? 'none' : '';
   $('#ccount').textContent = q ? `Searching everyone — ${list.length} found` : `${list.length} ${list.length===1?'person':'people'} here · ${all.length} contacts in total`;
   $('#clist').innerHTML = list.slice(0, cShown).map(rowHtml).join('')
-    || `<div class="empty">${q?'No one matches that search.':'No one here right now.'}</div>`;
+    || `<div class="empty">${q?'No one matches that search.':'No one here right now.'}${!q && fCount() ? '<div style="margin-top:10px"><button class="btn" onclick="fClear()">Clear filters</button></div>' : ''}</div>`;
   $('#cmore').hidden = list.length <= cShown;
 }
 /* compact directory row (like ZugDesk): name, then city · status · last contact */
@@ -925,13 +1019,7 @@ function rowHtml(c){
 /* load more automatically when the end of the list comes into view */
 new IntersectionObserver(es=>{ if (es[0].isIntersecting && !$('#cmore').hidden){ cShown += 60; renderContacts(); } }, {rootMargin:'600px'}).observe($('#cmore'));
 function resetPaging(){ cShown = 60; renderContacts(); }
-$('#srcs').onclick = e => { const b=e.target.closest('button'); if(!b) return; cSrc=b.dataset.s; resetPaging(); };
-function syncTags(){ cTags.clear(); $('#ctags').querySelectorAll('input:checked').forEach(i=>cTags.add(i.value));
-  $('#ctagn').textContent = cTags.size ? '· '+cTags.size : ''; resetPaging(); }
-$('#ctags').onchange = syncTags;
-$('#ctagclear').onclick = () => { $('#ctags').querySelectorAll('input').forEach(i=>i.checked=false); $('#ctags').open=false; syncTags(); };
-document.addEventListener('click', e => { if (!e.target.closest('#ctags')) $('#ctags').open = false; });
-$('#cshow').onchange = resetPaging; $('#cwho').onchange = resetPaging; $('#csort').onchange = resetPaging;
+$('#cshow').onchange = resetPaging;
 $('#q').oninput = () => { clearTimeout(qTimer); qTimer=setTimeout(resetPaging,150); };
 
 /* ---------- Received ---------- */
