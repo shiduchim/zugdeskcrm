@@ -1,6 +1,12 @@
 # Handoff
 _Last updated: 2026-11-14_
 
+## Chat management (built + pushed 2026-11-14, not yet run in Google)
+- Hourly job writes `zugdeskcrm – Contacts index.csv` (My Drive root). Claude finds it with Drive search, reads it to look people up.
+- Changes: Claude creates `Chat__Commands.csv` in Import inbox (id,name,action,field,value; close/reopen/delete/restore/note/set). File renamed "Imported … – N done, N failed: …" → read back to confirm.
+- First live test: user asks "find Larisa 054-588-2906" (user does NOT want her on Do-not-contact; that file was trashed — check DoNotContact tab has no 054-588-2906 row).
+- Offered: Fable helper final safety review of this feature (ask first).
+
 ## Email texts (2026-11-14, ~23:30) — waiting for the hourly import + test email
 - Code (pushed): "how I found you" line only for Book/insert contacts; referred → "{by} suggested I write to you"; all others → no line. Unit-tested.
 - Import inbox: `Texts__Settings.csv` (shorter EMAIL_BODY HE/RU/EN for people who may already know him, no "reply remove" line, SOURCE_DIRECTORY/REFERRAL) + `Book__Settings.csv` (EN line without "Chabad"). If Texts was applied after Book, EN may still say "Chabad" → re-upload Book file.
