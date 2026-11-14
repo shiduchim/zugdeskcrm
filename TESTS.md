@@ -71,3 +71,4 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Helper static page (no Google cookies): `<pages-url>/#k=<key>` opens in a NORMAL multi-account Chrome window and on iPhone; Call/Save work; old `/exec?k=` link still works.
 - [ ] Helper page: Оригинал / Русский switch on top; Russian shows translated city/description/chips and 'Name (Hebrew name)'; choice remembered; Hebrew helpers see no switch. Translations fill in ~150 per refresh (hidden tab Tr in helpers sheet).
 - [ ] Helper 'Copy Eliyahu's details' ends with his Israeli phone (MY_PHONE) in the helper's language.
+- [ ] Helper page: Sort dropdown (Best / City / Name / Russian first / Source) works and is remembered; Source sort shows the source next to the city.

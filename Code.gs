@@ -1343,7 +1343,7 @@ function scanBounces_(db) {
 const HELPER_URL = 'https://script.google.com/macros/s/AKfycbxjzT6OUMaH1CIajHS09t53rN7A-XYc0cX6fTv9KSZoMMOWy6pg1vhPuUpHuxTMV8Sh/exec';
 const H_TABS = {
   Helpers: ['Name', 'Key', 'Active', 'Show', 'Lang', 'Added'],
-  List: ['ID', 'Name', 'City', 'Languages', 'Hours', 'Phone1', 'Tel1', 'Mobile1', 'Phone2', 'Tel2', 'Mobile2', 'Specialty', 'Why', 'For'],
+  List: ['ID', 'Name', 'City', 'Languages', 'Hours', 'Phone1', 'Tel1', 'Mobile1', 'Phone2', 'Tel2', 'Mobile2', 'Specialty', 'Why', 'For', 'Source'],
   Reservations: ['ContactID', 'Helper', 'At', 'State'],
   Results: ['When', 'Helper', 'ContactID', 'Name', 'Result', 'Next', 'Notes', 'Names'],
   Texts: ['Key', 'Value', 'Explanation'],
@@ -1374,8 +1374,15 @@ function helperPool_(rows, s, isBlocked, skip, today) {
   }).map(c => ({ c: c, sc: scoreContact(c, s) })).sort((a, b) => b.sc.score - a.sc.score).map(x => {
     const ph = phonesOf_(x.c);
     const p = i => ph[i] ? [ph[i].local, '+' + ph[i].intl, ph[i].mobile ? 'YES' : ''] : ['', '', ''];
-    return [x.c.ID, x.c.Name, x.c.City, x.c.Languages, x.c.Hours].concat(p(0), p(1), [x.c.Specialty, x.sc.why.join(' · '), x.c.Helpers || '']);
+    return [x.c.ID, x.c.Name, x.c.City, x.c.Languages, x.c.Hours].concat(p(0), p(1), [x.c.Specialty, x.sc.why.join(' · '), x.c.Helpers || '', srcGroup_(x.c.Source)]);
   });
+}
+
+/** Pure: source group shown to helpers (same as the Contacts screen bubbles; the insert sheet counts as Book). */
+function srcGroup_(src) {
+  const g = String(src || '').split(/\s[–—-]\s|[:(]/)[0].replace(/\s*(p\.?|page|עמ['׳]?)?\s*\d[\d\s,.-]*$/i, '').trim();
+  if (/^(insert|book)\b|שדכנים חדשים|ספר/i.test(g)) return 'Book';
+  return g || 'Other';
 }
 
 /** Pure: the note a helper's result leaves on the contact. */
@@ -1443,7 +1450,8 @@ function helperRebuild_(hs, s, db) {
   const rows = helperPool_(db.rows, s, c => blocked_(c, dnc), skip, today_());
   const sh = hs.getSheetByName('List');
   const w = H_TABS.List.length;
-  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, w).clearContent();
+  sh.getRange(1, 1, 1, w).setValues([H_TABS.List]);   // header can grow (new columns)
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, Math.max(w, sh.getLastColumn())).clearContent();
   if (rows.length) sh.getRange(2, 1, rows.length, w).setValues(rows);
   try { helperTranslate_(hs, rows); } catch (e) { console.log('translate: ' + e); }   // never blocks the list
   const at = hTime_();
@@ -1558,4 +1566,4 @@ function api_newHelperLink(name) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };
+if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };

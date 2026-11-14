@@ -84,6 +84,10 @@ t('helperTexts_: name, city, specialty and each why chip, once', () => {
   const r = ['C1', 'קיי אסתר', 'צפת', '', '', '', '', '', '', '', '', 'רוסים', 'Chabad · Tzfat', ''];
   assert.deepStrictEqual(A.helperTexts_([r, r]), ['קיי אסתר', 'צפת', 'רוסים', 'Chabad', 'Tzfat']);
 });
+t('srcGroup_: book pages and the insert sheet are Book', () => {
+  assert.strictEqual(A.srcGroup_('Book p. 45'), 'Book'); assert.strictEqual(A.srcGroup_('Insert – שדכנים חדשים'), 'Book');
+  assert.strictEqual(A.srcGroup_('Gmail'), 'Gmail'); assert.strictEqual(A.srcGroup_(''), 'Other');
+});
 t('helperNote_: name, notes, next step, names', () => {
   assert.strictEqual(A.helperNote_({ helper: 'Mom', notes: 'nice lady', next: 'call', names: 'Rivka 050-1112223' }),
     "[Mom] nice lady → wants Eliyahu to call Names given: Rivka 050-1112223");

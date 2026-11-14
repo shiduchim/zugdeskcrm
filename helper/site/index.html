@@ -18,8 +18,9 @@ button,.btn{min-height:48px;padding:10px 14px;border-radius:12px;border:1px soli
 .good{background:var(--green);color:#fff;border-color:var(--green)}
 .quiet{border-color:transparent;background:transparent;color:var(--muted)}
 .danger{color:var(--red)}
-input,textarea{width:100%;font:inherit;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+input,textarea,select{width:100%;font:inherit;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
 textarea{min-height:76px}
+select{margin-bottom:10px;min-height:44px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:10px 0}
 .card.busy{opacity:.55}
 .name{font-size:19px;font-weight:600;margin:0 0 2px}
@@ -52,23 +53,24 @@ const L = {
    nextQ:'Что дальше?',next_profile:'Отправить данные Элияху',next_call:'Пусть Элияху позвонит',next_:'Ничего',
    res_spoke:'Поговорили',res_noanswer:'Не ответили',res_callback:'Перезвонить позже',res_wrong:'Неверный номер',res_inactive:'Больше не занимается',res_stop:'Просили не звонить',
    pick:'Выберите результат',hours:'Часы',empty:'Сейчас некого звонить. Спасибо!',emptyMine:'Нажмите «Позвонить» в списке — человек появится здесь.',
-   more:'Показать ещё',link:'Ссылка не работает. Попросите новую у Элияху.',err:'Что-то пошло не так: ',taken:'{name} уже взял(а) этого человека',orig:'Оригинал',trans:'Русский'},
+   more:'Показать ещё',link:'Ссылка не работает. Попросите новую у Элияху.',err:'Что-то пошло не так: ',taken:'{name} уже взял(а) этого человека',orig:'Оригинал',trans:'Русский',sort:'Сортировка',s_best:'Лучшие сначала',s_city:'Город',s_name:'Имя',s_ru:'Русскоязычные сначала',s_src:'Источник'},
  HE:{title:'שיחות לשדכנים',hello:'שלום {name}!',mine:'השיחות שלי',all:'רשימה',search:'חיפוש: שם, עיר…',call:'להתקשר',wa:'וואטסאפ',
    script:'מה לומר',profile:'להעתיק את הפרטים של אליהו',copied:'הועתק',busy:'{name} כבר מתקשר/ת',tip:'הערה',giveBack:'להחזיר לרשימה',
    save:'שמירה',saved:'נשמר, תודה!',notes:'מה נאמר (אפשר בקול – המיקרופון במקלדת)',names:'שמות וטלפונים של שדכנים נוספים, אם נתנו',
    nextQ:'מה הלאה?',next_profile:'לשלוח את הפרטים של אליהו',next_call:'שאליהו יתקשר',next_:'כלום',
    res_spoke:'דיברנו',res_noanswer:'לא ענו',res_callback:'להתקשר שוב אחר כך',res_wrong:'מספר שגוי',res_inactive:'כבר לא פעיל/ה',res_stop:'ביקשו לא להתקשר',
    pick:'בחר/י תוצאה',hours:'שעות',empty:'אין כרגע למי להתקשר. תודה!',emptyMine:'לחצו "להתקשר" ברשימה – האדם יופיע כאן.',
-   more:'עוד',link:'הקישור לא פעיל. בקשו קישור חדש מאליהו.',err:'משהו השתבש: ',taken:'{name} כבר לקח/ה את האדם הזה'},
+   more:'עוד',link:'הקישור לא פעיל. בקשו קישור חדש מאליהו.',err:'משהו השתבש: ',taken:'{name} כבר לקח/ה את האדם הזה',sort:'מיון',s_best:'הכי מתאימים קודם',s_city:'עיר',s_name:'שם',s_ru:'דוברי רוסית קודם',s_src:'מקור'},
  EN:{title:'Shadchan calls',hello:'Hello {name}!',mine:'My calls',all:'List',search:'Search: name, city…',call:'Call',wa:'WhatsApp',
    script:'What to say',profile:'Copy Eliyahu\'s details',copied:'Copied',busy:'{name} is calling',tip:'Note',giveBack:'Give back to the list',
    save:'Save',saved:'Saved, thank you!',notes:'What you heard (you can speak it: microphone on the keyboard)',names:'Names and numbers of other shadchanim, if they gave any',
    nextQ:'What next?',next_profile:'Send Eliyahu\'s details',next_call:'Eliyahu should call',next_:'Nothing',
    res_spoke:'We spoke',res_noanswer:'No answer',res_callback:'Call back later',res_wrong:'Wrong number',res_inactive:'Not active anymore',res_stop:'Asked not to call',
    pick:'Pick a result',hours:'Hours',empty:'Nobody to call right now. Thank you!',emptyMine:'Tap "Call" in the list and the person appears here.',
-   more:'Show more',link:'This link is not active. Ask Eliyahu for a new one.',err:'Something went wrong: ',taken:'{name} already took this person',orig:'Original',trans:'English'}
+   more:'Show more',link:'This link is not active. Ask Eliyahu for a new one.',err:'Something went wrong: ',taken:'{name} already took this person',orig:'Original',trans:'English',sort:'Sort',s_best:'Best match first',s_city:'City',s_name:'Name',s_ru:'Russian speakers first',s_src:'Source'}
 };
 let showTr = true; try { showTr = localStorage.getItem('h_tr') !== '0'; } catch(e){}
+let sortBy = 'best'; try { sortBy = localStorage.getItem('h_sort') || 'best'; } catch(e){}
 let D = null, tab = 'all', q = '', shown = 40, lang = 'HE';
 const form = {};   // id → {result, next}
 const $ = s => document.querySelector(s);
@@ -95,7 +97,7 @@ function render(){
   const mine = D.items.filter(x => x.mine);
   const ql = q.toLowerCase();
   const list = D.items.filter(x => !x.mine && (!ql || (x.name + ' ' + x.city + ' ' + x.spec + ' ' + (x.tr ? x.tr.name + ' ' + x.tr.city + ' ' + x.tr.spec : '')).toLowerCase().indexOf(ql) >= 0))
-    .sort((a, b) => (a.by ? 1 : 0) - (b.by ? 1 : 0));
+    .map((x, i) => Object.assign(x, { rank: i })).sort(sorter());
   const hasTr = D.items.some(x => x.tr);
   let h = (hasTr ? `<div class="tabs"><button class="${!showTr?'on':''}" onclick="setTr(false)">${esc(t('orig'))}</button><button class="${showTr?'on':''}" onclick="setTr(true)">${esc(t('trans'))}</button></div>` : '') +
     `<h1>${esc(t('title'))}</h1><div class="muted">${esc(t('hello', {name: D.me.name}))}</div>
@@ -105,6 +107,8 @@ function render(){
       <button class="${tab==='all'?'on':''}" onclick="setTab('all')">${esc(t('all'))} (${list.length})</button></div>`;
   if (tab === 'mine') h += mine.length ? mine.map(cardHtml).join('') : `<div class="center muted">${esc(t('emptyMine'))}</div>`;
   else {
+    h += `<label for="srt">${esc(t('sort'))}</label><select id="srt" onchange="setSort(this.value)">${['best','city','name','ru','src'].map(o =>
+      `<option value="${o}" ${sortBy===o?'selected':''}>${esc(t('s_'+o))}</option>`).join('')}</select>`;
     h += `<input id="q" dir="auto" placeholder="${esc(t('search'))}" value="${esc(q)}" oninput="q=this.value;shown=40;renderKeep()">`;
     h += list.length ? list.slice(0, shown).map(cardHtml).join('') : `<div class="center muted">${esc(t('empty'))}</div>`;
     if (list.length > shown) h += `<div class="row"><button onclick="shown+=40;render()">${esc(t('more'))}</button></div>`;
@@ -112,6 +116,18 @@ function render(){
   $('#app').innerHTML = h;
 }
 function renderKeep(){ const p = $('#q') && $('#q').selectionStart; render(); const i = $('#q'); if (i){ i.focus(); try{ i.setSelectionRange(p,p); }catch(e){} } }
+// sorting: busy people last; then the chosen order; best match breaks ties (rank = order from the main app)
+function shown_(x, f){ return (showTr && x.tr && x.tr[f]) || x[f] || ''; }
+function sorter(){
+  const by = sortBy, ru = x => /ר/.test(x.langs || '') || /רוס/.test(x.spec || '') ? 0 : 1;
+  const cmp = (a, b) => a.localeCompare(b, lang === 'RU' ? 'ru' : lang === 'HE' ? 'he' : 'en');
+  return (a, b) => ((a.by ? 1 : 0) - (b.by ? 1 : 0)) ||
+    (by === 'city' ? cmp(shown_(a,'city') || '\uffff', shown_(b,'city') || '\uffff') :
+     by === 'name' ? cmp(shown_(a,'name'), shown_(b,'name')) :
+     by === 'ru' ? ru(a) - ru(b) :
+     by === 'src' ? cmp(a.src || '\uffff', b.src || '\uffff') : 0) || (a.rank - b.rank);
+}
+function setSort(v){ sortBy = v; shown = 40; try { localStorage.setItem('h_sort', v); } catch(e){} render(); }
 function setTr(v){ showTr = v; try { localStorage.setItem('h_tr', v ? '1' : '0'); } catch(e){} render(); }
 function setTab(x){ tab = x; render(); window.scrollTo(0,0); }
 // the call script is in the Texts tab of the helpers' sheet (SCRIPT_RU / SCRIPT_HE / SCRIPT_EN)
@@ -120,7 +136,7 @@ function toggle(id){ $('#'+id).classList.toggle('open'); }
 
 function cardHtml(x){
   if (showTr && x.tr) x = Object.assign({}, x, { name: x.tr.name ? x.tr.name + ' (' + x.name + ')' : x.name, city: x.tr.city || x.city, spec: x.tr.spec || x.spec, why: x.tr.why || x.why });
-  const meta = [x.city, x.langs].filter(Boolean).map(esc).join(' • ');
+  const meta = [x.city, x.langs, sortBy === 'src' ? x.src : ''].filter(Boolean).map(esc).join(' • ');
   let h = `<div class="card ${x.by?'busy':''}" id="c-${x.id}">
     <p class="name" dir="auto">${esc(x.name)}</p>${meta?`<div class="muted" dir="auto">${meta}</div>`:''}
     ${x.hours?`<div class="muted" dir="auto">${esc(t('hours'))}: ${esc(x.hours)}</div>`:''}
