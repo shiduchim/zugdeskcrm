@@ -291,7 +291,7 @@ function renderSeparate(){
 
 /* ---------- helpers (friends and family who call for you) ---------- */
 const H_SHOW = {All:'Everyone', Russian:'Russian speakers', English:'English speakers', Picked:'Only people I pick'};
-const H_RES = {spoke:'Spoke', noanswer:'No answer', callback:'Call back later', wrong:'Wrong number', inactive:'Not active anymore', stop:'Asked not to call'};
+const H_RES = {notfit:'Not for us', spoke:'Spoke', noanswer:'No answer', callback:'Call back later', wrong:'Wrong number', inactive:'Not active anymore', stop:'Asked not to call'};
 let HLP = null;
 async function openHelpers(){
   sheetId = null; histReq++;
@@ -480,6 +480,11 @@ function renderToday(){
   if (wrote.length){
     h += `<h2>Wrote back to you</h2>` + wrote.map(c=>card(c,'reply')).join('');
   }
+  if ((T.aside||[]).length){
+    h += `<h2>Helpers set these aside — you decide</h2>` + T.aside.map(c => `<div class="card" id="as-${c.id}"><div class="name" dir="auto">${esc(c.name)}</div>`
+      + `<div class="sub" dir="auto">${esc([c.city, c.specialty].filter(Boolean).join(' • '))}</div><div class="sub" dir="auto">${esc(c.asideBy)}: ${esc(c.asideWhy || 'Not for us')}</div>`
+      + `<div class="actions"><button class="btn" onclick="asideAgree('${c.id}')">Agree, set aside</button><button class="btn quiet" onclick="asideKeep('${c.id}')">Keep</button></div></div>`).join('');
+  }
   if (T.suggestions.length){
     h += `<h2>Recommended to you — add with one tap</h2>` + T.suggestions.map(sugCard).join('');
   }
@@ -624,6 +629,12 @@ function moreToggle(id){ $('#m-'+id).classList.toggle('open'); }
 function opened(id){ const k=$('#k-'+id); if(k) k.querySelector('.btn.good').focus(); }
 
 let busy=false;
+// "Not for me": one-tap reason, then set aside (Closed, reason "Not a fit"); "Back to new" undoes it
+const NF_REASONS = ['Other community', 'Organization, not a person', 'Only young people', 'Other'];
+function notFit(id){ const el = $('#nf-' + id); if (!el) return;
+  el.innerHTML = `<label>Why not for you?</label><div class="actions">${NF_REASONS.map(r => `<button class="btn" onclick="act('${id}','notfit','',${esc(JSON.stringify('Not for me: ' + r))})">${esc(r)}</button>`).join('')}</div>`; }
+async function asideAgree(id){ const c = T.aside.find(x => x.id === id); await act(id, 'notfit', '', 'Not for us: ' + ((c && c.asideWhy) || '') + (c ? ' (' + c.asideBy + ')' : '')); T.aside = T.aside.filter(x => x.id !== id); renderToday(); }
+async function asideKeep(id){ try { await run('api_saveContact', id, {Helpers: ''}); T.aside = T.aside.filter(x => x.id !== id); toast('Kept — back on the helpers\' list'); renderToday(); } catch(e){ fail(e); } }
 async function act(id, action, channel, note){
   if (busy) return; busy=true;
   document.querySelectorAll('button.btn').forEach(b=>b.disabled=true);
@@ -631,7 +642,7 @@ async function act(id, action, channel, note){
     const nb = noteEl(id);
     if (!note && nb) note = nb.value.trim();
     const c = remember(await run('api_result', id, action, channel, note||'', ''));
-    const labels={sent:'Marked as sent',spoke:'Saved — spoke',noreach:'Saved — will try again',later:'Moved to later',wrong:'Closed — wrong number',stop:'Added to Do not contact',answered:'Saved',wroteback:'Saved — they wrote back',reopen:'Reopened'};
+    const labels={sent:'Marked as sent',spoke:'Saved — spoke',noreach:'Saved — will try again',later:'Moved to later',wrong:'Closed — wrong number',stop:'Added to Do not contact',answered:'Saved',wroteback:'Saved — they wrote back',reopen:'Reopened',notfit:'Set aside — not a fit'};
     toast(labels[action]||'Saved');
     updateTodayCard(c);
     if (sheetId===id) openContact(id);
@@ -749,8 +760,10 @@ function renderSheet(c, keepScroll){
           <button class="btn" onclick="act('${c.id}','later','')">Later</button>
           <button class="btn" onclick="act('${c.id}','wrong','')">Wrong number</button>
           <button class="btn danger" onclick="stop('${c.id}','')">Do not contact</button>
+          ${c.status!=='Closed'?`<button class="btn quiet" onclick="notFit('${c.id}')">Not for me</button>`:''}
           ${c.status!=='New'?`<button class="btn quiet" onclick="act('${c.id}','reopen','')">Back to new</button>`:''}
         </div>
+        <div id="nf-${c.id}"></div>
         <label for="f-next">Next step date</label>
         <div class="notebox" style="margin-top:0"><input type="date" id="f-next" value="${esc(c.nextDate||'')}"><button class="btn quiet" onclick="saveContact('${c.id}')">Save date</button></div>
         <h2>Latest</h2>

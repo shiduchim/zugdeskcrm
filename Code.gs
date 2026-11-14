@@ -643,6 +643,8 @@ function api_today(rebuild) {
     checkins: checkins.map(c => card_(c, s)),
     asks: asks.map(c => card_(c, s)),
     suggestions: api_suggestions(),
+    aside: db.rows.filter(c => /^set aside/i.test(c.Helpers || '') && c.Status !== 'Closed').map(c => Object.assign(card_(c, s),
+      { asideBy: String(c.Helpers).replace(/^set aside:\s*/i, ''), asideWhy: ((c.Notes || '').split('\n').reverse().find(l => /Not for us/.test(l)) || '').replace(/^.*Not for us:\s*/, '') })),
     counts: counts,
     autoEmail: String(s.AUTO_EMAIL).toUpperCase() === 'ON',
     profiles: { HE: s.PROFILE_HE || '', RU: s.PROFILE_RU || '', EN: s.PROFILE_EN || '' },
@@ -663,6 +665,7 @@ const RESULTS = {
   wrong:     { label: 'Wrong number',     status: 'Closed',    close: 'Wrong number' },
   stop:      { label: 'Do not contact',   status: 'Closed',    close: 'Do not contact' },
   reopen:    { label: 'Reopened',         status: 'New',       days: 0 },
+  notfit:    { label: 'Not a fit',        status: 'Closed',    close: 'Not a fit' },
   callback:  { label: 'Call back later',  status: 'Contacted', days: 3 },
   inactive:  { label: 'Not active anymore', status: 'Closed',  close: 'Not active' }
 };
@@ -1366,7 +1369,7 @@ function hTime_() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:m
 function helperPool_(rows, s, isBlocked, skip, today) {
   return rows.filter(c => {
     if (!isShadchan_(c) || isBlocked(c) || skip.has(c.ID) || !phonesOf_(c).length) return false;
-    if (/^only me$/i.test(String(c.Helpers || '').trim())) return false;
+    if (/^(only me$|set aside)/i.test(String(c.Helpers || '').trim())) return false;   // "Set aside: <helper>" = a helper said not for us; owner decides
     const st = c.Status || 'New';
     if (st === 'New') return true;
     // a helper's "no answer / call back later" comes back to the helpers when it is due
@@ -1431,6 +1434,9 @@ function helperSync_(rebuildList) {
       if (c && r.result === 'note' && r.notes) {   // only a note: add it, status unchanged
         patchContact_(db, c, { Notes: (c.Notes ? c.Notes + '\n' : '') + today_() + ': ' + helperNote_(r) });
         log_(c, 'Helper: ' + r.helper, 'Note', r.notes);
+      } else if (c && r.result === 'notfit') {   // a helper's "Not for us" is a suggestion: off the helpers' list, owner decides
+        if (c.Status !== 'Closed') patchContact_(db, c, { Helpers: 'Set aside: ' + r.helper, Notes: (c.Notes ? c.Notes + '\n' : '') + today_() + ': [' + r.helper + '] Not for us: ' + (r.notes || '') });
+        log_(c, 'Helper: ' + r.helper, 'Set aside', r.notes);
       } else if (c && action) {
         applyResult_(s, db, c, action, 'Helper: ' + r.helper, helperNote_(r));
         if (action === 'spoke' && r.next) patchContact_(db, c, { NeedsReply: 'YES', NextDate: today_() });

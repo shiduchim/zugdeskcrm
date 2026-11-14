@@ -210,4 +210,11 @@ t('past_: her finished people, newest first, notes kept, no phone after stop/wro
   assert.strictEqual(out[1].tel, '');   // closed in the main app
   assert.strictEqual(out[2].tel, '');   // someone got "stop"
 });
+t('helperPool_: "Set aside: <helper>" leaves every helper\'s list', () => {
+  const rows = [
+    { ID: 'C1', Name: 'A', Type: 'Shadchan', Status: 'New', Phone1: '050-1234567', Helpers: 'Set aside: Mom' },
+    { ID: 'C2', Name: 'B', Type: 'Shadchan', Status: 'New', Phone1: '050-1234568' }
+  ];
+  assert.deepStrictEqual(A.helperPool_(rows, S, () => false, new Set(), '2026-11-14').map(r => r[0]), ['C2']);
+});
 console.log(n + ' checks passed');

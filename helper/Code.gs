@@ -5,7 +5,7 @@
  */
 
 const TZ = 'Asia/Jerusalem';
-const RESULTS = ['spoke', 'noanswer', 'callback', 'wrong', 'inactive', 'stop'];
+const RESULTS = ['spoke', 'noanswer', 'callback', 'wrong', 'inactive', 'stop', 'notfit'];
 const NEXT = ['profile', 'call', ''];
 const HOLD_HOURS = 24;
 
@@ -144,7 +144,7 @@ function past_(results, name, held, noCall, listIds) {
   });
   return Object.keys(mine).map(id => mine[id]).filter(p => p.result && !held.has(p.id))
     .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)).slice(0, 300).map(p => {
-      const bad = ['stop', 'wrong', 'inactive'].indexOf(last[p.id]) >= 0 || noCall.has(p.id);
+      const bad = ['stop', 'wrong', 'inactive', 'notfit'].indexOf(last[p.id]) >= 0 || noCall.has(p.id);
       return { id: p.id, name: p.name, city: p.city, at: p.at.slice(0, 10), result: p.result, next: p.next, notes: p.notes.slice(-5),
         phone: bad ? '' : p.phone, tel: bad ? '' : p.tel, inList: listIds.has(p.id) };
     });
@@ -175,7 +175,7 @@ function h_save(k, id, result, next, notes, names) {
     if (!row && !prev) throw new Error('Not on your list');
     if (!noteOnly && !heldByMe && !row) throw new Error('Not on your list');
     const name = row ? str_(row[1]) : str_(prev[3]), city = row ? str_(row[2]) : str_(prev[10] || '');
-    const bad = ['stop', 'wrong', 'inactive'].indexOf(result) >= 0;
+    const bad = ['stop', 'wrong', 'inactive', 'notfit'].indexOf(result) >= 0;
     const phone = bad ? '' : row ? str_(row[5]) : str_(prev[8] || ''), tel = bad ? '' : row ? str_(row[6]) : str_(prev[9] || '');
     const clean = s => String(s || '').replace(/^[=+\-@]/, "'$&").slice(0, 2000);   // never a formula
     sh_('Results').appendRow([now_(), me.name, id, name, result, clean(next), clean(notes), noteOnly ? '' : clean(names), phone, tel, city]);

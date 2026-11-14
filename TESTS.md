@@ -85,3 +85,5 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Helper tabs Позвонить | После звонка | Готово (To call / After call / Done). Done: her finished people, newest first, search (also translated names), notes with dates, Call again (back on the list → reserves like Call; no button after stop/wrong/inactive or closed/do-not-contact), Add note (doesn't move them back; reaches the main app). List search with no match shows "Found in Done: n".
 - [ ] Crossed out in the book = always last, in every list and sort (main app, Today plan ranking, helper page).
 - [ ] Helper cards: languages as their own blue outlined chips (own row, before the green why chips); no green "Speaks Russian" on the helper page.
+- [ ] "Not for us": helper To call card → one-tap reason → off every helper's list, toast "Eliyahu will take a look"; main Today "Helpers set these aside" → Agree (Closed, Not a fit) / Keep (back to helpers). Main contact card "Not for me" + reason → Closed; "Back to new" undoes.
+- [ ] Helper after-call box "Who else did they suggest? Shadchanim, WhatsApp groups, links" → names/phones to Recommended, the rest in notes.

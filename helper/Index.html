@@ -103,21 +103,21 @@ const KEY = (INSIDE ? document.getElementById('app').dataset.k : (location.hash.
 const L = {
  RU:{title:'Звонки шадханам',listOf:'Список: {name}',hello:'Здравствуйте, {name}!',mine:'После звонка',all:'Позвонить',past:'Готово',callAgain:'Позвонить снова',addNote:'Добавить заметку',elSees:'Элияху увидит эту заметку',needNote:'Напишите заметку',emptyPast:'Здесь будут люди, по которым вы нажали «Сохранить и завершить».',empty0:'Никого не нашли.',foundPast:'Найдено в «{tab}»: {n}',search:'Поиск: имя, город…',call:'Позвонить',wa:'WhatsApp',
    script:'Что сказать',profile:'Скопировать профиль Элияху',copied:'Скопировано',busy:'{name} уже звонит',tip:'Заметка',giveBack:'Не буду звонить — вернуть в общий список',gaveBack:'Возвращено в общий список',
-   save:'Сохранить',saved:'Сохранено, спасибо!',notes:'Заметки о разговоре',noteHint:'Можно не печатать: нажмите на микрофон на клавиатуре и говорите',noteEx:'Например: просила позвонить после праздников',saveNote:'Сохранить заметку',saveFinish:'Сохранить и завершить',staysMine:'Человек останется в «{tab}»',noteSaved:'Заметка сохранена',needOne:'Напишите заметку или выберите, чем закончился звонок',other:'Другое (своими словами)',names:'Имена и телефоны других шадханов, если дали',
+   save:'Сохранить',saved:'Сохранено, спасибо!',notes:'Заметки о разговоре',noteHint:'Можно не печатать: нажмите на микрофон на клавиатуре и говорите',noteEx:'Например: просила позвонить после праздников',saveNote:'Сохранить заметку',saveFinish:'Сохранить и завершить',staysMine:'Человек останется в «{tab}»',noteSaved:'Заметка сохранена',needOne:'Напишите заметку или выберите, чем закончился звонок',other:'Другое (своими словами)',names:'Кого ещё посоветовали? Шадханы, группы WhatsApp, ссылки',res_notfit:'Не подходит',nfQ:'Почему не подходит?',nf_comm:'Другая община',nf_org:'Организация, не человек',nf_young:'Только для молодых',nf_other:'Другое',nfThanks:'Спасибо, Элияху посмотрит',
    nextQ:'Что дальше?',next_profile:'Отправить профиль Элияху',next_call:'Пусть Элияху позвонит',next_:'Ничего',
    res_spoke:'Поговорили',res_noanswer:'Не ответили',res_callback:'Перезвонить позже',res_wrong:'Неверный номер',res_inactive:'Больше не занимается',res_stop:'Просили не звонить',
    pick:'Чем закончился звонок?',hours:'Часы',empty:'Сейчас некого звонить. Спасибо!',emptyMine:'Нажмите «Позвонить» в списке — человек появится здесь.',
    more:'Показать ещё',link:'Ссылка не работает. Попросите новую у Элияху.',err:'Что-то пошло не так: ',taken:'{name} уже взял(а) этого человека',orig:'Оригинал',trans:'Русский',sort:'Сортировка',s_best:'Лучшие сначала',s_city:'Город',s_name:'Имя',s_ru:'Русскоязычные сначала',s_src:'Источник',filters:'Фильтры',done:'Готово',reset:'Сбросить',showN:'Показать: {n}',findCity:'Найти город',g_city:'Город',g_country:'Страна',pcopy:'Профиль Элияху:',change:'Изменить',clearAll:'Сбросить всё',fOn:'Включены фильтры',c_unknown:'Не указана',g_lang:'Язык',g_src:'Источник',g_more:'Ещё',remove:'Убрать',filter:'Фильтр',f_city:'Все города',f_lang:'Все языки',f_src:'Все источники',f_mob:'Только мобильные',f_clear:'Сбросить фильтры',lg_ru:'Русский',lg_en:'Английский',lg_he:'Иврит',lg_yi:'Идиш',lg_fr:'Французский',lg_es:'Испанский'},
  HE:{title:'שיחות לשדכנים',listOf:'הרשימה של {name}',hello:'שלום {name}!',mine:'אחרי השיחה',all:'להתקשר',past:'בוצע',callAgain:'להתקשר שוב',addNote:'להוסיף הערה',elSees:'אליהו יראה את ההערה',needNote:'כתבו הערה',emptyPast:'כאן יופיעו האנשים שסיימתם איתם („לשמור ולסיים”).',empty0:'לא נמצא אף אחד.',foundPast:'נמצא ב„{tab}”: {n}',search:'חיפוש: שם, עיר…',call:'להתקשר',wa:'וואטסאפ',
    script:'מה לומר',profile:'להעתיק את הפרופיל של אליהו',copied:'הועתק',busy:'{name} כבר מתקשר/ת',tip:'הערה',giveBack:'לא אתקשר — להחזיר לרשימה הכללית',gaveBack:'הוחזר לרשימה הכללית',
-   save:'שמירה',saved:'נשמר, תודה!',notes:'הערות על השיחה',noteHint:'אפשר לדבר במקום להקליד: המיקרופון במקלדת',noteEx:'לדוגמה: ביקשה להתקשר אחרי החגים',saveNote:'לשמור הערה',saveFinish:'לשמור ולסיים',staysMine:'האדם יישאר ב„{tab}”',noteSaved:'ההערה נשמרה',needOne:'כתבו הערה או בחרו איך הסתיימה השיחה',other:'אחר (במילים שלכם)',names:'שמות וטלפונים של שדכנים נוספים, אם נתנו',
+   save:'שמירה',saved:'נשמר, תודה!',notes:'הערות על השיחה',noteHint:'אפשר לדבר במקום להקליד: המיקרופון במקלדת',noteEx:'לדוגמה: ביקשה להתקשר אחרי החגים',saveNote:'לשמור הערה',saveFinish:'לשמור ולסיים',staysMine:'האדם יישאר ב„{tab}”',noteSaved:'ההערה נשמרה',needOne:'כתבו הערה או בחרו איך הסתיימה השיחה',other:'אחר (במילים שלכם)',names:'את מי עוד המליצו? שדכנים, קבוצות וואטסאפ, קישורים',res_notfit:'לא מתאים',nfQ:'למה לא מתאים?',nf_comm:'קהילה אחרת',nf_org:'ארגון, לא אדם',nf_young:'רק לצעירים',nf_other:'אחר',nfThanks:'תודה, אליהו יבדוק',
    nextQ:'מה הלאה?',next_profile:'לשלוח את הפרופיל של אליהו',next_call:'שאליהו יתקשר',next_:'כלום',
    res_spoke:'דיברנו',res_noanswer:'לא ענו',res_callback:'להתקשר שוב אחר כך',res_wrong:'מספר שגוי',res_inactive:'כבר לא פעיל/ה',res_stop:'ביקשו לא להתקשר',
    pick:'איך הסתיימה השיחה?',hours:'שעות',empty:'אין כרגע למי להתקשר. תודה!',emptyMine:'לחצו "להתקשר" ברשימה – האדם יופיע כאן.',
    more:'עוד',link:'הקישור לא פעיל. בקשו קישור חדש מאליהו.',err:'משהו השתבש: ',taken:'{name} כבר לקח/ה את האדם הזה',sort:'מיון',s_best:'הכי מתאימים קודם',s_city:'עיר',s_name:'שם',s_ru:'דוברי רוסית קודם',s_src:'מקור',filters:'סינון',done:'סיום',reset:'איפוס',showN:'הצגת {n}',findCity:'חיפוש עיר',g_city:'עיר',g_country:'מדינה',pcopy:'הפרופיל של אליהו:',change:'שינוי',clearAll:'נקה הכול',fOn:'סינון פעיל',c_unknown:'לא ידוע',g_lang:'שפה',g_src:'מקור',g_more:'עוד',remove:'הסרה',filter:'סינון',f_city:'כל הערים',f_lang:'כל השפות',f_src:'כל המקורות',f_mob:'רק ניידים',f_clear:'ניקוי סינון',lg_ru:'רוסית',lg_en:'אנגלית',lg_he:'עברית',lg_yi:'יידיש',lg_fr:'צרפתית',lg_es:'ספרדית'},
  EN:{title:'Shadchan calls',listOf:"{name}'s list",hello:'Hello {name}!',mine:'After call',all:'To call',past:'Done',callAgain:'Call again',addNote:'Add a note',elSees:'Eliyahu will see this note',needNote:'Write a note',emptyPast:'People you finished ("Save and finish") appear here.',empty0:'Nobody found.',foundPast:'Found in "{tab}": {n}',search:'Search: name, city…',call:'Call',wa:'WhatsApp',
    script:'What to say',profile:'Copy Eliyahu\'s profile',copied:'Copied',busy:'{name} is calling',tip:'Note',giveBack:"I won't call — put back in the main list",gaveBack:'Back in the main list',
-   save:'Save',saved:'Saved, thank you!',notes:'Notes about the call',noteHint:'No need to type: tap the microphone on the keyboard and speak',noteEx:'For example: asked to call after the holidays',saveNote:'Save note',saveFinish:'Save and finish',staysMine:'This person stays in "{tab}"',noteSaved:'Note saved',needOne:'Write a note or pick how the call ended',other:'Something else (your own words)',names:'Names and numbers of other shadchanim, if they gave any',
+   save:'Save',saved:'Saved, thank you!',notes:'Notes about the call',noteHint:'No need to type: tap the microphone on the keyboard and speak',noteEx:'For example: asked to call after the holidays',saveNote:'Save note',saveFinish:'Save and finish',staysMine:'This person stays in "{tab}"',noteSaved:'Note saved',needOne:'Write a note or pick how the call ended',other:'Something else (your own words)',names:'Who else did they suggest? Shadchanim, WhatsApp groups, links',res_notfit:'Not for us',nfQ:'Why not for us?',nf_comm:'Other community',nf_org:'Organization, not a person',nf_young:'Only young people',nf_other:'Other',nfThanks:'Thank you, Eliyahu will take a look',
    nextQ:'What next?',next_profile:'Send Eliyahu\'s profile',next_call:'Eliyahu should call',next_:'Nothing',
    res_spoke:'We spoke',res_noanswer:'No answer',res_callback:'Call back later',res_wrong:'Wrong number',res_inactive:'Not active anymore',res_stop:'Asked not to call',
    pick:'How did the call end?',hours:'Hours',empty:'Nobody to call right now. Thank you!',emptyMine:'Tap "Call" in the list and the person appears here.',
@@ -323,12 +323,15 @@ function cardHtml(x){
   if (x.by) return h + `<div class="tag">${esc(t('busy', {name: x.by}))}</div></div>`;
   h += `<div class="row">${x.phones.map(p => `<a class="btn primary" href="tel:${esc(p.tel)}" onclick="hold('${x.id}')">${esc(t('call'))} ${esc(p.local)}</a>`).join('')}
     ${x.phones.filter(p=>p.mobile).slice(0,1).map(p => `<a class="btn" href="https://wa.me/${esc(p.tel.replace('+',''))}" target="_blank" onclick="hold('${x.id}')">${esc(t('wa'))}</a>`).join('')}</div>`;
+  if (!x.mine) h += nfOpen[x.id] ? `<label class="cl">${esc(t('nfQ'))}</label><div class="grid2">${['comm','org','young','other'].map(r =>
+      `<button onclick="notFit('${x.id}','${r}')">${esc(t('nf_' + r))}</button>`).join('')}</div>`
+    : `<div class="row"><button class="quiet" onclick="nfOpen['${x.id}']=1;render()">${esc(t('res_notfit'))}</button></div>`;
   if (x.mine) {   // after the call: notes first (type or speak), then how it ended, then save
     const f = form[x.id] || {}, id = x.id;
     h += `<label class="cl" for="n-${id}">${esc(t('notes'))}</label>
       <textarea id="n-${id}" class="note" dir="auto" rows="4" placeholder="${esc(t('noteEx'))}" oninput="keep('${id}');grow(this)">${esc(f.notes||'')}</textarea>
       <div class="hint">${esc(t('noteHint'))}</div>
-      <label class="cl">${esc(t('pick'))}</label><div class="grid2">${['spoke','noanswer','callback','wrong','inactive','stop'].map(r =>
+      <label class="cl">${esc(t('pick'))}</label><div class="grid2">${['spoke','noanswer','callback','wrong','inactive','stop','notfit'].map(r =>
       `<button class="${f.result===r?'sel on':''}" aria-pressed="${f.result===r}" onclick="pickRes('${id}','${r}')">${esc(t('res_'+r))}</button>`).join('')}</div>`;
     if (f.result === 'spoke') {
       const opts = [['profile', t('next_profile')], ['call', t('next_call')], ['', t('next_')]].concat((D.customs || []).map(c => [c, c]));
@@ -344,6 +347,12 @@ function cardHtml(x){
   return h + `</div>`;
 }
 
+// "Not for us" from the To call list: one-tap reason (sent in English for Eliyahu), off every helper's list, Eliyahu decides
+const nfOpen = {};
+async function notFit(id, r){
+  try { await run('h_save', id, 'notfit', '', L.EN['nf_' + r], ''); delete nfOpen[id]; D.items = D.items.filter(i => i.id !== id); toast(t('nfThanks')); render(); }
+  catch(e){ fail(e); }
+}
 function keep(id){ const f = form[id] = form[id] || {}; f.notes = $('#n-'+id).value; if ($('#m-'+id)) f.names = $('#m-'+id).value; }
 function pickRes(id, r){ keep(id); const f = form[id]; f.result = f.result === r ? '' : r; if (f.result !== 'spoke') { f.next = ''; f.other = ''; } render(); }   // tap again = undo
 function pickNext(id, n){ keep(id); form[id].next = n; form[id].other = ''; render(); }
@@ -409,7 +418,7 @@ async function save(id){
       if (x) x.tip = today() + ' · ' + D.me.name + ': ' + note;
       delete form[id]; toast(t('noteSaved')); render(); return;
     }
-    { const x = D.items.find(i => i.id === id), bad = ['stop', 'wrong', 'inactive'].indexOf(res) >= 0, ph = x && x.phones[0];
+    { const x = D.items.find(i => i.id === id), bad = ['stop', 'wrong', 'inactive', 'notfit'].indexOf(res) >= 0, ph = x && x.phones[0];
       const old = (D.past || []).find(p => p.id === id), notes = ((old && old.notes) || []).concat(note ? [{ at: today(), text: note }] : []).slice(-5);
       if (x) D.past = [{ id: id, name: x.name, city: x.city, tr: x.tr ? { name: x.tr.name, city: x.tr.city } : null, at: today(), result: res, next: next, notes: notes,
         phone: bad || !ph ? '' : ph.local, tel: bad || !ph ? '' : ph.tel, inList: false }].concat((D.past || []).filter(p => p.id !== id)); }
