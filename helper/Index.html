@@ -311,6 +311,21 @@ function flipTheme(){ const v = isDark() ? 'light' : 'dark'; document.documentEl
 try { const th = localStorage.getItem('h_theme'); if (th) document.documentElement.setAttribute('data-theme', th); } catch(e){}
 function setTr(v){ showTr = v; try { localStorage.setItem('h_tr', v ? '1' : '0'); } catch(e){} render(); }
 function setTab(x){ tab = x; render(); window.scrollTo(0,0); }
+// swipe left / right to move between the 3 tabs (screen order left→right: Done, After call, To call)
+let sw = null;
+document.addEventListener('touchstart', e => {
+  sw = null;
+  if (!D || sheetOpen || e.touches.length !== 1 || e.target.closest('input,textarea,select,.sheet')) return;
+  sw = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };
+}, { passive: true });
+document.addEventListener('touchend', e => {
+  if (!sw) return;
+  const p = e.changedTouches[0], dx = p.clientX - sw.x, dy = p.clientY - sw.y, quick = Date.now() - sw.t < 700;
+  sw = null;
+  if (!quick || Math.abs(dx) < 70 || Math.abs(dx) < 2 * Math.abs(dy)) return;
+  const order = ['past', 'mine', 'all'], i = order.indexOf(tab) + (dx < 0 ? 1 : -1);
+  if (i >= 0 && i < order.length) setTab(order[i]);
+}, { passive: true });
 // the call script is in the Texts tab of the helpers' sheet (SCRIPT_RU / SCRIPT_HE / SCRIPT_EN)
 function scriptText(){ return (D.texts['SCRIPT_' + lang] || D.texts.SCRIPT_HE || '').split('{helper}').join(D.me.name); }
 function toggle(id){ $('#'+id).classList.toggle('open'); }
