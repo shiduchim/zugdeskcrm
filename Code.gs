@@ -332,7 +332,7 @@ function scoreContact(c, s) {
     if (/(רק|בעיקר|בציבור)\s*ל?חב["״']?ד/.test(text)) score += 1;
   }
   const ruLang = langs.indexOf('ר') >= 0, ruText = /רוס/.test(text);
-  if (ruLang || ruText) { score += W('W_RUSSIAN') + (ruText ? 1 : 0); why.push(ruText ? 'Works with Russian speakers' : 'Speaks Russian'); }
+  if (ruLang || ruText) { score += W('W_RUSSIAN') + (ruText ? 1 : 0); if (ruLang) why.push('Speaks Russian'); if (ruText) why.push('Works with Russian speakers'); }
   if (langs.indexOf('א') >= 0 || /אמריק|אנגלית/.test(text)) { score += W('W_ENGLISH'); if (/אמריק|אנגלית/.test(text)) why.push('Works with Americans/English'); }
   if (/תשובה|מקורבים/.test(text)) { score += W('W_BT'); why.push('Baalei teshuva'); }
 
