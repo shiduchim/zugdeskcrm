@@ -1,6 +1,12 @@
 # Handoff
 _Last updated: 2026-11-14_
 
+## Email texts (2026-11-14, ~23:30) — waiting for the hourly import + test email
+- Code (pushed): "how I found you" line only for Book/insert contacts; referred → "{by} suggested I write to you"; all others → no line. Unit-tested.
+- Import inbox: `Texts__Settings.csv` (shorter EMAIL_BODY HE/RU/EN for people who may already know him, no "reply remove" line, SOURCE_DIRECTORY/REFERRAL) + `Book__Settings.csv` (EN line without "Chabad"). If Texts was applied after Book, EN may still say "Chabad" → re-upload Book file.
+- Next: user checks Settings → Messages, then Email → Send test email (HE + RU). Offered (not asked yet): shorter follow-up email / profile.
+- Then the phone check (step 1): Filters panel + Back button in Samsung Internet.
+
 ## Tonight (2026-11-14, late) — pushed, not yet seen on a phone
 - Ranking changed (user's choice): Israel first, then Russian speakers above Chabad, crossed out last (fixed tiers in scoreContact; also Today + helper Best first). Tests pass.
 - User turns autopilot ON after 22:00 tonight (test email first); first sends Sunday 9:00 Israel time.
@@ -25,7 +31,6 @@ Left: user sends Mom her link (Settings → Helpers → Copy link) and tests on 
 - Built + pushed (commit 7dbeb29): in-app Messages (preview-first, then edit) and App settings. Deploy result not yet confirmed by Claude; reload the app if the Messages button is missing.
 - Email texts: ONE file `Profile__Settings.csv` is waiting in the Import inbox (hourly job applies it; check it gets renamed "Imported …"). It has: short intro, LONG profile (user's choice) between two divider lines, the ask for other shadchanim + WhatsApp groups (user's explicit change to the 'first message never asks' rule), contact lines on 3 short lines, references, MY_PHONE, MY_WHATSAPP. Old files were trashed in Drive. Then: Settings → Messages to check, Email → Send test email before Sunday 9:00.
 - Idea dropped by the user: emailing shadchan-network websites (ChabadMatch, Rebbetzins, Gateways…) for their lists.
-- Known: the "how I found you" line says "directory" for every contact without a referrer (wrong for Web search / Gmail imports) — needs a code change per Source.
 - Uploaded to Import inbox (processed by the hourly job): Gmail__DoNotContact/Shadchan/Connector/Organization.csv, "Gmail no answer__Other.csv", Profile__Settings.csv. Check the files were renamed "Imported … – N added, N known (N updated)…".
 - Email autopilot: user is turning it ON; first sends Sunday 9:00, ramp 10→20→30→40/day. Ask user to send a test email to himself first to see the new profile + ending.
 - Gmail review sheet "zugdeskcrm – Gmail review" in Drive; working files only in the scratchpad (never the repo).
