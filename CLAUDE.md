@@ -38,6 +38,7 @@ Status: **deployed and running in the shidduchim Google account (first run OK 20
 6. App → Email → Send test email to me → check HE + RU → Turn on autopilot.
 **Updates are automatic:** pushing a change to `Code.gs` / `Index.html` / `appsscript.json` on `main` or the working branch runs `.github/workflows/deploy.yml` → syntax check + `node tests/test.js` → `clasp push` + update of the existing web-app deployment (same link). Needs repo secret `CLASPRC_JSON` (clasp login of the shidduchim account). Never ask the user to paste code. Settings-tab text (messages, profile) is data, not code: the user edits it in the Sheet.
 - Script ID and web-app deployment ID are in `.clasp.json` / the workflow. `.claspignore` uploads only the 3 app files.
+- **Multi-account error:** with several Google accounts signed in, Apps Script links (also the helper link) can fail to open. Test helper links in a private/incognito window; helpers should open them in a private tab or a browser with no Google login. Never tell the user the link is broken before trying that.
 - Phone: user has several Google accounts → the app opens in Samsung Internet logged in only to the shidduchim account (home-screen icon). PC: dedicated Chrome profile.
 
 ---
