@@ -97,7 +97,8 @@ function h_load(k) {
       mine: mine, by: h && !mine ? h.helper : '', tip: tips[row.ID] || '',
       tr: col ? { name: T(row.Name), city: T(row.City), spec: T(row.Specialty), why: String(row.Why || '').split(' · ').map(w => T(w) || w).join(' · ') } : null });
   });
-  return { me: me, items: items, texts: texts, profile: cfg['PROFILE_' + me.lang] || cfg.PROFILE_HE || '' };
+  return { me: me, items: items, texts: texts, profile: cfg['PROFILE_' + me.lang] || cfg.PROFILE_HE || '',
+    profiles: { RU: cfg.PROFILE_RU || '', HE: cfg.PROFILE_HE || '', EN: cfg.PROFILE_EN || '' } };
 }
 
 /** Tapping Call/WhatsApp holds the person for this helper. Someone else holding them → {ok:false, by}. */

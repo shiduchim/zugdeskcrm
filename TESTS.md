@@ -79,3 +79,4 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Helper My calls: results and What next in an even 2-column grid; Save greyed until a result is picked; "names of other shadchanim" box only after We spoke; languages shown as words.
 - [ ] Helper page in Russian starts once with Russian + English + Book ticked; unticking is remembered (English/Hebrew pages start with nothing).
 - [ ] Helper page in Russian, sort Best first: Russian speakers first, then the rest, each in best-match order.
+- [ ] Helper page: "Eliyahu's details:" row with Русский | עברית | English; each copies that language's profile (her own language first); toast names the language.
