@@ -147,4 +147,10 @@ t('csvRows_ keeps multi-line quoted texts (profile settings file)', () => {
   const r = A.csvRows_('key,value\nPROFILE_EN,"*Eliyahu*\n41 • Kohen\n\n*Work:*"\nSENDER_NAME,Eliyahu\n');
   assert.strictEqual(r.length, 2); assert.strictEqual(r[0].value, '*Eliyahu*\n41 • Kohen\n\n*Work:*');
 });
+
+t('toHtml_: only your WhatsApp number opens WhatsApp; the Israeli number opens the dialer', () => {
+  const h = A.toHtml_('call 052-796-3273 or WhatsApp 1-612-888-5778', 'EN', '16128885778');
+  assert.ok(h.includes('href="tel:+972527963273"')); assert.ok(h.includes('href="https://wa.me/16128885778"'));
+  assert.ok(A.toHtml_('052-7963273', 'HE').includes('wa.me/972527963273'));   // default unchanged
+});
 console.log(n + ' checks passed');

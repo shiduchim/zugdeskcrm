@@ -180,13 +180,17 @@ function me_() { return ME_ || (ME_ = Session.getEffectiveUser().getEmail().toLo
 function threadUrl_(tid) { return tid ? 'https://mail.google.com/mail/?authuser=' + encodeURIComponent(me_()) + '#all/' + tid : ''; }
 
 /** Plain text → simple HTML with the right text direction (Hebrew right-to-left). */
-function toHtml_(text, lang) {
+/** wa: which numbers open WhatsApp when tapped — true = all, false = none, or the digits of your WhatsApp number (others open the dialer). */
+function toHtml_(text, lang, wa) {
   const rtl = lang === 'HE';
   const esc = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/\*([^*\n]+)\*/g, '<b>$1</b>')
     .replace(/https?:\/\/[^\s<]+/g, u => '<a href="' + u + '" dir="ltr">' + u + '</a>')
-    .replace(/(^|[^\d-])(1-[2-9]\d{2}-\d{3}-\d{4}|05\d-\d{7})(?![\d-])/g, (m, pre, ph) =>   // phone → tap opens WhatsApp chat
-      pre + '<a href="https://wa.me/' + (ph.startsWith('1-') ? ph.replace(/\D/g, '') : '972' + ph.replace(/\D/g, '').slice(1)) + '" dir="ltr">' + ph + '</a>');
+    .replace(/(^|[^\d-])(1-[2-9]\d{2}-\d{3}-\d{4}|05\d-\d{7}|05\d-\d{3}-\d{4})(?![\d-])/g, (m, pre, ph) => {   // phone → tap opens WhatsApp or the dialer
+      const intl = ph.startsWith('1-') ? ph.replace(/\D/g, '') : '972' + ph.replace(/\D/g, '').slice(1);
+      const isWa = wa === undefined || wa === true || (typeof wa === 'string' && wa === intl);
+      return pre + '<a href="' + (isWa ? 'https://wa.me/' + intl : 'tel:+' + intl) + '" dir="ltr">' + ph + '</a>';
+    });
   return '<div dir="' + (rtl ? 'rtl' : 'ltr') + '" style="direction:' + (rtl ? 'rtl' : 'ltr') + ';text-align:' + (rtl ? 'right' : 'left') +
     ';font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6">' + esc.replace(/\n/g, '<br>') + '</div>';
 }
@@ -458,7 +462,7 @@ function api_askEmail(id) {
   const lang = pickLang_(c, s);
   const body = fill_(s['ASK_EMAIL_' + lang] || s.ASK_EMAIL_HE, { sender: s.SENDER_NAME });
   if (body.trim().length < 20) throw new Error('ASK_EMAIL_' + lang + ' is empty — check the Settings tab');
-  const opts = { name: s.SENDER_NAME, htmlBody: toHtml_(body, lang) };
+  const opts = { name: s.SENDER_NAME, htmlBody: toHtml_(body, lang, waOk_(s)) };
   let theirs = null;
   (c.EmailThreadIds || '').split(',').filter(Boolean).forEach(tid => {
     try { GmailApp.getThreadById(tid).getMessages().forEach(m => { if (m.getFrom().toLowerCase().indexOf(me_()) < 0) theirs = m; }); } catch (e) {}
@@ -1022,7 +1026,7 @@ function api_testEmail() {
   const fake = { Name: 'Test', Languages: 'ע,ר', ReferredBy: '' };
   ['HE', 'RU'].forEach(lang => {
     const m = composeEmail_(fake, s, lang, false);
-    GmailApp.sendEmail(me, '[TEST] ' + m.subject, m.body, { name: s.SENDER_NAME, htmlBody: toHtml_(m.body, lang) });
+    GmailApp.sendEmail(me, '[TEST] ' + m.subject, m.body, { name: s.SENDER_NAME, htmlBody: toHtml_(m.body, lang, waOk_(s)) });
   });
   log_(null, 'Email', 'Test email', 'sent to ' + me);
   return 'Two test emails (Hebrew and Russian) sent to ' + me;
@@ -1056,14 +1060,23 @@ function runJob_(fn) {
   } finally { p.deleteProperty('job_running'); }
 }
 
+/** MY_WHATSAPP: YES (default, every number) / NO / your WhatsApp number (only that one opens WhatsApp). */
+function waOk_(s) {
+  const v = String(s.MY_WHATSAPP || 'YES').trim();
+  if (/^yes$/i.test(v)) return true;
+  if (/^no$/i.test(v)) return false;
+  const p = normPhone_(v); return p ? p.intl : false;
+}
+
 function composeEmail_(c, s, lang, followup) {
   const rawPhone = String(s.MY_PHONE || '').trim(), np = normPhone_(rawPhone);
   const myPhone = np ? (np.intl.startsWith('1') ? '1-' + np.local.slice(3) : np.local) : rawPhone;   // no plus signs; in the email it becomes a tap-to-WhatsApp link
-  const contact = {
+  let contact = {
     HE: myPhone ? 'אפשר להשיב למייל הזה או לכתוב לי בוואטסאפ: ' + myPhone : 'אפשר פשוט להשיב למייל הזה.',
     RU: myPhone ? 'Можно ответить на это письмо или написать мне в WhatsApp: ' + myPhone : 'Можно просто ответить на это письмо.',
     EN: myPhone ? 'You can reply to this email or message me on WhatsApp: ' + myPhone : 'You can simply reply to this email.'
   }[lang];
+  if (s['CONTACT_LINE_' + lang]) contact = fill_(s['CONTACT_LINE_' + lang], { phone: myPhone });   // your own wording (Settings)
   const map = { source_line: sourceLine_(c, s, lang), profile: s['PROFILE_' + lang] || s.PROFILE_HE, contact_line: contact, sender: s.SENDER_NAME };
   const subject = fill_(s['EMAIL_SUBJECT_' + lang] || s.EMAIL_SUBJECT_HE, map);
   const body = fill_(followup ? (s['EMAIL_FOLLOWUP_' + lang] || s.EMAIL_FOLLOWUP_HE) : (s['EMAIL_BODY_' + lang] || s.EMAIL_BODY_HE), map);
@@ -1078,7 +1091,7 @@ function replyInThread_(c, m, lang, s) {
   if (!tid) return null;
   try {
     const msgs = GmailApp.getThreadById(tid).getMessages();
-    const d = msgs[msgs.length - 1].createDraftReplyAll(m.body, { name: s.SENDER_NAME, htmlBody: toHtml_(m.body, lang) });
+    const d = msgs[msgs.length - 1].createDraftReplyAll(m.body, { name: s.SENDER_NAME, htmlBody: toHtml_(m.body, lang, waOk_(s)) });
     if (String(d.getMessage().getTo()).toLowerCase().indexOf(c.Email.trim().toLowerCase()) >= 0) return d.send();
     d.deleteDraft();
   } catch (e) {}
@@ -1132,7 +1145,7 @@ function sendBatch_() {
     try {
       const m = composeEmail_(c, s, lang, item.fu);
       const msg = (item.fu && replyInThread_(c, m, lang, s)) ||
-        GmailApp.createDraft(c.Email.trim(), m.subject, m.body, { name: s.SENDER_NAME, htmlBody: toHtml_(m.body, lang) }).send();
+        GmailApp.createDraft(c.Email.trim(), m.subject, m.body, { name: s.SENDER_NAME, htmlBody: toHtml_(m.body, lang, waOk_(s)) }).send();
       const th = msg.getThread(); th.addLabel(label);
       const ids = c.EmailThreadIds ? c.EmailThreadIds.split(',') : [];
       if (ids.indexOf(th.getId()) < 0) ids.push(th.getId());
@@ -1455,4 +1468,4 @@ function api_newHelperLink(name) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };
+if (typeof module !== 'undefined') module.exports = { toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };
