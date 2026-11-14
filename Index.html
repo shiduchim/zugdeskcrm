@@ -99,6 +99,14 @@ textarea{min-height:80px}
 .fpanel button{min-height:44px;margin-top:4px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2,var(--surface));color:var(--ink);font:inherit;cursor:pointer}
 .filters button b{font-weight:500;opacity:.65;margin-inline-start:6px}
 .status{font-size:12.5px;color:var(--muted)}
+.mhead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.subj{font-weight:600;margin:4px 0 8px}
+.mailbox{background:#fff;color:#111;border:1px solid var(--line);border-radius:10px;padding:14px;overflow-wrap:anywhere}
+.mailbox a{color:#1a0dab;pointer-events:none}
+.wabox{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55}
+.flab{display:block;font-weight:600;margin:14px 2px 6px}
+.fhelp{color:var(--muted);font-size:13px;margin:4px 2px 0}
+.sheet textarea{font-size:16px;line-height:1.5}
 .sheet{position:fixed;inset:0;z-index:20;background:var(--bg);overflow:auto;display:none}
 .sheet.open{display:block}
 .sheet .inner{max-width:720px;margin:0 auto;padding:12px 14px 60px}
@@ -225,6 +233,9 @@ function openSettings(){
   const t = getTheme(), b = (v,l) => `<button class="btn ${t===v?'on':''}" onclick="setTheme('${v}')">${l}</button>`;
   $('#sheetInner').innerHTML = `
     <div class="top"><button class="btn" onclick="closeSheet()">Back</button><span class="status">Settings</span></div>
+    <h2>Messages</h2>
+    <div class="card"><div class="meta">See exactly what shadchanim receive (email, follow-up, WhatsApp) in Hebrew, Russian and English, and change the words.</div>
+      <div class="row"><button class="btn primary" onclick="openMessages()">Messages and profile</button><button class="btn" onclick="openAppSettings()">App settings</button></div></div>
     <h2>Theme</h2>
     <div class="card"><div class="seg">${b('auto','Auto')}${b('light','Light')}${b('dark','Dark')}</div>
       <div class="meta" style="margin-top:8px">Auto follows your phone or computer. Saved on this device.</div></div>
@@ -964,7 +975,7 @@ function renderEmail(s){
     <div class="row">
       <button class="btn" onclick="testEmail()">Send test email to me</button>
       <button class="btn" onclick="checkNow()">Check for replies now</button>
-      <a class="btn quiet" href="${esc(s.sheetUrl)}" target="_blank">Edit messages and settings</a>
+      <button class="btn" onclick="openMessages()">See and edit messages</button>
     </div>`;
 }
 async function setAuto(on){
@@ -973,6 +984,140 @@ async function setAuto(on){
 }
 async function testEmail(){ try{ toast(await run('api_testEmail')); }catch(e){ fail(e); } }
 async function checkNow(){ toast('Checking Gmail…'); try{ renderEmail(await run('api_checkNow')); toast('Done'); }catch(e){ fail(e); } }
+
+/* ---------- messages and settings (see what is sent, edit inside the app) ---------- */
+let SET = null, FLAT = {}, MSGEDIT = {}, APPEDIT = {}, msgLang = 'HE', msgRef = false, edGroup = '';
+const LANGS = [['HE','עברית'],['RU','Русский'],['EN','English']];
+const MSG_GROUPS = [
+  {id:'email1', title:'First email', keys:[['EMAIL_SUBJECT','Subject'],['EMAIL_BODY','Message']], tokens:'{source_line} {profile} {contact_line}'},
+  {id:'email2', title:'Follow-up email', keys:[['EMAIL_FOLLOWUP','Message']]},
+  {id:'wa1', title:'First WhatsApp message', keys:[['WA_INTRO','Message']], tokens:'{source_line} {profile}'},
+  {id:'profile', title:'My profile', keys:[['PROFILE','Profile']], hint:'Goes into the first email and the WhatsApp message. Put *stars* around a word to make it bold.'},
+  {id:'contact', title:'Contact line in emails', keys:[['CONTACT_LINE','Line']], hint:'Phone numbers in it become tap-to-call / tap-to-WhatsApp links.'},
+  {id:'askwa', title:'Ask for more shadchanim – WhatsApp', keys:[['ASK_WA','Message']]},
+  {id:'askem', title:'Ask for more shadchanim – email', keys:[['ASK_SUBJECT','Subject'],['ASK_EMAIL','Message']], tokens:'{sender}'},
+  {id:'refs', title:'References', keys:[['REFERENCES','References']]},
+  {id:'src', title:'"How I found you" line', keys:[['SOURCE_DIRECTORY','From the directory'],['SOURCE_REFERRAL','When someone referred me']], tokens:'{by} = the name of who referred me'},
+  {id:'call', title:'Call script', keys:[['CALL_SCRIPT','Script']], single:true}
+];
+const isMsgKey = k => /^(PROFILE|REFERENCES|EMAIL_SUBJECT|EMAIL_BODY|EMAIL_FOLLOWUP|WA_INTRO|CONTACT_LINE|ASK_WA|ASK_SUBJECT|ASK_EMAIL|SOURCE_DIRECTORY|SOURCE_REFERRAL)_(HE|RU|EN)$/.test(k) || k === 'CALL_SCRIPT';
+async function loadSet(force){
+  if (SET && !force) return;
+  SET = (await run('api_settingsAll')).sections; FLAT = {};
+  SET.forEach(sec => sec.items.forEach(i => FLAT[i.key] = i));
+}
+const msgVal = k => k in MSGEDIT ? MSGEDIT[k] : (FLAT[k] ? FLAT[k].value : '');
+const rowsFor = v => Math.max(2, Math.min(18, String(v).split('\n').length + 1));
+const sheetTop = (title, back) => `<div class="top"><button class="btn" onclick="${back}">Back</button><span class="status">${title}</span></div>`;
+function lockButtons(on){ document.querySelectorAll('button.btn').forEach(b => b.disabled = on); }
+
+async function openMessages(){
+  sheetId = null; histReq++;
+  $('#sheetInner').innerHTML = sheetTop('Messages', 'openSettings()') + '<div class="loading">Loading…</div>';
+  $('#sheet').classList.add('open');
+  try{
+    await loadSet();
+    renderMessages(await run('api_previewMessages', msgLang, MSGEDIT, msgRef ? 'Rabbi Levi' : ''));
+  }catch(e){ fail(e); }
+}
+function setPreviewLang(l){ msgLang = l; openMessages(); }
+function toggleRef(on){ msgRef = on; openMessages(); }
+function renderMessages(p){
+  const dir = msgLang === 'HE' ? 'rtl' : 'ltr', dirty = Object.keys(MSGEDIT).length;
+  const mail = m => m.error ? `<div class="meta">${esc(m.error)}</div>` : `<div class="subj" dir="${dir}">${esc(m.subject)}</div><div class="mailbox">${m.html}</div>`;
+  const card = (title, body, gid) => `<div class="card"><div class="mhead"><b>${title}</b><button class="btn" onclick="openEdit('${gid}')">Edit</button></div>${body}</div>`;
+  const wa = esc(p.wa).replace(/\*([^*\n]+)\*/g, '<b>$1</b>');
+  $('#sheetInner').innerHTML = sheetTop('Messages', 'openSettings()') + `
+    <p class="meta">This is exactly what a shadchan receives. Choose a language:</p>
+    <div class="seg">${LANGS.map(l => `<button class="btn ${msgLang===l[0]?'on':''}" onclick="setPreviewLang('${l[0]}')">${l[1]}</button>`).join('')}</div>
+    <label class="meta" style="display:flex;gap:8px;align-items:center;margin:10px 2px"><input type="checkbox" style="width:auto;min-height:0" ${msgRef?'checked':''} onchange="toggleRef(this.checked)"> Show the version for someone a person referred me to</label>
+    ${dirty ? `<div class="card" style="border-color:var(--amber);background:var(--amber-soft)">You changed ${dirty} text${dirty>1?'s':''} — not saved yet.<div class="row"><button class="btn primary" onclick="saveMsgs()">Save</button><button class="btn" onclick="discardMsgs()">Discard changes</button></div></div>` : ''}
+    ${card('First email', mail(p.email), 'email1')}
+    ${card('Follow-up email (8 days later)', mail(p.followup), 'email2')}
+    ${card('First WhatsApp message', `<div class="wabox" dir="${dir}">${wa}</div>`, 'wa1')}
+    <h2>Other texts</h2>
+    <div class="card"><div class="row" style="margin-top:0">${MSG_GROUPS.slice(3).map(g => `<button class="btn" onclick="openEdit('${g.id}')">${g.title}</button>`).join('')}</div></div>
+    <h2>Test</h2>
+    <div class="card"><div class="meta">Sends the saved first email in Hebrew and Russian to your own address.</div>
+      <div class="row"><button class="btn" onclick="sendTestFromMessages()">Send test email to me</button></div></div>`;
+  $('#sheet').scrollTop = 0;
+}
+function openEdit(gid){ edGroup = gid; renderEdit(); $('#sheet').scrollTop = 0; }
+function setMsgLang(l){ msgLang = l; renderEdit(); }
+function renderEdit(){
+  const g = MSG_GROUPS.find(x => x.id === edGroup);
+  const dir = g.single || msgLang === 'HE' ? 'rtl' : 'ltr';
+  $('#sheetInner').innerHTML = sheetTop(g.title, 'openMessages()') + `
+    ${g.hint ? `<p class="meta">${esc(g.hint)}</p>` : ''}
+    ${g.tokens ? `<p class="meta">Keep these words as they are — the app fills them in: <b dir="ltr">${esc(g.tokens)}</b></p>` : ''}
+    ${g.single ? '' : `<div class="seg">${LANGS.map(l => `<button class="btn ${msgLang===l[0]?'on':''}" onclick="setMsgLang('${l[0]}')">${l[1]}</button>`).join('')}</div>`}
+    ${g.keys.map(kv => { const k = g.single ? kv[0] : kv[0] + '_' + msgLang, v = msgVal(k);
+      return `<label class="flab">${kv[1]}</label><textarea data-k="${k}" dir="${dir}" rows="${rowsFor(v)}" oninput="msgEdit(this)">${esc(v)}</textarea>`; }).join('')}
+    <div class="meta" id="ed-state" style="margin-top:8px"></div>
+    <div class="row"><button class="btn primary" onclick="saveMsgs()">Save</button><button class="btn" onclick="openMessages()">See how it looks</button></div>`;
+}
+function msgEdit(el){
+  const k = el.dataset.k, saved = FLAT[k] ? FLAT[k].value : '';
+  if (el.value === saved) delete MSGEDIT[k]; else MSGEDIT[k] = el.value;
+  $('#ed-state').textContent = Object.keys(MSGEDIT).length ? 'Not saved yet' : '';
+}
+function discardMsgs(){ MSGEDIT = {}; openMessages(); }
+async function saveMsgs(){
+  if (busy) return; busy = true; lockButtons(true);
+  try{
+    const keys = Object.keys(MSGEDIT), r = await run('api_saveSettings', MSGEDIT);
+    keys.forEach(k => { FLAT[k] = Object.assign({key:k, help:''}, FLAT[k], {value: MSGEDIT[k]}); });
+    MSGEDIT = {}; toast(r.saved ? 'Saved' : 'Nothing changed');
+    if (keys.some(k => /^(PROFILE|REFERENCES)_|^CALL_SCRIPT$/.test(k))) loadToday();   // Copy profile / references buttons use the new text
+    busy = false; openMessages();
+  }catch(e){ fail(e); }
+  finally{ busy = false; lockButtons(false); }
+}
+async function sendTestFromMessages(){
+  if (Object.keys(MSGEDIT).length) { toast('Save your changes first — the test sends the saved version'); return; }
+  try{ toast(await run('api_testEmail')); }catch(e){ fail(e); }
+}
+
+/* App settings: every other value from the Settings tab */
+async function openAppSettings(){
+  sheetId = null; histReq++;
+  $('#sheetInner').innerHTML = sheetTop('App settings', 'openSettings()') + '<div class="loading">Loading…</div>';
+  $('#sheet').classList.add('open');
+  try{ await loadSet(true); APPEDIT = {}; renderAppSettings(); }catch(e){ fail(e); }
+}
+function renderAppSettings(){
+  const label = k => { const t = k.replace(/_/g, ' ').toLowerCase(); return t.charAt(0).toUpperCase() + t.slice(1); };
+  const field = i => {
+    const v = i.key in APPEDIT ? APPEDIT[i.key] : i.value;
+    const input = /^(YES|NO)$/i.test(i.value)
+      ? `<select data-k="${i.key}" onchange="appEdit(this)"><option ${/^yes$/i.test(v)?'selected':''}>YES</option><option ${/^no$/i.test(v)?'selected':''}>NO</option></select>`
+      : `<input data-k="${i.key}" dir="auto" value="${esc(v)}" ${/^\d+$/.test(i.value)?'inputmode="numeric"':''} oninput="appEdit(this)">`;
+    return `<label class="flab">${esc(label(i.key))}</label>${input}${i.help ? `<div class="fhelp">${esc(i.help)}</div>` : ''}`;
+  };
+  const secs = SET.map(sec => ({title: sec.title, items: sec.items.filter(i => !isMsgKey(i.key) && i.key !== 'AUTO_EMAIL')})).filter(sec => sec.items.length);
+  $('#sheetInner').innerHTML = sheetTop('App settings', 'openSettings()') + `
+    <p class="meta">Autopilot on/off is on the Email screen. Careful with the Autopilot values — the app follows them exactly.</p>
+    ${secs.map(sec => `<h2>${esc(sec.title)}</h2><div class="card">${sec.items.map(field).join('')}</div>`).join('')}
+    <div class="meta" id="app-state" style="margin-top:8px"></div>
+    <div class="row"><button class="btn primary" onclick="saveApp()">Save</button></div>`;
+  $('#sheet').scrollTop = 0;
+}
+function appEdit(el){
+  const k = el.dataset.k;
+  if (el.value === (FLAT[k] ? FLAT[k].value : '')) delete APPEDIT[k]; else APPEDIT[k] = el.value;
+  $('#app-state').textContent = Object.keys(APPEDIT).length ? 'Not saved yet' : '';
+}
+async function saveApp(){
+  if (busy) return; busy = true; lockButtons(true);
+  try{
+    const keys = Object.keys(APPEDIT), r = await run('api_saveSettings', APPEDIT);
+    keys.forEach(k => { FLAT[k] = Object.assign({key:k, help:''}, FLAT[k], {value: APPEDIT[k]}); });
+    APPEDIT = {}; toast(r.saved ? 'Saved' : 'Nothing changed');
+    if (keys.length) loadToday();
+    busy = false; renderAppSettings();
+  }catch(e){ fail(e); }
+  finally{ busy = false; lockButtons(false); }
+}
 
 loadToday();
 </script>

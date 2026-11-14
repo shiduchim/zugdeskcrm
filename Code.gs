@@ -232,6 +232,37 @@ function setSetting_(key, value) {
   for (let i = 1; i < vals.length; i++) if (String(vals[i][0]).trim() === key) { sh.getRange(i + 1, 2).setValue(value); return; }
   sh.appendRow([key, value, '']);
 }
+/** Pure: Settings rows → sections [{title, items:[{key, value, help}]}]. A row like "— AUTOPILOT —" starts a section. */
+function settingsSections_(vals) {
+  const out = []; let cur = null;
+  vals.slice(1).forEach(r => {
+    const k = String(r[0] == null ? '' : r[0]).trim();
+    if (!k) return;
+    if (k.charAt(0) === '—') {
+      const t = k.replace(/—/g, '').trim().toLowerCase();
+      cur = { title: t.charAt(0).toUpperCase() + t.slice(1), items: [] }; out.push(cur); return;
+    }
+    if (!cur) { cur = { title: 'Other', items: [] }; out.push(cur); }
+    cur.items.push({ key: k, value: r[1] instanceof Date ? str_(r[1]) : String(r[1] == null ? '' : r[1]), help: String(r[2] == null ? '' : r[2]) });
+  });
+  return out;
+}
+/** Pure: which Settings cells to change. Known keys are updated, new text keys appended, AUTO_EMAIL and anything unknown skipped. */
+function settingsPatch_(vals, changes) {
+  const rowOf = {};
+  vals.forEach((r, i) => { if (i > 0 && r[0]) rowOf[String(r[0]).trim()] = i + 1; });
+  const writes = [], appends = [], skipped = [];
+  Object.keys(changes || {}).forEach(k => {
+    const v = String(changes[k] == null ? '' : changes[k]).replace(/\r\n/g, '\n');
+    if (k === 'AUTO_EMAIL' || k.charAt(0) === '—') { skipped.push(k); return; }
+    if (rowOf[k]) {
+      const old = String(vals[rowOf[k] - 1][1] == null ? '' : vals[rowOf[k] - 1][1]);
+      if (old !== v) writes.push({ row: rowOf[k], key: k, value: v, old: old });
+    } else if (TEXT_KEYS.test(k)) appends.push({ key: k, value: v, old: '' });
+    else skipped.push(k);
+  });
+  return { writes: writes, appends: appends, skipped: skipped };
+}
 function num_(s, k, d) { const n = parseFloat(s[k]); return isNaN(n) ? d : n; }
 function list_(s, k) { return String(s[k] || '').split(',').map(x => x.trim()).filter(Boolean); }
 
@@ -1032,6 +1063,41 @@ function api_testEmail() {
   return 'Two test emails (Hebrew and Russian) sent to ' + me;
 }
 
+/** Everything in the Settings tab, grouped (for the in-app Messages and Settings screens). */
+function api_settingsAll() {
+  return { sections: settingsSections_(ss_().getSheetByName('Settings').getDataRange().getValues()) };
+}
+
+const PLAN_KEYS = /^(CALLS_PER_DAY|WA_PER_DAY|CHECKINS_PER_DAY|MAX_ATTEMPTS|W_\w+|MY_AGE|MY_CITY|NEAR_CITIES|CHABAD_CITIES|RUSSIAN_FOR_RUSSIAN_SPEAKERS|SKIP_ZUGDESK)$/;
+/** Save changed settings from the app. The old value of each is kept in the Log. AUTO_EMAIL only changes through the autopilot button. */
+function api_saveSettings(changes) {
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const sh = ss_().getSheetByName('Settings');
+    const p = settingsPatch_(sh.getDataRange().getValues(), changes || {});
+    p.writes.forEach(w => sh.getRange(w.row, 2).setValue(w.value));
+    p.appends.forEach(w => sh.appendRow([w.key, w.value, '']));
+    const all = p.writes.concat(p.appends);
+    all.forEach(w => log_(null, 'Settings', 'Changed ' + w.key, 'from the app. Old value: ' + (w.old || '(empty)')));
+    if (all.some(w => PLAN_KEYS.test(w.key))) PropertiesService.getScriptProperties().deleteProperty('plan_' + today_());
+    return { saved: all.length, skipped: p.skipped };
+  } finally { lock.releaseLock(); }
+}
+
+/** Exactly what a shadchan would receive, for one language. `draft` = unsaved edits (key → text); `referredBy` shows the "referred" version. */
+function api_previewMessages(lang, draft, referredBy) {
+  lang = ['HE', 'RU', 'EN'].indexOf(lang) >= 0 ? lang : 'HE';
+  const s = Object.assign(settings_(), draft || {});
+  const fake = { Name: 'Test', Languages: 'ע,ר', ReferredBy: String(referredBy || '') };
+  const out = { lang: lang };
+  [['email', false], ['followup', true]].forEach(a => {
+    try { const m = composeEmail_(fake, s, lang, a[1]); out[a[0]] = { subject: m.subject, html: toHtml_(m.body, lang, waOk_(s)) }; }
+    catch (e) { out[a[0]] = { error: String(e.message || e) }; }
+  });
+  out.wa = waText_(fake, s, lang);
+  return out;
+}
+
 function api_checkNow() { runJob_(scanReplies_); return api_status(); }
 
 /* ------------------------------------------------------------------ */
@@ -1468,4 +1534,4 @@ function api_newHelperLink(name) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };
+if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };

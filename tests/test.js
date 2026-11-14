@@ -153,4 +153,25 @@ t('toHtml_: only your WhatsApp number opens WhatsApp; the Israeli number opens t
   assert.ok(h.includes('href="tel:+972527963273"')); assert.ok(h.includes('href="https://wa.me/16128885778"'));
   assert.ok(A.toHtml_('052-7963273', 'HE').includes('wa.me/972527963273'));   // default unchanged
 });
+const SETROWS = [['Key', 'Value', 'Explanation'], ['— AUTOPILOT —', '', ''], ['AUTO_EMAIL', 'OFF', 'on/off'], ['EMAILS_PER_DAY', '10', 'Max per day'],
+  ['— TODAY PLAN —', '', ''], ['WA_PER_DAY', '10', ''], ['EMAIL_BODY_HE', 'שלום', ''], ['MY_PHONE', '052-796-3273', '']];
+t('settingsSections_: groups rows under their headers, with explanations', () => {
+  const s = A.settingsSections_(SETROWS);
+  assert.deepStrictEqual(s.map(x => x.title), ['Autopilot', 'Today plan']);
+  assert.strictEqual(s[0].items[1].key, 'EMAILS_PER_DAY'); assert.strictEqual(s[0].items[1].help, 'Max per day');
+  assert.strictEqual(s[1].items.length, 3);
+});
+t('settingsPatch_: changes only what differs; AUTO_EMAIL, headers and unknown keys are refused', () => {
+  const p = A.settingsPatch_(SETROWS, { EMAILS_PER_DAY: '20', WA_PER_DAY: '10', AUTO_EMAIL: 'ON', '— X —': 'y', NOPE: '1', EMAIL_BODY_HE: 'a\r\nb' });
+  assert.deepStrictEqual(p.writes.map(w => [w.key, w.row, w.old, w.value]), [['EMAILS_PER_DAY', 4, '10', '20'], ['EMAIL_BODY_HE', 7, 'שלום', 'a\nb']]);
+  assert.deepStrictEqual(p.skipped.sort(), ['AUTO_EMAIL', 'NOPE', '— X —'].sort());
+});
+t('settingsPatch_: a new message text key is appended, an unknown plain key is not', () => {
+  const p = A.settingsPatch_(SETROWS, { CONTACT_LINE_EN: 'Reply here', SOMETHING_ELSE: 'x' });
+  assert.deepStrictEqual(p.appends.map(w => w.key), ['CONTACT_LINE_EN']); assert.deepStrictEqual(p.skipped, ['SOMETHING_ELSE']);
+});
+t('settingsPatch_: MY_PHONE keeps its leading zero as text', () => {
+  const p = A.settingsPatch_(SETROWS, { MY_PHONE: '050-1234567' });
+  assert.strictEqual(p.writes[0].value, '050-1234567');
+});
 console.log(n + ' checks passed');

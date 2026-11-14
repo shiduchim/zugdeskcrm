@@ -11,6 +11,8 @@ Friends/family/hired people call shadchanim with a personal link (no Google logi
 - Built + tested in Node (17 checks); main app auto-deploys. Not done yet: user one-time steps: (1) Settings → Helpers → Set up helpers, (2) helpers' sheet → Extensions → Apps Script → Project Settings → Script ID to Claude → Claude adds helper/.clasp.json, (3) Deploy → New deployment → Web app, Me, Anyone → URL to Claude → Claude sets HELPER_URL in Code.gs + HELPER_DEPLOYMENT_ID in deploy.yml, (4) add Mom, test on her iPhone (TESTS.md Helpers).
 
 ## Now (2026-11-14)
+- Built: in-app Messages (preview-first + edit) and App settings; shorter emails (intro, short profile, ask for other shadchanim + WhatsApp groups, contact line on 3 short lines) uploaded to the Import inbox as Profile__Settings.csv (applied by the hourly job). User to check the renamed file, then send a test email before Sunday.
+- Known: the "how I found you" line says "directory" for every contact without a referrer (wrong for Web search / Gmail imports) — needs a code change per Source.
 - Uploaded to Import inbox (processed by the hourly job): Gmail__DoNotContact/Shadchan/Connector/Organization.csv, "Gmail no answer__Other.csv", Profile__Settings.csv. Check the files were renamed "Imported … – N added, N known (N updated)…".
 - Email autopilot: user is turning it ON; first sends Sunday 9:00, ramp 10→20→30→40/day. Ask user to send a test email to himself first to see the new profile + ending.
 - Gmail review sheet "zugdeskcrm – Gmail review" in Drive; working files only in the scratchpad (never the repo).

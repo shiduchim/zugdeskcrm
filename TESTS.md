@@ -64,3 +64,6 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Contact card → Details: Country field saves
 - [ ] After an import, a contact you already had keeps its group (e.g. Book) and gets the new note added once (not twice)
 - [ ] Email screen shows "up to 10 a day today, rising each week to 40" after turning the autopilot on; Settings tab has EMAILS_PER_DAY 10, EMAILS_PER_DAY_MAX 40, EMAIL_RAMP YES
+- [ ] Settings → Messages and profile: preview shows the first email, follow-up and WhatsApp message in Hebrew / Russian / English (tick "referred" shows the referral line); Edit → change a text → "See how it looks" shows the unsaved version with a banner → Save writes it to the Settings tab (old value in Log)
+- [ ] Settings → App settings: change e.g. emails per day → Save; AUTO_EMAIL is not listed (only the Email screen switches autopilot); Email screen → "See and edit messages" opens Messages
+- [ ] Node: settingsSections_ / settingsPatch_ (tests/test.js)
