@@ -3,19 +3,18 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="referrer" content="no-referrer"><title>Shidduch calls</title>
 <style>
-:root{--bg:#EEF2F6;--card:#FFF;--ink:#1B2733;--muted:#5B6B7B;--line:#D3DCE5;--blue:#2B67A8;--blue-ink:#FFF;--green:#2F7A4F;--green-soft:#DDF0E4;--amber:#9A6A12;--amber-soft:#F6EBD3;--red:#A23B32;color-scheme:light}
-@media (prefers-color-scheme:dark){:root{--bg:#121A22;--card:#1B2631;--ink:#E6EDF3;--muted:#9AAABA;--line:#2C3A48;--blue:#5B9BE0;--blue-ink:#0E1620;--green:#6BC28F;--green-soft:#1C3328;--amber:#E0B35E;--amber-soft:#3A2F1A;--red:#E58A80;color-scheme:dark}}
+:root{--bg:#EEF2F6;--card:#FFF;--ink:#1B2733;--muted:#5B6B7B;--line:#D3DCE5;--blue:#2B67A8;--blue-ink:#FFF;--green:#2F7A4F;--green-ink:#FFF;--green-soft:#DDF0E4;--amber:#9A6A12;--amber-soft:#F6EBD3;--red:#A23B32;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#121A22;--card:#1B2631;--ink:#E6EDF3;--muted:#9AAABA;--line:#2C3A48;--blue:#5B9BE0;--blue-ink:#0E1620;--green:#6BC28F;--green-ink:#0E1620;--green-soft:#1C3328;--amber:#E0B35E;--amber-soft:#3A2F1A;--red:#E58A80;color-scheme:dark}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.45 -apple-system,"Segoe UI",Rubik,Arial,sans-serif}
 main{max-width:640px;margin:0 auto;padding:12px 16px 80px}
 h1{font-size:21px;margin:6px 0 2px}
 .muted{color:var(--muted);font-size:15px}
-.tabs{display:flex;gap:8px;margin:14px 0 10px}
-.tabs button{flex:1}
 button,.btn{min-height:48px;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:16px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .on{background:var(--blue);color:var(--blue-ink);border-color:var(--blue)}
 .primary{background:var(--blue);color:var(--blue-ink);border-color:var(--blue);font-weight:600}
-.good{background:var(--green);color:#fff;border-color:var(--green)}
+.good{background:var(--green);color:var(--green-ink);border-color:var(--green)}
+button:disabled{opacity:.45;cursor:default}
 .quiet{border-color:transparent;background:transparent;color:var(--muted)}
 .danger{color:var(--red)}
 input,textarea,select{width:100%;font:inherit;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
@@ -24,7 +23,7 @@ select{margin-bottom:10px;min-height:44px}
 .bar{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
 .bar > *{flex:1 1 auto;width:auto;margin:0;min-height:44px}
 .bar select{flex:1 1 150px}
-.bar > button:first-child{flex:0 1 auto;min-width:120px}
+.bar > *{flex:1 1 0}
 .chipsf{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}
 .fchip{min-height:44px;padding:6px 12px;border-radius:999px;font-size:15px;background:var(--bg)}
 .fchip svg,.slash{width:16px;height:16px;flex:none;opacity:.7}
@@ -58,6 +57,20 @@ label{display:block;margin:12px 0 4px;font-size:15px;color:var(--muted)}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90%}
 .toast.show{opacity:1}
 .center{text-align:center;padding:40px 10px}
+.top{display:flex;align-items:center;gap:10px;margin:4px 0 2px}
+.top h1{flex:1;margin:0}
+.trsw{display:inline-flex;height:32px;border:1px solid var(--line);border-radius:999px;overflow:hidden;flex:none;background:var(--card)}
+.trsw button{min-height:0;height:100%;padding:0 12px;border:0;border-radius:0;font-size:13px;background:transparent}
+.trsw button.on{background:var(--blue);color:var(--blue-ink)}
+.seg{display:flex;gap:4px;padding:4px;background:var(--line);border-radius:14px;position:sticky;top:0;z-index:5;margin:10px 0 4px;box-shadow:0 0 0 8px var(--bg)}
+.seg button{flex:1;border:0;background:transparent;font-weight:600;color:var(--muted);min-height:48px;border-radius:10px}
+.seg button.cur{background:var(--card);color:var(--blue);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.links{display:flex;flex-wrap:wrap;gap:4px 16px;margin:0 0 4px}
+.links button{min-height:44px;padding:4px 2px;border:0;background:transparent;color:var(--blue);text-decoration:underline;text-underline-offset:3px;font-size:15px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.card .row .primary{min-height:52px;font-size:17px}
+.fchip.on{background:var(--blue);color:var(--blue-ink);border-color:var(--blue)}
+.orig{font-size:14px;margin:-2px 0 2px}
 </style>
 </head>
 <body>
@@ -69,32 +82,32 @@ const EXEC_URL = 'https://script.google.com/macros/s/AKfycbxjzT6OUMaH1CIajHS09t5
 const INSIDE = typeof google !== 'undefined' && google.script && google.script.run;
 const KEY = (INSIDE ? document.getElementById('app').dataset.k : (location.hash.match(/k=([A-Za-z0-9]+)/) || [])[1] || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 64);
 const L = {
- RU:{title:'Звонки шадханам',hello:'Здравствуйте, {name}!',mine:'Мои звонки',all:'Список',search:'Поиск: имя, город…',call:'Позвонить',wa:'WhatsApp',
+ RU:{title:'Звонки шадханам',listOf:'Список: {name}',hello:'Здравствуйте, {name}!',mine:'Мои звонки',all:'Список',search:'Поиск: имя, город…',call:'Позвонить',wa:'WhatsApp',
    script:'Что сказать',profile:'Скопировать данные Элияху',copied:'Скопировано',busy:'{name} уже звонит',tip:'Заметка',giveBack:'Вернуть в список',
    save:'Сохранить',saved:'Сохранено, спасибо!',notes:'Что узнали (можно голосом — значок микрофона на клавиатуре)',names:'Имена и телефоны других шадханов, если дали',
    nextQ:'Что дальше?',next_profile:'Отправить данные Элияху',next_call:'Пусть Элияху позвонит',next_:'Ничего',
    res_spoke:'Поговорили',res_noanswer:'Не ответили',res_callback:'Перезвонить позже',res_wrong:'Неверный номер',res_inactive:'Больше не занимается',res_stop:'Просили не звонить',
    pick:'Выберите результат',hours:'Часы',empty:'Сейчас некого звонить. Спасибо!',emptyMine:'Нажмите «Позвонить» в списке — человек появится здесь.',
-   more:'Показать ещё',link:'Ссылка не работает. Попросите новую у Элияху.',err:'Что-то пошло не так: ',taken:'{name} уже взял(а) этого человека',orig:'Оригинал',trans:'Русский',sort:'Сортировка',s_best:'Лучшие сначала',s_city:'Город',s_name:'Имя',s_ru:'Русскоязычные сначала',s_src:'Источник',filters:'Фильтры',done:'Готово',reset:'Сбросить',showN:'Показать: {n}',findCity:'Найти город',g_city:'Город',g_lang:'Язык',g_src:'Источник',g_more:'Ещё',remove:'Убрать',filter:'Фильтр',f_city:'Все города',f_lang:'Все языки',f_src:'Все источники',f_mob:'Только мобильные',f_clear:'Сбросить фильтры',lg_ru:'Русский',lg_en:'Английский',lg_he:'Иврит',lg_yi:'Идиш',lg_fr:'Французский',lg_es:'Испанский'},
- HE:{title:'שיחות לשדכנים',hello:'שלום {name}!',mine:'השיחות שלי',all:'רשימה',search:'חיפוש: שם, עיר…',call:'להתקשר',wa:'וואטסאפ',
+   more:'Показать ещё',link:'Ссылка не работает. Попросите новую у Элияху.',err:'Что-то пошло не так: ',taken:'{name} уже взял(а) этого человека',orig:'Оригинал',trans:'Русский',sort:'Сортировка',s_best:'Лучшие сначала',s_city:'Город',s_name:'Имя',s_ru:'Русскоязычные сначала',s_src:'Источник',filters:'Фильтры',done:'Готово',reset:'Сбросить',showN:'Показать: {n}',findCity:'Найти город',g_city:'Город',g_country:'Страна',c_unknown:'Не указана',g_lang:'Язык',g_src:'Источник',g_more:'Ещё',remove:'Убрать',filter:'Фильтр',f_city:'Все города',f_lang:'Все языки',f_src:'Все источники',f_mob:'Только мобильные',f_clear:'Сбросить фильтры',lg_ru:'Русский',lg_en:'Английский',lg_he:'Иврит',lg_yi:'Идиш',lg_fr:'Французский',lg_es:'Испанский'},
+ HE:{title:'שיחות לשדכנים',listOf:'הרשימה של {name}',hello:'שלום {name}!',mine:'השיחות שלי',all:'רשימה',search:'חיפוש: שם, עיר…',call:'להתקשר',wa:'וואטסאפ',
    script:'מה לומר',profile:'להעתיק את הפרטים של אליהו',copied:'הועתק',busy:'{name} כבר מתקשר/ת',tip:'הערה',giveBack:'להחזיר לרשימה',
    save:'שמירה',saved:'נשמר, תודה!',notes:'מה נאמר (אפשר בקול – המיקרופון במקלדת)',names:'שמות וטלפונים של שדכנים נוספים, אם נתנו',
    nextQ:'מה הלאה?',next_profile:'לשלוח את הפרטים של אליהו',next_call:'שאליהו יתקשר',next_:'כלום',
    res_spoke:'דיברנו',res_noanswer:'לא ענו',res_callback:'להתקשר שוב אחר כך',res_wrong:'מספר שגוי',res_inactive:'כבר לא פעיל/ה',res_stop:'ביקשו לא להתקשר',
    pick:'בחר/י תוצאה',hours:'שעות',empty:'אין כרגע למי להתקשר. תודה!',emptyMine:'לחצו "להתקשר" ברשימה – האדם יופיע כאן.',
-   more:'עוד',link:'הקישור לא פעיל. בקשו קישור חדש מאליהו.',err:'משהו השתבש: ',taken:'{name} כבר לקח/ה את האדם הזה',sort:'מיון',s_best:'הכי מתאימים קודם',s_city:'עיר',s_name:'שם',s_ru:'דוברי רוסית קודם',s_src:'מקור',filters:'סינון',done:'סיום',reset:'איפוס',showN:'הצגת {n}',findCity:'חיפוש עיר',g_city:'עיר',g_lang:'שפה',g_src:'מקור',g_more:'עוד',remove:'הסרה',filter:'סינון',f_city:'כל הערים',f_lang:'כל השפות',f_src:'כל המקורות',f_mob:'רק ניידים',f_clear:'ניקוי סינון',lg_ru:'רוסית',lg_en:'אנגלית',lg_he:'עברית',lg_yi:'יידיש',lg_fr:'צרפתית',lg_es:'ספרדית'},
- EN:{title:'Shadchan calls',hello:'Hello {name}!',mine:'My calls',all:'List',search:'Search: name, city…',call:'Call',wa:'WhatsApp',
+   more:'עוד',link:'הקישור לא פעיל. בקשו קישור חדש מאליהו.',err:'משהו השתבש: ',taken:'{name} כבר לקח/ה את האדם הזה',sort:'מיון',s_best:'הכי מתאימים קודם',s_city:'עיר',s_name:'שם',s_ru:'דוברי רוסית קודם',s_src:'מקור',filters:'סינון',done:'סיום',reset:'איפוס',showN:'הצגת {n}',findCity:'חיפוש עיר',g_city:'עיר',g_country:'מדינה',c_unknown:'לא ידוע',g_lang:'שפה',g_src:'מקור',g_more:'עוד',remove:'הסרה',filter:'סינון',f_city:'כל הערים',f_lang:'כל השפות',f_src:'כל המקורות',f_mob:'רק ניידים',f_clear:'ניקוי סינון',lg_ru:'רוסית',lg_en:'אנגלית',lg_he:'עברית',lg_yi:'יידיש',lg_fr:'צרפתית',lg_es:'ספרדית'},
+ EN:{title:'Shadchan calls',listOf:"{name}'s list",hello:'Hello {name}!',mine:'My calls',all:'List',search:'Search: name, city…',call:'Call',wa:'WhatsApp',
    script:'What to say',profile:'Copy Eliyahu\'s details',copied:'Copied',busy:'{name} is calling',tip:'Note',giveBack:'Give back to the list',
    save:'Save',saved:'Saved, thank you!',notes:'What you heard (you can speak it: microphone on the keyboard)',names:'Names and numbers of other shadchanim, if they gave any',
    nextQ:'What next?',next_profile:'Send Eliyahu\'s details',next_call:'Eliyahu should call',next_:'Nothing',
    res_spoke:'We spoke',res_noanswer:'No answer',res_callback:'Call back later',res_wrong:'Wrong number',res_inactive:'Not active anymore',res_stop:'Asked not to call',
    pick:'Pick a result',hours:'Hours',empty:'Nobody to call right now. Thank you!',emptyMine:'Tap "Call" in the list and the person appears here.',
-   more:'Show more',link:'This link is not active. Ask Eliyahu for a new one.',err:'Something went wrong: ',taken:'{name} already took this person',orig:'Original',trans:'English',sort:'Sort',s_best:'Best match first',s_city:'City',s_name:'Name',s_ru:'Russian speakers first',s_src:'Source',filters:'Filters',done:'Done',reset:'Reset',showN:'Show {n} people',findCity:'Find a city',g_city:'City',g_lang:'Language',g_src:'Source',g_more:'More',remove:'Remove',filter:'Filter',f_city:'All cities',f_lang:'All languages',f_src:'All sources',f_mob:'Mobile only',f_clear:'Clear filters',lg_ru:'Russian',lg_en:'English',lg_he:'Hebrew',lg_yi:'Yiddish',lg_fr:'French',lg_es:'Spanish'}
+   more:'Show more',link:'This link is not active. Ask Eliyahu for a new one.',err:'Something went wrong: ',taken:'{name} already took this person',orig:'Original',trans:'English',sort:'Sort',s_best:'Best match first',s_city:'City',s_name:'Name',s_ru:'Russian speakers first',s_src:'Source',filters:'Filters',done:'Done',reset:'Reset',showN:'Show {n} people',findCity:'Find a city',g_city:'City',g_country:'Country',c_unknown:'Unknown',g_lang:'Language',g_src:'Source',g_more:'More',remove:'Remove',filter:'Filter',f_city:'All cities',f_lang:'All languages',f_src:'All sources',f_mob:'Mobile only',f_clear:'Clear filters',lg_ru:'Russian',lg_en:'English',lg_he:'Hebrew',lg_yi:'Yiddish',lg_fr:'French',lg_es:'Spanish'}
 };
 let showTr = true; try { showTr = localStorage.getItem('h_tr') !== '0'; } catch(e){}
 let sortBy = 'best'; try { sortBy = localStorage.getItem('h_sort') || 'best'; } catch(e){}
-const FL0 = () => ({city:[], lang:[], src:[], mob:false});
-let fl = FL0(); try { const o = JSON.parse(localStorage.getItem('h_fl') || '{}'); ['city','lang','src'].forEach(k => fl[k] = [].concat(o[k] || []).filter(Boolean)); fl.mob = !!o.mob; } catch(e){}
+const FL0 = () => ({country:[], city:[], lang:[], src:[], mob:false});
+let fl = FL0(); try { const o = JSON.parse(localStorage.getItem('h_fl') || '{}'); ['country','city','lang','src'].forEach(k => fl[k] = [].concat(o[k] || []).filter(Boolean)); fl.mob = !!o.mob; } catch(e){}
 if (['best','city','name'].indexOf(sortBy) < 0) sortBy = 'best';
 let sheetOpen = false;
 const LANGS = {ru:'ר', en:'א', he:'ע', yi:'י', fr:'צ', es:'ס'};
@@ -126,12 +139,12 @@ function render(){
   const list = D.items.filter(x => !x.mine && passes(x) && (!ql || (x.name + ' ' + x.city + ' ' + x.spec + ' ' + (x.tr ? x.tr.name + ' ' + x.tr.city + ' ' + x.tr.spec : '')).toLowerCase().indexOf(ql) >= 0))
     .map((x, i) => Object.assign(x, { rank: i })).sort(sorter());
   const hasTr = D.items.some(x => x.tr);
-  let h = (hasTr ? `<div class="tabs"><button class="${!showTr?'on':''}" onclick="setTr(false)">${esc(t('orig'))}</button><button class="${showTr?'on':''}" onclick="setTr(true)">${esc(t('trans'))}</button></div>` : '') +
-    `<h1>${esc(t('title'))}</h1><div class="muted">${esc(t('hello', {name: D.me.name}))}</div>
-    <div class="row"><button onclick="toggle('scr')">${esc(t('script'))}</button>${D.profile ? `<button onclick="copyProfile()">${esc(t('profile'))}</button>` : ''}</div>
-    <div class="script" id="scr" dir="auto">${esc(scriptText())}</div>
-    <div class="tabs"><button class="${tab==='mine'?'on':''}" onclick="setTab('mine')">${esc(t('mine'))} (${mine.length})</button>
-      <button class="${tab==='all'?'on':''}" onclick="setTab('all')">${esc(t('all'))} (${list.length})</button></div>`;
+  let h = `<div class="top"><h1 dir="auto">${esc(t('listOf', {name: D.me.name}))}</h1>` +
+    (hasTr ? `<div class="trsw"><button class="${!showTr?'on':''}" aria-pressed="${!showTr}" onclick="setTr(false)">${esc(t('orig'))}</button><button class="${showTr?'on':''}" aria-pressed="${showTr}" onclick="setTr(true)">${esc(t('trans'))}</button></div>` : '') + `</div>
+    <div class="seg" role="tablist"><button role="tab" aria-selected="${tab==='mine'}" class="${tab==='mine'?'cur':''}" onclick="setTab('mine')">${esc(t('mine'))} (${mine.length})</button>
+      <button role="tab" aria-selected="${tab==='all'}" class="${tab==='all'?'cur':''}" onclick="setTab('all')">${esc(t('all'))} (${list.length})</button></div>
+    <div class="links"><button onclick="toggle('scr')">${esc(t('script'))}</button>${D.profile ? `<button onclick="copyProfile()">${esc(t('profile'))}</button>` : ''}</div>
+    <div class="script" id="scr" dir="auto">${esc(scriptText())}</div>`;
   if (tab === 'mine') h += mine.length ? mine.map(cardHtml).join('') : `<div class="center muted">${esc(t('emptyMine'))}</div>`;
   else {
     h += `<input id="q" dir="auto" placeholder="${esc(t('search'))}" value="${esc(q)}" oninput="q=this.value;shown=40;renderKeep()">`;
@@ -155,15 +168,27 @@ function sorter(){
 }
 // filters: one Filters button opens a sheet (bottom on phone, side on PC); list updates live; tags above the list remove one filter
 const SLASH = '<svg class="slash" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="3.6" y1="12.4" x2="12.4" y2="3.6" stroke="currentColor" stroke-width="1.6"/></svg>';
+// country: the contact's Country field, else from the phone code
+const CTRY = [['Israel',/^(israel|isr|il|ישראל|израиль)$/],['USA',/^(usa|us|u\.s\.a?\.?|united states|america|сша|ארה"?ב|ארה״ב|ארצות הברית)$/],['Canada',/^(canada|канада|קנדה)$/],
+  ['UK',/^(uk|u\.k\.|england|united kingdom|great britain|англия|великобритания|אנגליה|בריטניה)$/],['Russia',/^(russia|россия|רוסיה)$/],['Ukraine',/^(ukraine|украина|אוקראינה)$/],['France',/^(france|франция|צרפת)$/]];
+const CTRY_L = {Israel:['Израиль','ישראל'],USA:['США','ארה״ב'],Canada:['Канада','קנדה'],UK:['Великобритания','בריטניה'],Russia:['Россия','רוסיה'],Ukraine:['Украина','אוקראינה'],France:['Франция','צרפת']};
+function countryOf(x){
+  const s = String(x.country || '').trim();
+  if (s) { const m = CTRY.find(c => c[1].test(s.toLowerCase())); return m ? m[0] : s; }
+  const d = String(((x.phones || [])[0] || {}).tel || '').replace(/\D/g, '');
+  return /^972/.test(d) ? 'Israel' : /^1/.test(d) ? 'USA' : '?';
+}
+function countryLabel(v){ if (v === '?') return t('c_unknown'); const l = CTRY_L[v]; return l ? (lang === 'RU' ? l[0] : lang === 'HE' ? l[1] : v) : v; }
 const isMob = x => (x.phones || []).some(p => p.mobile);
 const hasLang = (x, k) => (x.langs || '').indexOf(LANGS[k]) >= 0;
 function passes(x, skip){
-  return (skip === 'city' || !fl.city.length || fl.city.indexOf(x.city) >= 0) &&
+  return (skip === 'country' || !fl.country.length || fl.country.indexOf(countryOf(x)) >= 0) &&
+    (skip === 'city' || !fl.city.length || fl.city.indexOf(x.city) >= 0) &&
     (skip === 'lang' || !fl.lang.length || fl.lang.some(k => hasLang(x, k))) &&
     (skip === 'src' || !fl.src.length || fl.src.indexOf(x.src) >= 0) &&
     (skip === 'mob' || !fl.mob || isMob(x));
 }
-const nFl = () => fl.city.length + fl.lang.length + fl.src.length + (fl.mob ? 1 : 0);
+const nFl = () => fl.country.length + fl.city.length + fl.lang.length + fl.src.length + (fl.mob ? 1 : 0);
 const free_ = () => D.items.filter(x => !x.mine);
 function cityLabel(c){ const x = D.items.find(i => i.city === c && i.tr && i.tr.city); return (showTr && x) ? x.tr.city : c; }
 function groups(){   // [key, title, [[value, label]]]
@@ -171,22 +196,24 @@ function groups(){   // [key, title, [[value, label]]]
   const cities = Array.from(new Set(free.map(x => x.city).filter(Boolean))).map(c => [c, cityLabel(c)]).sort(cmp);
   const langs = Object.keys(LANGS).filter(k => free.some(x => hasLang(x, k))).map(k => [k, t('lg_' + k)]);
   const srcs = Array.from(new Set(free.map(x => x.src).filter(Boolean))).sort().map(v => [v, v]);
-  return [['lang', t('g_lang'), langs], ['src', t('g_src'), srcs], ['city', t('g_city'), cities]].filter(g => g[2].length);
+  const cn = {}; free.forEach(x => { const c = countryOf(x); cn[c] = (cn[c] || 0) + 1; });
+  const ctrs = Object.keys(cn).sort((a, b) => (a === '?') - (b === '?') || cn[b] - cn[a]).map(v => [v, countryLabel(v)]);
+  return [['country', t('g_country'), ctrs.length > 1 || fl.country.length ? ctrs : []], ['lang', t('g_lang'), langs], ['src', t('g_src'), srcs], ['city', t('g_city'), cities]].filter(g => g[2].length);
 }
-function count(key, val){ return free_().filter(x => passes(x, key) && (key === 'city' ? x.city === val : key === 'src' ? x.src === val : key === 'lang' ? hasLang(x, val) : isMob(x))).length; }
+function count(key, val){ return free_().filter(x => passes(x, key) && (key === 'country' ? countryOf(x) === val : key === 'city' ? x.city === val : key === 'src' ? x.src === val : key === 'lang' ? hasLang(x, val) : isMob(x))).length; }
 function resultCount(){ return free_().filter(x => passes(x)).length; }
 function barHtml(){
   const n = nFl(), quickRu = lang === 'RU' && free_().some(x => hasLang(x, 'ru')), ru = fl.lang.indexOf('ru') >= 0;
   let h = `<div class="bar"><button class="${n?'on':''}" onclick="openSheet()">${esc(t('filters'))}${n ? ' (' + n + ')' : ''}</button>
     <select aria-label="${esc(t('sort'))}" onchange="setSort(this.value)">${['best','city','name'].map(o =>
       `<option value="${o}" ${sortBy===o?'selected':''}>${esc(t('s_'+o))}</option>`).join('')}</select>
-    <button class="${fl.mob?'on':''}" onclick="setF('mob')">${esc(t('f_mob'))}</button>
-    ${quickRu ? `<button class="${ru?'on':''}" onclick="setF('lang','ru')">${esc(t('lg_ru'))}</button>` : ''}</div>`;
-  if (n) {
+</div>`;
+  h += `<div class="chipsf"><button class="fchip ${fl.mob?'on':''}" aria-pressed="${fl.mob}" onclick="setF('mob')">${esc(t('f_mob'))}</button>` +
+    (quickRu ? `<button class="fchip ${ru?'on':''}" aria-pressed="${ru}" onclick="setF('lang','ru')">${esc(t('lg_ru'))}</button>` : '');
+  {
     const tag = (k, v, label) => `<button class="fchip" aria-label="${esc(t('remove') + ': ' + label)}" onclick="setF('${k}',${v == null ? 'null' : esc(JSON.stringify(v))})"><span dir="auto">${esc(label)}</span>${SLASH}</button>`;
-    h += `<div class="chipsf">` + fl.lang.map(v => tag('lang', v, t('lg_' + v))).join('') + fl.src.map(v => tag('src', v, v)).join('') +
-      fl.city.map(v => tag('city', v, cityLabel(v))).join('') + (fl.mob ? tag('mob', null, t('f_mob')) : '') +
-      `<button class="quiet" onclick="clearF()">${esc(t('f_clear'))}</button></div>`;
+    h += fl.country.map(v => tag('country', v, countryLabel(v))).join('') + fl.lang.filter(v => !(quickRu && v === 'ru')).map(v => tag('lang', v, t('lg_' + v))).join('') + fl.src.map(v => tag('src', v, v)).join('') +
+      fl.city.map(v => tag('city', v, cityLabel(v))).join('') + (n ? `<button class="quiet" onclick="clearF()">${esc(t('f_clear'))}</button>` : '') + `</div>`;
   }
   return h;
 }
@@ -240,7 +267,7 @@ function setF(k, v){
 function clearF(){ fl = FL0(); saveF(); }
 function dropStale(){   // remembered filters that no longer exist in the list
   const free = free_();
-  fl.city = fl.city.filter(c => free.some(x => x.city === c)); fl.src = fl.src.filter(v => free.some(x => x.src === v)); fl.lang = fl.lang.filter(k => LANGS[k]);
+  fl.country = fl.country.filter(c => free.some(x => countryOf(x) === c)); fl.city = fl.city.filter(c => free.some(x => x.city === c)); fl.src = fl.src.filter(v => free.some(x => x.src === v)); fl.lang = fl.lang.filter(k => LANGS[k]);
 }
 function setSort(v){ sortBy = v; shown = 40; try { localStorage.setItem('h_sort', v); } catch(e){} render(); }
 function setTr(v){ showTr = v; try { localStorage.setItem('h_tr', v ? '1' : '0'); } catch(e){} render(); }
@@ -250,10 +277,13 @@ function scriptText(){ return (D.texts['SCRIPT_' + lang] || D.texts.SCRIPT_HE ||
 function toggle(id){ $('#'+id).classList.toggle('open'); }
 
 function cardHtml(x){
-  if (showTr && x.tr) x = Object.assign({}, x, { name: x.tr.name ? x.tr.name + ' (' + x.name + ')' : x.name, city: x.tr.city || x.city, spec: x.tr.spec || x.spec, why: x.tr.why || x.why });
-  const meta = [x.city, x.langs, sortBy === 'src' ? x.src : ''].filter(Boolean).map(esc).join(' • ');
+  const orig = showTr && x.tr && x.tr.name && x.tr.name.trim() !== String(x.name).trim() ? x.name : '';
+  if (showTr && x.tr) x = Object.assign({}, x, { name: x.tr.name || x.name, city: x.tr.city || x.city, spec: x.tr.spec || x.spec, why: x.tr.why || x.why });
+  const lc = Array.from(String(x.langs || '')).filter(c => /[^\s,.]/.test(c)), lk = lc.map(c => Object.keys(LANGS).find(k => LANGS[k] === c));
+  const lw = lk.length && lk.every(Boolean) ? lk.map(k => t('lg_' + k)).join(', ') : x.langs;   // book letters → words
+  const meta = [x.city, lw, sortBy === 'src' ? x.src : ''].filter(Boolean).map(esc).join(' • ');
   let h = `<div class="card ${x.by?'busy':''}" id="c-${x.id}">
-    <p class="name" dir="auto">${esc(x.name)}</p>${meta?`<div class="muted" dir="auto">${meta}</div>`:''}
+    <p class="name" dir="auto">${esc(x.name)}</p>${orig?`<div class="muted orig" dir="auto">${esc(orig)}</div>`:''}${meta?`<div class="muted" dir="auto">${meta}</div>`:''}
     ${x.hours?`<div class="muted" dir="auto">${esc(t('hours'))}: ${esc(x.hours)}</div>`:''}
     ${x.spec?`<div dir="auto" style="margin-top:4px">${esc(x.spec)}</div>`:''}
     ${x.why?`<div class="chips">${x.why.split(' · ').map(w=>`<span class="chip" dir="auto">${esc(w)}</span>`).join('')}</div>`:''}
@@ -263,19 +293,19 @@ function cardHtml(x){
     ${x.phones.filter(p=>p.mobile).slice(0,1).map(p => `<a class="btn" href="https://wa.me/${esc(p.tel.replace('+',''))}" target="_blank" onclick="hold('${x.id}')">${esc(t('wa'))}</a>`).join('')}</div>`;
   if (x.mine) {
     const f = form[x.id] || {};
-    h += `<label>${esc(t('pick'))}</label><div class="row">${['spoke','noanswer','callback','wrong','inactive','stop'].map(r =>
+    h += `<label>${esc(t('pick'))}</label><div class="grid2">${['spoke','noanswer','callback','wrong','inactive','stop'].map(r =>
       `<button class="${f.result===r?'sel on':''}" onclick="pickRes('${x.id}','${r}')">${esc(t('res_'+r))}</button>`).join('')}</div>`;
-    if (f.result === 'spoke') h += `<label>${esc(t('nextQ'))}</label><div class="row">${['profile','call',''].map(n =>
+    if (f.result === 'spoke') h += `<label>${esc(t('nextQ'))}</label><div class="grid2">${['profile','call',''].map(n =>
       `<button class="${(f.next||'')===n?'sel on':''}" onclick="pickNext('${x.id}','${n}')">${esc(t('next_'+n))}</button>`).join('')}</div>`;
     h += `<label for="n-${x.id}">${esc(t('notes'))}</label><textarea id="n-${x.id}" dir="auto" oninput="keep('${x.id}')">${esc(f.notes||'')}</textarea>
-      <label for="m-${x.id}">${esc(t('names'))}</label><textarea id="m-${x.id}" dir="auto" oninput="keep('${x.id}')">${esc(f.names||'')}</textarea>
+      ${f.result === 'spoke' ? `<label for="m-${x.id}">${esc(t('names'))}</label><textarea id="m-${x.id}" dir="auto" oninput="keep('${x.id}')">${esc(f.names||'')}</textarea>` : ''}
       <div class="row"><button class="good" onclick="save('${x.id}')" ${f.result?'':'disabled'}>${esc(t('save'))}</button></div>
       <div class="row"><button class="quiet" onclick="giveBack('${x.id}')">${esc(t('giveBack'))}</button></div>`;
   }
   return h + `</div>`;
 }
 
-function keep(id){ const f = form[id] = form[id] || {}; f.notes = $('#n-'+id).value; f.names = $('#m-'+id).value; }
+function keep(id){ const f = form[id] = form[id] || {}; f.notes = $('#n-'+id).value; if ($('#m-'+id)) f.names = $('#m-'+id).value; }
 function pickRes(id, r){ keep(id); form[id].result = r; if (r !== 'spoke') form[id].next = ''; render(); }
 function pickNext(id, n){ keep(id); form[id].next = n; render(); }
 

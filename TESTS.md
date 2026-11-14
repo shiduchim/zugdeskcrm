@@ -74,3 +74,6 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Helper page: Sort (Best / City / Name) works and is remembered.
 - [ ] Helper page: Filters sheet (City with search, Language, Source, Mobile only): list updates as you tick, counts per option, tags above the list remove one filter (circle-slash sign), Clear all; sheet closes with Done, Show N, outside tap, phone back button, Esc. Remembered per device.
 - [ ] Main app Contacts: Show stays visible; Filters sheet (Who, Language, Community, Location, Can reach by, Where they came from) with the same behaviour; quick Russian / WhatsApp buttons; Sort defaults to Last contact for Talking/Contacted and Next date for Later until picked; search hides filters.
+- [ ] Country filter (both apps): uses the Country field, else phone code (+972 Israel, +1 USA); group shows only with 2+ countries; tag removes it.
+- [ ] Helper page top: title "{name}'s list" (no hello), small Original/Translation pill in the corner, My calls / List switch stays at the top while scrolling; What to say / Copy details are links; Mobile only / Russian are pills under Filters + Sort.
+- [ ] Helper My calls: results and What next in an even 2-column grid; Save greyed until a result is picked; "names of other shadchanim" box only after We spoke; languages shown as words.
