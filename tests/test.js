@@ -230,3 +230,15 @@ t('helperPool_: "Set aside: <helper>" leaves every helper\'s list', () => {
   assert.deepStrictEqual(A.helperPool_(rows, S, () => false, new Set(), '2026-11-14').map(r => r[0]), ['C2']);
 });
 console.log(n + ' checks passed');
+
+// source line: book contacts only (referral wins)
+{
+  const s = { SOURCE_DIRECTORY_EN: 'BOOK. ', SOURCE_REFERRAL_EN: '{by} suggested. ' };
+  const t = (c, want) => { const got = A.sourceLine_(c, s, 'EN'); if (got !== want) { console.error('sourceLine_ FAIL', c, got); process.exit(1); } };
+  t({ Source: 'Book p.12' }, 'BOOK. ');
+  t({ Source: 'Insert שדכנים חדשים' }, 'BOOK. ');
+  t({ Source: 'Gmail' }, '');
+  t({ Source: 'Web search' }, '');
+  t({ Source: 'Book', ReferredBy: 'Rivka' }, 'Rivka suggested. ');
+  console.log('sourceLine_ ok');
+}

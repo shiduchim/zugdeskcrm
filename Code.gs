@@ -606,7 +606,8 @@ function pickLang_(c, s) {
   return 'HE';
 }
 function sourceLine_(c, s, lang) {
-  return c.ReferredBy ? fill_(s['SOURCE_REFERRAL_' + lang], { by: c.ReferredBy }) : s['SOURCE_DIRECTORY_' + lang] || '';
+  if (c.ReferredBy) return fill_(s['SOURCE_REFERRAL_' + lang], { by: c.ReferredBy });
+  return srcGroup_(c.Source) === 'Book' ? s['SOURCE_DIRECTORY_' + lang] || '' : ''; // only book contacts hear "found you in the book"
 }
 function waText_(c, s, lang) {
   const withProfile = String(s.WA_INCLUDE_PROFILE).toUpperCase() === 'YES';
@@ -1589,4 +1590,4 @@ function api_newHelperLink(name) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };
+if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, sourceLine_: sourceLine_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_ };

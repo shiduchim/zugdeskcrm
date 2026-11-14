@@ -1120,7 +1120,7 @@ const MSG_GROUPS = [
   {id:'askwa', title:'Ask for more shadchanim – WhatsApp', keys:[['ASK_WA','Message']]},
   {id:'askem', title:'Ask for more shadchanim – email', keys:[['ASK_SUBJECT','Subject'],['ASK_EMAIL','Message']], tokens:'{sender}'},
   {id:'refs', title:'References', keys:[['REFERENCES','References']]},
-  {id:'src', title:'"How I found you" line', keys:[['SOURCE_DIRECTORY','From the directory'],['SOURCE_REFERRAL','When someone referred me']], tokens:'{by} = the name of who referred me'},
+  {id:'src', title:'"How I found you" line', keys:[['SOURCE_DIRECTORY','From the shidduch book (only book contacts)'],['SOURCE_REFERRAL','When someone referred me']], tokens:'{by} = the name of who referred me'},
   {id:'call', title:'Call script', keys:[['CALL_SCRIPT','Script']], single:true}
 ];
 const isMsgKey = k => /^(PROFILE|REFERENCES|EMAIL_SUBJECT|EMAIL_BODY|EMAIL_FOLLOWUP|WA_INTRO|CONTACT_LINE|ASK_WA|ASK_SUBJECT|ASK_EMAIL|SOURCE_DIRECTORY|SOURCE_REFERRAL)_(HE|RU|EN)$/.test(k) || k === 'CALL_SCRIPT';
