@@ -89,3 +89,4 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Helper after-call box "Who else did they suggest? Shadchanim, WhatsApp groups, links" → names/phones to Recommended, the rest in notes.
 - [ ] Best first: Chabad on top (helper: then Russian speakers for Russian helpers), crossed out always last even if Chabad (helper page + main Contacts).
 - [ ] Helper chips always in her language (Original mode switches only name, city, specialty).
+- [ ] Ranking (2026-11-14): Israel first, then Russian speakers above Chabad, crossed out last — Contacts list order + first autopilot emails Sunday are Russian-speaking Israelis (node tests cover the order).
