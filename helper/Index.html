@@ -22,8 +22,28 @@ button,.btn{min-height:48px;padding:10px 14px;border-radius:12px;border:1px soli
 input,textarea,select{width:100%;font:inherit;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
 textarea{min-height:76px}
 select{margin-bottom:10px;min-height:44px}
-.fl{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
-.fl select,.fl button{margin:0;min-height:44px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.bar > *{flex:1 1 auto;width:auto;margin:0;min-height:44px}
+.bar select{flex:1 1 150px}
+.bar > button:first-child{flex:0 1 auto;min-width:120px}
+.chipsf{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}
+.fchip{min-height:44px;padding:6px 12px;border-radius:999px;font-size:15px;background:var(--bg)}
+.fchip svg,.slash{width:16px;height:16px;flex:none;opacity:.7}
+#shade{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:30}
+#sheet{position:fixed;z-index:31;inset-inline:0;bottom:0;max-height:85dvh;display:flex;flex-direction:column;background:var(--card);color:var(--ink);border-radius:18px 18px 0 0;box-shadow:0 -6px 30px rgba(0,0,0,.2)}
+@media (min-width:900px){#sheet{inset-inline-start:auto;inset-inline-end:0;top:0;bottom:0;max-height:none;width:400px;border-radius:0}}
+.sh-head,.sh-foot{display:flex;gap:8px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+.sh-head b{flex:1;font-size:19px}
+.sh-foot{border-bottom:0;border-top:1px solid var(--line);padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+.sh-foot .primary{flex:1}
+.sh-body{overflow:auto;padding:4px 16px 12px;overscroll-behavior:contain}
+.sh-body h4{margin:16px 0 6px;font-size:16px}
+.opt{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 4px;margin:0;color:var(--ink);font-size:16px;cursor:pointer}
+.opt input{width:22px;height:22px;flex:none;margin:0}
+.opt span{flex:1;unicode-bidi:isolate}
+.opt small{color:var(--muted)}
+.opt.zero{opacity:.45}
+body.lock{overflow:hidden}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:10px 0}
 .card.busy{opacity:.55}
 .name{font-size:19px;font-weight:600;margin:0 0 2px}
@@ -56,25 +76,28 @@ const L = {
    nextQ:'Что дальше?',next_profile:'Отправить данные Элияху',next_call:'Пусть Элияху позвонит',next_:'Ничего',
    res_spoke:'Поговорили',res_noanswer:'Не ответили',res_callback:'Перезвонить позже',res_wrong:'Неверный номер',res_inactive:'Больше не занимается',res_stop:'Просили не звонить',
    pick:'Выберите результат',hours:'Часы',empty:'Сейчас некого звонить. Спасибо!',emptyMine:'Нажмите «Позвонить» в списке — человек появится здесь.',
-   more:'Показать ещё',link:'Ссылка не работает. Попросите новую у Элияху.',err:'Что-то пошло не так: ',taken:'{name} уже взял(а) этого человека',orig:'Оригинал',trans:'Русский',sort:'Сортировка',s_best:'Лучшие сначала',s_city:'Город',s_name:'Имя',s_ru:'Русскоязычные сначала',s_src:'Источник',filter:'Фильтр',f_city:'Все города',f_lang:'Все языки',f_src:'Все источники',f_mob:'Только мобильные',f_clear:'Сбросить фильтры',lg_ru:'Русский',lg_en:'Английский',lg_he:'Иврит',lg_yi:'Идиш',lg_fr:'Французский',lg_es:'Испанский'},
+   more:'Показать ещё',link:'Ссылка не работает. Попросите новую у Элияху.',err:'Что-то пошло не так: ',taken:'{name} уже взял(а) этого человека',orig:'Оригинал',trans:'Русский',sort:'Сортировка',s_best:'Лучшие сначала',s_city:'Город',s_name:'Имя',s_ru:'Русскоязычные сначала',s_src:'Источник',filters:'Фильтры',done:'Готово',reset:'Сбросить',showN:'Показать: {n}',findCity:'Найти город',g_city:'Город',g_lang:'Язык',g_src:'Источник',g_more:'Ещё',remove:'Убрать',filter:'Фильтр',f_city:'Все города',f_lang:'Все языки',f_src:'Все источники',f_mob:'Только мобильные',f_clear:'Сбросить фильтры',lg_ru:'Русский',lg_en:'Английский',lg_he:'Иврит',lg_yi:'Идиш',lg_fr:'Французский',lg_es:'Испанский'},
  HE:{title:'שיחות לשדכנים',hello:'שלום {name}!',mine:'השיחות שלי',all:'רשימה',search:'חיפוש: שם, עיר…',call:'להתקשר',wa:'וואטסאפ',
    script:'מה לומר',profile:'להעתיק את הפרטים של אליהו',copied:'הועתק',busy:'{name} כבר מתקשר/ת',tip:'הערה',giveBack:'להחזיר לרשימה',
    save:'שמירה',saved:'נשמר, תודה!',notes:'מה נאמר (אפשר בקול – המיקרופון במקלדת)',names:'שמות וטלפונים של שדכנים נוספים, אם נתנו',
    nextQ:'מה הלאה?',next_profile:'לשלוח את הפרטים של אליהו',next_call:'שאליהו יתקשר',next_:'כלום',
    res_spoke:'דיברנו',res_noanswer:'לא ענו',res_callback:'להתקשר שוב אחר כך',res_wrong:'מספר שגוי',res_inactive:'כבר לא פעיל/ה',res_stop:'ביקשו לא להתקשר',
    pick:'בחר/י תוצאה',hours:'שעות',empty:'אין כרגע למי להתקשר. תודה!',emptyMine:'לחצו "להתקשר" ברשימה – האדם יופיע כאן.',
-   more:'עוד',link:'הקישור לא פעיל. בקשו קישור חדש מאליהו.',err:'משהו השתבש: ',taken:'{name} כבר לקח/ה את האדם הזה',sort:'מיון',s_best:'הכי מתאימים קודם',s_city:'עיר',s_name:'שם',s_ru:'דוברי רוסית קודם',s_src:'מקור',filter:'סינון',f_city:'כל הערים',f_lang:'כל השפות',f_src:'כל המקורות',f_mob:'רק ניידים',f_clear:'ניקוי סינון',lg_ru:'רוסית',lg_en:'אנגלית',lg_he:'עברית',lg_yi:'יידיש',lg_fr:'צרפתית',lg_es:'ספרדית'},
+   more:'עוד',link:'הקישור לא פעיל. בקשו קישור חדש מאליהו.',err:'משהו השתבש: ',taken:'{name} כבר לקח/ה את האדם הזה',sort:'מיון',s_best:'הכי מתאימים קודם',s_city:'עיר',s_name:'שם',s_ru:'דוברי רוסית קודם',s_src:'מקור',filters:'סינון',done:'סיום',reset:'איפוס',showN:'הצגת {n}',findCity:'חיפוש עיר',g_city:'עיר',g_lang:'שפה',g_src:'מקור',g_more:'עוד',remove:'הסרה',filter:'סינון',f_city:'כל הערים',f_lang:'כל השפות',f_src:'כל המקורות',f_mob:'רק ניידים',f_clear:'ניקוי סינון',lg_ru:'רוסית',lg_en:'אנגלית',lg_he:'עברית',lg_yi:'יידיש',lg_fr:'צרפתית',lg_es:'ספרדית'},
  EN:{title:'Shadchan calls',hello:'Hello {name}!',mine:'My calls',all:'List',search:'Search: name, city…',call:'Call',wa:'WhatsApp',
    script:'What to say',profile:'Copy Eliyahu\'s details',copied:'Copied',busy:'{name} is calling',tip:'Note',giveBack:'Give back to the list',
    save:'Save',saved:'Saved, thank you!',notes:'What you heard (you can speak it: microphone on the keyboard)',names:'Names and numbers of other shadchanim, if they gave any',
    nextQ:'What next?',next_profile:'Send Eliyahu\'s details',next_call:'Eliyahu should call',next_:'Nothing',
    res_spoke:'We spoke',res_noanswer:'No answer',res_callback:'Call back later',res_wrong:'Wrong number',res_inactive:'Not active anymore',res_stop:'Asked not to call',
    pick:'Pick a result',hours:'Hours',empty:'Nobody to call right now. Thank you!',emptyMine:'Tap "Call" in the list and the person appears here.',
-   more:'Show more',link:'This link is not active. Ask Eliyahu for a new one.',err:'Something went wrong: ',taken:'{name} already took this person',orig:'Original',trans:'English',sort:'Sort',s_best:'Best match first',s_city:'City',s_name:'Name',s_ru:'Russian speakers first',s_src:'Source',filter:'Filter',f_city:'All cities',f_lang:'All languages',f_src:'All sources',f_mob:'Mobile only',f_clear:'Clear filters',lg_ru:'Russian',lg_en:'English',lg_he:'Hebrew',lg_yi:'Yiddish',lg_fr:'French',lg_es:'Spanish'}
+   more:'Show more',link:'This link is not active. Ask Eliyahu for a new one.',err:'Something went wrong: ',taken:'{name} already took this person',orig:'Original',trans:'English',sort:'Sort',s_best:'Best match first',s_city:'City',s_name:'Name',s_ru:'Russian speakers first',s_src:'Source',filters:'Filters',done:'Done',reset:'Reset',showN:'Show {n} people',findCity:'Find a city',g_city:'City',g_lang:'Language',g_src:'Source',g_more:'More',remove:'Remove',filter:'Filter',f_city:'All cities',f_lang:'All languages',f_src:'All sources',f_mob:'Mobile only',f_clear:'Clear filters',lg_ru:'Russian',lg_en:'English',lg_he:'Hebrew',lg_yi:'Yiddish',lg_fr:'French',lg_es:'Spanish'}
 };
 let showTr = true; try { showTr = localStorage.getItem('h_tr') !== '0'; } catch(e){}
 let sortBy = 'best'; try { sortBy = localStorage.getItem('h_sort') || 'best'; } catch(e){}
-let fl = {city:'', lang:'', src:'', mob:false}; try { Object.assign(fl, JSON.parse(localStorage.getItem('h_fl') || '{}')); } catch(e){}
+const FL0 = () => ({city:[], lang:[], src:[], mob:false});
+let fl = FL0(); try { const o = JSON.parse(localStorage.getItem('h_fl') || '{}'); ['city','lang','src'].forEach(k => fl[k] = [].concat(o[k] || []).filter(Boolean)); fl.mob = !!o.mob; } catch(e){}
+if (['best','city','name'].indexOf(sortBy) < 0) sortBy = 'best';
+let sheetOpen = false;
 const LANGS = {ru:'ר', en:'א', he:'ע', yi:'י', fr:'צ', es:'ס'};
 let D = null, tab = 'all', q = '', shown = 40, lang = 'HE';
 const form = {};   // id → {result, next}
@@ -91,10 +114,10 @@ function fail(e){ const m = String(e && e.message || e); if (/LINK/.test(m)) ret
 function showLink(){ $('#app').innerHTML = `<div class="center">${esc(t('link'))}</div>`; }
 
 async function load(){
-  try { D = await run('h_load'); lang = D.me.lang; document.documentElement.dir = lang === 'HE' ? 'rtl' : 'ltr'; document.documentElement.lang = lang.toLowerCase(); render(); }
+  try { D = await run('h_load'); lang = D.me.lang; document.documentElement.dir = lang === 'HE' ? 'rtl' : 'ltr'; document.documentElement.lang = lang.toLowerCase(); dropStale(); render(); updateSheet(); }
   catch(e){ fail(e); }
 }
-function busyTyping(){ return Object.values(form).some(f => f.result || f.notes || f.names) || (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement.id !== 'q'); }
+function busyTyping(){ return sheetOpen || Object.values(form).some(f => f.result || f.notes || f.names) || (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName) && document.activeElement.id !== 'q'); }
 setInterval(() => { if (document.visibilityState === 'visible' && D && !busyTyping()) load(); }, 60000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && D && !busyTyping()) load(); });
 
@@ -112,11 +135,9 @@ function render(){
       <button class="${tab==='all'?'on':''}" onclick="setTab('all')">${esc(t('all'))} (${list.length})</button></div>`;
   if (tab === 'mine') h += mine.length ? mine.map(cardHtml).join('') : `<div class="center muted">${esc(t('emptyMine'))}</div>`;
   else {
-    h += `<label for="srt">${esc(t('sort'))}</label><select id="srt" onchange="setSort(this.value)">${['best','city','name','ru','src'].map(o =>
-      `<option value="${o}" ${sortBy===o?'selected':''}>${esc(t('s_'+o))}</option>`).join('')}</select>`;
-    h += filtersHtml();
     h += `<input id="q" dir="auto" placeholder="${esc(t('search'))}" value="${esc(q)}" oninput="q=this.value;shown=40;renderKeep()">`;
-    h += list.length ? list.slice(0, shown).map(cardHtml).join('') : `<div class="center muted">${esc(t('empty'))}</div>`;
+    h += barHtml();
+    h += list.length ? list.slice(0, shown).map(cardHtml).join('') : `<div class="center muted">${esc(t('empty'))}${nFl() ? `<div class="row"><button onclick="clearF()">${esc(t('f_clear'))}</button></div>` : ''}</div>`;
     if (list.length > shown) h += `<div class="row"><button onclick="shown+=40;render()">${esc(t('more'))}</button></div>`;
   }
   $('#app').innerHTML = h;
@@ -133,32 +154,95 @@ function sorter(){
      by === 'ru' ? ru(a) - ru(b) :
      by === 'src' ? cmp(a.src || '\uffff', b.src || '\uffff') : 0) || (a.rank - b.rank);
 }
-// filters: city / language / source / mobile only (remembered on this device)
-function passes(x){
-  return (!fl.city || x.city === fl.city) && (!fl.lang || (x.langs || '').indexOf(LANGS[fl.lang]) >= 0) &&
-    (!fl.src || x.src === fl.src) && (!fl.mob || (x.phones || []).some(p => p.mobile));
+// filters: one Filters button opens a sheet (bottom on phone, side on PC); list updates live; tags above the list remove one filter
+const SLASH = '<svg class="slash" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="3.6" y1="12.4" x2="12.4" y2="3.6" stroke="currentColor" stroke-width="1.6"/></svg>';
+const isMob = x => (x.phones || []).some(p => p.mobile);
+const hasLang = (x, k) => (x.langs || '').indexOf(LANGS[k]) >= 0;
+function passes(x, skip){
+  return (skip === 'city' || !fl.city.length || fl.city.indexOf(x.city) >= 0) &&
+    (skip === 'lang' || !fl.lang.length || fl.lang.some(k => hasLang(x, k))) &&
+    (skip === 'src' || !fl.src.length || fl.src.indexOf(x.src) >= 0) &&
+    (skip === 'mob' || !fl.mob || isMob(x));
 }
-function opts(vals, cur, all){
-  return `<option value="">${esc(t(all))}</option>` + vals.map(v => `<option value="${esc(v[0])}" ${cur===v[0]?'selected':''}>${esc(v[1])}</option>`).join('');
-}
-function filtersHtml(){
-  const free = D.items.filter(x => !x.mine), count = {}, cityName = {};
-  free.forEach(x => { if (x.city){ count[x.city] = (count[x.city] || 0) + 1; if (!cityName[x.city] || cityName[x.city] === x.city) cityName[x.city] = shown_(x, 'city'); } });
-  const cmp = (a, b) => a[1].localeCompare(b[1], lang === 'RU' ? 'ru' : lang === 'HE' ? 'he' : 'en');
-  const cities = Object.keys(count).map(c => [c, cityName[c] + ' (' + count[c] + ')']).sort(cmp);
-  const langs = Object.keys(LANGS).filter(k => free.some(x => (x.langs || '').indexOf(LANGS[k]) >= 0)).map(k => [k, t('lg_' + k)]);
+const nFl = () => fl.city.length + fl.lang.length + fl.src.length + (fl.mob ? 1 : 0);
+const free_ = () => D.items.filter(x => !x.mine);
+function cityLabel(c){ const x = D.items.find(i => i.city === c && i.tr && i.tr.city); return (showTr && x) ? x.tr.city : c; }
+function groups(){   // [key, title, [[value, label]]]
+  const free = free_(), cmp = (a, b) => a[1].localeCompare(b[1], lang === 'RU' ? 'ru' : lang === 'HE' ? 'he' : 'en');
+  const cities = Array.from(new Set(free.map(x => x.city).filter(Boolean))).map(c => [c, cityLabel(c)]).sort(cmp);
+  const langs = Object.keys(LANGS).filter(k => free.some(x => hasLang(x, k))).map(k => [k, t('lg_' + k)]);
   const srcs = Array.from(new Set(free.map(x => x.src).filter(Boolean))).sort().map(v => [v, v]);
-  const any = fl.city || fl.lang || fl.src || fl.mob;
-  return `<label>${esc(t('filter'))}</label><div class="fl">
-    <select aria-label="${esc(t('f_city'))}" onchange="setF('city',this.value)">${opts(cities, fl.city, 'f_city')}</select>
-    <select aria-label="${esc(t('f_lang'))}" onchange="setF('lang',this.value)">${opts(langs, fl.lang, 'f_lang')}</select>
-    ${srcs.length ? `<select aria-label="${esc(t('f_src'))}" onchange="setF('src',this.value)">${opts(srcs, fl.src, 'f_src')}</select>` : ''}
-    <button class="${fl.mob?'on':''}" onclick="setF('mob',!fl.mob)">${esc(t('f_mob'))}</button>
-    ${any ? `<button class="quiet" onclick="clearF()">${esc(t('f_clear'))}</button>` : ''}</div>`;
+  return [['lang', t('g_lang'), langs], ['src', t('g_src'), srcs], ['city', t('g_city'), cities]].filter(g => g[2].length);
 }
-function saveF(){ shown = 40; try { localStorage.setItem('h_fl', JSON.stringify(fl)); } catch(e){} render(); }
-function setF(k, v){ fl[k] = v; saveF(); }
-function clearF(){ fl = {city:'', lang:'', src:'', mob:false}; saveF(); }
+function count(key, val){ return free_().filter(x => passes(x, key) && (key === 'city' ? x.city === val : key === 'src' ? x.src === val : key === 'lang' ? hasLang(x, val) : isMob(x))).length; }
+function resultCount(){ return free_().filter(x => passes(x)).length; }
+function barHtml(){
+  const n = nFl(), quickRu = lang === 'RU' && free_().some(x => hasLang(x, 'ru')), ru = fl.lang.indexOf('ru') >= 0;
+  let h = `<div class="bar"><button class="${n?'on':''}" onclick="openSheet()">${esc(t('filters'))}${n ? ' (' + n + ')' : ''}</button>
+    <select aria-label="${esc(t('sort'))}" onchange="setSort(this.value)">${['best','city','name'].map(o =>
+      `<option value="${o}" ${sortBy===o?'selected':''}>${esc(t('s_'+o))}</option>`).join('')}</select>
+    <button class="${fl.mob?'on':''}" onclick="setF('mob')">${esc(t('f_mob'))}</button>
+    ${quickRu ? `<button class="${ru?'on':''}" onclick="setF('lang','ru')">${esc(t('lg_ru'))}</button>` : ''}</div>`;
+  if (n) {
+    const tag = (k, v, label) => `<button class="fchip" aria-label="${esc(t('remove') + ': ' + label)}" onclick="setF('${k}',${v == null ? 'null' : esc(JSON.stringify(v))})"><span dir="auto">${esc(label)}</span>${SLASH}</button>`;
+    h += `<div class="chipsf">` + fl.lang.map(v => tag('lang', v, t('lg_' + v))).join('') + fl.src.map(v => tag('src', v, v)).join('') +
+      fl.city.map(v => tag('city', v, cityLabel(v))).join('') + (fl.mob ? tag('mob', null, t('f_mob')) : '') +
+      `<button class="quiet" onclick="clearF()">${esc(t('f_clear'))}</button></div>`;
+  }
+  return h;
+}
+function sheetHtml(){
+  let h = `<div class="sh-head"><b>${esc(t('filters'))}</b><button class="primary" onclick="closeSheet()">${esc(t('done'))}</button></div><div class="sh-body">`;
+  groups().forEach(g => {
+    h += `<h4>${esc(g[1])}</h4>`;
+    if (g[0] === 'city' && g[2].length > 8) h += `<input id="cityq" dir="auto" placeholder="${esc(t('findCity'))}" oninput="findCity(this.value)" style="margin-bottom:6px">`;
+    h += g[2].map(o => `<label class="opt" data-k="${g[0]}" data-v="${esc(o[0])}" data-l="${esc(String(o[1]).toLowerCase())}"><input type="checkbox" ${fl[g[0]].indexOf(o[0])>=0?'checked':''} onchange="setF('${g[0]}',this.parentNode.dataset.v)"><span>${esc(o[1])}</span><small></small></label>`).join('');
+  });
+  h += `<h4>${esc(t('g_more'))}</h4><label class="opt" data-k="mob"><input type="checkbox" ${fl.mob?'checked':''} onchange="setF('mob')"><span>${esc(t('f_mob'))}</span><small></small></label>`;
+  h += `</div><div class="sh-foot"><button onclick="clearF()">${esc(t('reset'))}</button><button class="primary" id="shown" onclick="closeSheet()"></button></div>`;
+  return h;
+}
+function updateSheet(){   // counts and ticks in place, so the city search keeps focus
+  if (!sheetOpen) return;
+  document.querySelectorAll('#sheet .opt').forEach(el => {
+    const k = el.dataset.k, v = el.dataset.v, n = count(k, v);
+    el.querySelector('small').textContent = n; el.classList.toggle('zero', !n);
+    el.querySelector('input').checked = k === 'mob' ? fl.mob : fl[k].indexOf(v) >= 0;
+  });
+  $('#shown').textContent = t('showN', {n: resultCount()});
+}
+function findCity(q){ q = q.trim().toLowerCase(); document.querySelectorAll('#sheet .opt[data-k="city"]').forEach(el => el.style.display = !q || el.dataset.l.indexOf(q) >= 0 || el.dataset.v.indexOf(q) >= 0 ? '' : 'none'); }
+function openSheet(){
+  if (sheetOpen) return; sheetOpen = true;
+  const sh = document.createElement('div'); sh.id = 'shade'; sh.onclick = () => closeSheet(); document.body.appendChild(sh);
+  const el = document.createElement('div'); el.id = 'sheet'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.innerHTML = sheetHtml(); document.body.appendChild(el);
+  document.body.classList.add('lock'); updateSheet();
+  try { history.pushState({sheet: 1}, ''); } catch(e){}
+  el.querySelector('.sh-head button').focus();
+}
+function hideSheet(){
+  if (!sheetOpen) return; sheetOpen = false;
+  ['#sheet', '#shade'].forEach(s => { const e = $(s); if (e) e.remove(); });
+  document.body.classList.remove('lock');
+}
+function closeSheet(){   // Done / outside tap / Esc: go back one step so the phone's back button stays in sync
+  if (!sheetOpen) return;
+  if (history.state && history.state.sheet) { try { history.back(); return; } catch(e){} }
+  hideSheet();
+}
+window.addEventListener('popstate', hideSheet);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+function saveF(){ shown = 40; try { localStorage.setItem('h_fl', JSON.stringify(fl)); } catch(e){} render(); updateSheet(); }
+function setF(k, v){
+  if (k === 'mob') fl.mob = !fl.mob;
+  else { const a = fl[k], i = a.indexOf(v); if (i >= 0) a.splice(i, 1); else a.push(v); }
+  saveF();
+}
+function clearF(){ fl = FL0(); saveF(); }
+function dropStale(){   // remembered filters that no longer exist in the list
+  const free = free_();
+  fl.city = fl.city.filter(c => free.some(x => x.city === c)); fl.src = fl.src.filter(v => free.some(x => x.src === v)); fl.lang = fl.lang.filter(k => LANGS[k]);
+}
 function setSort(v){ sortBy = v; shown = 40; try { localStorage.setItem('h_sort', v); } catch(e){} render(); }
 function setTr(v){ showTr = v; try { localStorage.setItem('h_tr', v ? '1' : '0'); } catch(e){} render(); }
 function setTab(x){ tab = x; render(); window.scrollTo(0,0); }
