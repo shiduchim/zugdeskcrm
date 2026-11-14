@@ -1,6 +1,13 @@
 # Handoff
 _Last updated: 2026-11-14_
 
+## Tonight (2026-11-14, late) — pushed, not yet seen on a phone
+- Ranking changed (user's choice): Israel first, then Russian speakers above Chabad, crossed out last (fixed tiers in scoreContact; also Today + helper Best first). Tests pass.
+- User turns autopilot ON after 22:00 tonight (test email first); first sends Sunday 9:00 Israel time.
+- Main header: one-line date + Hebrew date (e.g. "Sat 14 Nov · 4 בכסלו").
+- Helper page: tiny ◐ dark/light switch (remembered), warm Claude-style dark colors, color only for meaning (green/amber/red), clearer note boxes and cards. Both helper copies + zugdeskcrm.helper repo in sync.
+- Next phone check: Filters panel + Back button in Samsung Internet (check 1), then helper page on Mom's iPhone.
+
 ## Filters + helper page cleanup (published 2026-11-14 evening) — waiting for the user's phone check
 - Live in both apps: Filters panel (counts, live list, closes with Done / outside tap / Esc / phone Back), "Filters: … · Change" line + Clear all (no removable tags), Country group (Country field, else phone code), main app quick Russian / WhatsApp.
 - Helper page: title "{name}'s list", small Original/Russian pill, sticky My calls / List switch, links for What to say + "Eliyahu's profile: Русский | עברית | English" copy, result grid, clearer "I won't call — put back in the main list" + toast, no quick buttons. Russian-language helpers start once with Russian + English + Book ticked and Best first puts Russian speakers on top. Mom's Show must stay **All** (Russian would hide English speakers).
