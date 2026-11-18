@@ -1322,6 +1322,13 @@ function sendBatch_() {
     props.setProperty('paused_reason', 'Paused automatically on ' + now_() + ': ' + bounces +
       ' emails failed today. Check the failed addresses, then turn the autopilot on again.');
     log_(null, 'Email', 'Autopilot paused', bounces + ' failed emails today');
+    try {   // tell the owner by email (to himself), so he remembers to turn it on again
+      GmailApp.sendEmail(me_(), 'zugdeskcrm: email autopilot paused – turn it on again tomorrow',
+        bounces + ' emails today went to addresses that no longer exist (old book addresses).\n' +
+        'To protect your Gmail account, the autopilot paused itself for today.\n\n' +
+        'Nothing is lost: those people moved back to the phone/WhatsApp list.\n\n' +
+        'Tomorrow: open the app → Email → Turn on autopilot.', { name: s.SENDER_NAME });
+    } catch (e) {}
     return;
   }
 
