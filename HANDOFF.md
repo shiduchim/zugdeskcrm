@@ -1,5 +1,12 @@
 # Handoff
-_Last updated: 2026-11-14_
+_Last updated: 2026-11-25_
+
+## Latest (2026-11-19) — open items
+- Helper page swipe left/right between tabs: pushed, not yet tried on a phone.
+- Open question to user: list order changes on Original/Russian switch — only expected with Name/City sort (A→Z by shown text). If it happens with Best first → bug to check.
+- Autopilot now emails the owner when it pauses after 5 bounces (pushed, not yet seen live).
+- List-request emails: all 28 sent 16–19 Nov (label zugdeskcrm). Lists received: Shmuel Wolfson, reshimatsh (link + WA group), Project 252 (252project.co.il/match-makers + WA groups link), Heimish Giving (old), Livnot Bayit (s05484098, likely attachment). Next: user sends lists in chat → Claude makes import CSV (scratchpad).
+- Other CRM (different repo): user wants command-file editing like zugdeskcrm; must be done in a chat with that repo.
 
 ## Chat management (built + pushed 2026-11-14, not yet run in Google)
 - Hourly job writes `zugdeskcrm – Contacts index.csv` (My Drive root). Claude finds it with Drive search, reads it to look people up.

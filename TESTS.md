@@ -93,3 +93,5 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Email "how I found you" line: book/insert contacts only; referred = "{by} suggested…"; Gmail/Web search/others = no line (unit-tested).
 - Chat commands: Name__Commands.csv → close/note/set/delete/restore applied, file renamed with 'N done, N failed'; wrong name refused; deleted contact in hidden Deleted tab and its ID not reused; Contacts index.csv appears in Drive root after hourly run.
 - [ ] Email autopilot: first emails go to book contacts (Source Book…) before other sources; within each group best leads first (`emailOrder_`, unit-tested).
+- [ ] Helper page: swipe left/right switches Done / After call / To call; no switch when swiping in a text box or with Filters open
+- [ ] Autopilot pause after 5 bounces sends "email autopilot paused" email to owner
