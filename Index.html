@@ -775,12 +775,14 @@ function renderSheet(c, keepScroll){
         <h2>About</h2>
         <div class="card">
           ${c.other?`<div class="spec" dir="auto">${esc(c.other)}</div>`:''}
-          ${c.email?`<div class="spec">Email: <a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div>`:''}
           ${c.type && c.type!=='Shadchan'?`<div class="spec">Type: ${esc(c.type)}</div>`:''}
           <div class="spec" dir="auto">Source: ${esc(c.source||'—')}${c.sourceRef?' · '+esc(c.sourceRef):''}</div>
-          ${c.emailStatus?`<div class="spec">Email status: ${esc(c.emailStatus)}</div>`:''}
+          ${c.emailStatus?`<div class="spec">Email status: ${c.emailStatus==='Bounced'?"Didn't arrive — no more emails to this address":esc(c.emailStatus)}</div>`:''}
           ${c.attempts?`<div class="spec">Tries: ${esc(c.attempts)}</div>`:''}
         </div>
+        <label for="f-email">Email</label>
+        <input id="f-email" type="email" dir="ltr" value="${esc(c.email||'')}" placeholder="name@example.com">
+        ${c.email && c.emailStatus!=='Bounced'?`<div class="row"><button class="btn quiet" onclick="emailBad('${c.id}')">Email didn't arrive</button></div>`:''}
         <label for="f-lang">Message language</label>
         <select id="f-lang">${['HE','RU','EN'].map(l=>`<option ${c.lang===l?'selected':''}>${l}</option>`).join('')}</select>
         <label for="f-country">Country</label>
@@ -840,8 +842,16 @@ document.addEventListener('keydown', e=>{
 });
 async function saveContact(id){
   try{
-    const c = await run('api_saveContact', id, {NextDate:$('#f-next').value, Lang:$('#f-lang').value, Notes:$('#f-notes').value, Helpers:$('#f-helpers') ? $('#f-helpers').value : undefined, Country:$('#f-country') ? $('#f-country').value : undefined});
+    const c = await run('api_saveContact', id, {NextDate:$('#f-next').value, Lang:$('#f-lang').value, Notes:$('#f-notes').value, Helpers:$('#f-helpers') ? $('#f-helpers').value : undefined, Country:$('#f-country') ? $('#f-country').value : undefined, Email:$('#f-email') ? $('#f-email').value : undefined});
     toast('Saved'); HIST[id] = c.history; remember(c); updateTodayCard(c);
+    if (sheetId===id) renderSheet(c, true);
+  }catch(e){ fail(e); }
+}
+async function emailBad(id){
+  if(!confirm("Mark this email address as not arriving? The app won't email it again. You can still call or WhatsApp.")) return;
+  try{
+    const c = await run('api_emailBad', id);
+    toast('Noted — no more emails to this address'); HIST[id] = c.history; remember(c); updateTodayCard(c);
     if (sheetId===id) renderSheet(c, true);
   }catch(e){ fail(e); }
 }

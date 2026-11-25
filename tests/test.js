@@ -289,3 +289,11 @@ t('pickTheirs_: skips bounces, auto-replies, drafts, own mail; prefers their add
   assert.strictEqual(A.pickTheirs_(msgs, me, 'new@z.com'), 2);   // falls back to another real person
   assert.strictEqual(A.pickTheirs_([{ from: 'me@gmail.com' }, { from: 'postmaster@x.com' }], me, 'a@b.c'), -1);
 });
+t('emailChangePatch_: new address resets status and keeps the old one in Notes', () => {
+  const c = { Email: 'old@x.com', EmailStatus: 'Bounced', Notes: 'hi' };
+  const p = A.emailChangePatch_(c, ' new@x.com ', '2026-11-25');
+  assert.strictEqual(p.Email, 'new@x.com'); assert.strictEqual(p.EmailStatus, ''); assert.strictEqual(p.EmailSentAt, '');
+  assert.ok(p.Notes.startsWith('hi\n2026-11-25: old email old@x.com (did not arrive)'));
+  assert.deepStrictEqual(A.emailChangePatch_(c, 'OLD@x.com', 'd'), {});   // same address = no change
+  assert.throws(() => A.emailChangePatch_(c, 'not an email', 'd'));
+});

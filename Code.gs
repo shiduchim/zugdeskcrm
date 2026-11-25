@@ -789,8 +789,41 @@ function api_saveContact(id, patch) {
   try {
     const db = loadContacts_(); const c = db.rows.find(r => r.ID === id);
     if (!c) throw new Error('Contact not found: ' + id);
-    const allowed = {}; ['Notes', 'NextDate', 'Lang', 'Email', 'Boost', 'Helpers', 'Country'].forEach(k => { if (patch[k] !== undefined) allowed[k] = patch[k]; });
+    const allowed = {}; ['Notes', 'NextDate', 'Lang', 'Boost', 'Helpers', 'Country'].forEach(k => { if (patch[k] !== undefined) allowed[k] = patch[k]; });
+    if (patch.Email !== undefined) {   // a new address: old one goes to Notes, email status starts fresh
+      const notes = allowed.Notes !== undefined ? allowed.Notes : c.Notes;   // keep notes typed in the same save
+      const ep = emailChangePatch_(Object.assign({}, c, { Notes: notes }), patch.Email, today_());
+      if (ep.Email !== undefined) {
+        log_(c, '', 'Email changed', 'to "' + ep.Email + '". Old: ' + (c.Email || '(empty)'));
+        Object.assign(allowed, ep);
+      }
+    }
     patchContact_(db, c, allowed);
+    return api_contact(id);
+  } finally { lock.releaseLock(); }
+}
+
+/** Pure: the fields to change when the email address changes. Old address is kept in Notes, and the email status
+ *  starts fresh so the new address can be emailed. {} = no change. Throws on an invalid address. Tested with node. */
+function emailChangePatch_(c, email, date) {
+  email = String(email || '').trim();
+  const old = String(c.Email || '').trim();
+  if (email.toLowerCase() === old.toLowerCase()) return {};
+  if (email && !validEmail_(email)) throw new Error('That email address doesn\'t look right: ' + email);
+  const p = { Email: email, EmailStatus: '', EmailSentAt: '', EmailFollowupAt: '' };
+  if (old) p.Notes = (c.Notes ? c.Notes + '\n' : '') + date + ': old email ' + old + (c.EmailStatus === 'Bounced' ? ' (did not arrive)' : '');
+  return p;
+}
+
+/** "Email didn't arrive": never email this address again; back to the phone/WhatsApp list. */
+function api_emailBad(id) {
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const db = loadContacts_(); const c = db.rows.find(r => r.ID === id);
+    if (!c) throw new Error('Contact not found: ' + id);
+    patchContact_(db, c, { EmailStatus: 'Bounced', NeedsReply: '', Status: c.Status === 'Contacted' ? 'New' : c.Status });
+    log_(c, 'Email', 'Email didn\'t arrive (marked by hand)', c.Email);
+    PropertiesService.getScriptProperties().deleteProperty('plan_' + today_());
     return api_contact(id);
   } finally { lock.releaseLock(); }
 }
@@ -1067,7 +1100,7 @@ function applyCommand_(cmd, source) {
   } else if (cmd.action === 'set') {
     const old = c[cmd.field] || '';
     const v = /^(Phone1|Phone2)$/.test(cmd.field) && normPhone_(cmd.value) ? normPhone_(cmd.value).local : cmd.value;
-    patchContact_(db, c, { [cmd.field]: v });
+    patchContact_(db, c, cmd.field === 'Email' ? Object.assign({ Email: v }, emailChangePatch_(c, v, today_())) : { [cmd.field]: v });
     log_(c, 'Chat', 'Changed ' + cmd.field, 'to "' + v + '". Old value: ' + (old || '(empty)') + by);
   } else if (cmd.action === 'delete') {
     const del = ensureSheet_('Deleted', db.head.concat(['DeletedAt']));
@@ -1778,4 +1811,4 @@ function api_newHelperLink(name) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, emailOrder_: emailOrder_, sourceLine_: sourceLine_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, sendBlock_: sendBlock_, pickTheirs_: pickTheirs_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_, parseCommand_: parseCommand_, nameMatches_: nameMatches_ };
+if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, emailOrder_: emailOrder_, sourceLine_: sourceLine_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, sendBlock_: sendBlock_, emailChangePatch_: emailChangePatch_, pickTheirs_: pickTheirs_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_, parseCommand_: parseCommand_, nameMatches_: nameMatches_ };

@@ -98,3 +98,5 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Autopilot: after each send the contact is marked right away (a later label/Sheet hiccup can't resend). If the Sheet write fails, autopilot pauses with the contact's ID in the reason. (node: n/a, live only)
 - [x] Ask-by-email answers the person's own latest message — never a bounce notice, auto-reply or our own mail (node: pickTheirs_).
 - [x] No email sending on Shabbat (Fri 12:00 → Sat night) or SKIP_DATES, also for the Ask-by-email button (node: sendBlock_). Manual sends count in today's total.
+- [ ] Card → Details: "Email didn't arrive" → status shows "Didn't arrive", contact back to New, never emailed again (live).
+- [x] Changing the email (card Details or chat `set Email`) moves the old address to Notes and clears EmailStatus/SentAt/FollowupAt, so the new address can be emailed (node: emailChangePatch_); bad address refused.
