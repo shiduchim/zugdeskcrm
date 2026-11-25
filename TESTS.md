@@ -95,3 +95,6 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Email autopilot: first emails go to book contacts (Source Book…) before other sources; within each group best leads first (`emailOrder_`, unit-tested).
 - [ ] Helper page: swipe left/right switches Done / After call / To call; no switch when swiping in a text box or with Filters open
 - [ ] Autopilot pause after 5 bounces sends "email autopilot paused" email to owner
+- [ ] Autopilot: after each send the contact is marked right away (a later label/Sheet hiccup can't resend). If the Sheet write fails, autopilot pauses with the contact's ID in the reason. (node: n/a, live only)
+- [x] Ask-by-email answers the person's own latest message — never a bounce notice, auto-reply or our own mail (node: pickTheirs_).
+- [x] No email sending on Shabbat (Fri 12:00 → Sat night) or SKIP_DATES, also for the Ask-by-email button (node: sendBlock_). Manual sends count in today's total.

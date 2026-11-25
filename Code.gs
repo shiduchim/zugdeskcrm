@@ -505,17 +505,19 @@ function api_askEmail(id) {
   const body = fill_(s['ASK_EMAIL_' + lang] || s.ASK_EMAIL_HE, { sender: s.SENDER_NAME });
   if (body.trim().length < 20) throw new Error('ASK_EMAIL_' + lang + ' is empty — check the Settings tab');
   const opts = { name: s.SENDER_NAME, htmlBody: toHtml_(body, lang, waOk_(s)) };
-  let theirs = null;
-  (c.EmailThreadIds || '').split(',').filter(Boolean).forEach(tid => {
-    try { GmailApp.getThreadById(tid).getMessages().forEach(m => { if (m.getFrom().toLowerCase().indexOf(me_()) < 0) theirs = m; }); } catch (e) {}
-  });
+  const stop = canSendNow_(s);
+  if (stop) throw new Error(stop);
+  const theirs = theirLastMessage_(c);
   const ids = (c.EmailThreadIds || '').split(',').filter(Boolean);
   if (theirs) theirs.reply(body, opts);
   else {
     const msg = GmailApp.createDraft(c.Email.trim(), fill_(s['ASK_SUBJECT_' + lang] || s.ASK_SUBJECT_HE, {}), body, opts).send();
-    const th = msg.getThread(); th.addLabel(GmailApp.getUserLabelByName(LABEL) || GmailApp.createLabel(LABEL));
-    if (ids.indexOf(th.getId()) < 0) ids.push(th.getId());
+    try {
+      const th = msg.getThread(); th.addLabel(GmailApp.getUserLabelByName(LABEL) || GmailApp.createLabel(LABEL));
+      if (ids.indexOf(th.getId()) < 0) ids.push(th.getId());
+    } catch (e) {}   // the email is already sent; the label is a bonus
   }
+  countSend_();
   patchContact_(db, c, { AskedReferralsAt: now_(), EmailThreadIds: ids.join(','), EmailStatus: c.EmailStatus || 'Asked' });
   log_(c, 'Email', 'Asked for recommendations', lang);
   return card_(c, s);
@@ -1305,7 +1307,7 @@ function sendBatch_() {
   const day = Utilities.formatDate(now, TZ, 'EEE');          // Sun, Mon, ...
   const hour = parseInt(Utilities.formatDate(now, TZ, 'H'), 10);
   if (list_(s, 'EMAIL_DAYS').indexOf(day) < 0) return;
-  if (list_(s, 'SKIP_DATES').indexOf(today_()) >= 0) return;   // Yom Tov / fast days
+  if (canSendNow_(s)) return;   // Shabbat, Yom Tov / fast days
   if (hour < num_(s, 'EMAIL_START_HOUR', 9) || hour >= num_(s, 'EMAIL_END_HOUR', 19)) return;
 
   const props = PropertiesService.getScriptProperties();
@@ -1349,13 +1351,25 @@ function sendBatch_() {
   for (const item of queue) {
     if (budget <= 0) break;
     const c = item.c, lang = pickLang_(c, s);
+    let msg;
     try {
       const m = composeEmail_(c, s, lang, item.fu);
-      const msg = (item.fu && replyInThread_(c, m, lang, s)) ||
+      msg = (item.fu && replyInThread_(c, m, lang, s)) ||
         GmailApp.createDraft(c.Email.trim(), m.subject, m.body, { name: s.SENDER_NAME, htmlBody: toHtml_(m.body, lang, waOk_(s)) }).send();
-      const th = msg.getThread(); th.addLabel(label);
+    } catch (e) {
+      const err = String(e);
+      log_(c, 'Email', 'Send error', err.slice(0, 200));
+      if (/invalid (email|argument)/i.test(err)) { patchContact_(db, c, { EmailStatus: 'Error' }); continue; }   // only this address is bad
+      // quota, Gmail outage or a Settings problem: stop now, nobody is marked, next hour tries again
+      props.setProperty('send_problem', 'Sending stopped on ' + now_() + ': ' + err.slice(0, 160) + ' — it will try again next hour.');
+      break;
+    }
+    // The email is out: count it and mark the person FIRST, so a later hiccup can never send it twice.
+    sentToday++; budget--; props.setProperty(key, String(sentToday));
+    try {
       const ids = c.EmailThreadIds ? c.EmailThreadIds.split(',') : [];
-      if (ids.indexOf(th.getId()) < 0) ids.push(th.getId());
+      let th = null; try { th = msg.getThread(); th.addLabel(label); } catch (e) {}   // label is a bonus
+      if (th && ids.indexOf(th.getId()) < 0) ids.push(th.getId());
       if (item.fu) {
         patchContact_(db, c, { EmailStatus: 'Followed up', EmailFollowupAt: now_(), EmailThreadIds: ids.join(','), LastContact: now_(), LastChannel: 'Email' });
         log_(c, 'Email', 'Follow-up email sent', lang);
@@ -1364,14 +1378,12 @@ function sendBatch_() {
           LastContact: now_(), LastChannel: 'Email', NextDate: addDays_(fuDays + 6) });
         log_(c, 'Email', 'Email sent', lang);
       }
-      sentToday++; budget--; props.setProperty(key, String(sentToday));
       props.deleteProperty('send_problem');
     } catch (e) {
-      const err = String(e);
-      log_(c, 'Email', 'Send error', err.slice(0, 200));
-      if (/invalid (email|argument)/i.test(err)) { patchContact_(db, c, { EmailStatus: 'Error' }); continue; }   // only this address is bad
-      // quota, Gmail outage or a Settings problem: stop now, nobody is marked, next hour tries again
-      props.setProperty('send_problem', 'Sending stopped on ' + now_() + ': ' + err.slice(0, 160) + ' — it will try again next hour.');
+      // sent, but the Sheet could not be updated: stop, so nobody gets the same email twice
+      try { setSetting_('AUTO_EMAIL', 'OFF'); } catch (e2) {}
+      props.setProperty('paused_reason', 'Paused on ' + now_() + ': the email to ' + c.Name + ' (' + c.ID + ') was sent, but the Sheet could not be updated (' +
+        String(e).slice(0, 120) + '). In the Sheet set EmailStatus = Sent for ' + c.ID + ', then turn the autopilot on again.');
       break;
     }
   }
@@ -1382,6 +1394,50 @@ const STOP_WORDS = /(^|[\s.,!?"'׳״()-])(הסר|הסירו|להסיר|תסיר|
 function bumpBounce_() {
   const p = PropertiesService.getScriptProperties(), k = 'bounce_' + today_();
   p.setProperty(k, String((parseInt(p.getProperty(k) || '0', 10)) + 1));
+}
+
+/** Why sending must wait now ('' = OK). Shabbat = Friday from 12:00 until Saturday ends; SKIP_DATES = Yom Tov / fast days. Pure; tested with node. */
+function sendBlock_(dow, hour, date, s) {
+  if (dow === 6 || (dow === 5 && hour >= 12)) return 'No sending on Shabbat (Friday 12:00 until Saturday night)';
+  if (list_(s, 'SKIP_DATES').indexOf(date) >= 0) return 'Today is in SKIP_DATES (Yom Tov / fast day) — no sending today';
+  return '';
+}
+function canSendNow_(s) {
+  const now = new Date();
+  return sendBlock_(Number(Utilities.formatDate(now, TZ, 'u')), Number(Utilities.formatDate(now, TZ, 'H')), today_(), s);
+}
+/** Count an email sent by hand in today's total (same counter as autopilot, so the Gmail limit is respected). */
+function countSend_() {
+  const p = PropertiesService.getScriptProperties(), k = 'sent_' + today_();
+  p.setProperty(k, String(parseInt(p.getProperty(k) || '0', 10) + 1));
+}
+/** Which message to answer: the newest real message from this person — never ours, a draft, a bounce notice or an auto-reply.
+ *  Prefers their own address; else another real person in the thread. msgs = [{from, draft, auto}]. Pure; tested with node. */
+function pickTheirs_(msgs, me, email) {
+  email = String(email || '').trim().toLowerCase();
+  let exact = -1, other = -1;
+  msgs.forEach((m, i) => {
+    const f = addr_(m.from || '');
+    if (m.draft || m.auto || !f || f.indexOf(me) >= 0 || /mailer-daemon|postmaster/.test(f)) return;
+    if (email && f === email) exact = i; else other = i;
+  });
+  return exact >= 0 ? exact : other;
+}
+/** The Gmail message to reply to for this contact (newest thread first), or null. */
+function theirLastMessage_(c) {
+  const tids = (c.EmailThreadIds || '').split(',').filter(Boolean).reverse();
+  for (let t = 0; t < tids.length; t++) {
+    try {
+      const msgs = GmailApp.getThreadById(tids[t]).getMessages();
+      const info = msgs.map(m => {
+        let h = ''; try { h = m.getHeader('Auto-Submitted') || m.getHeader('X-Autoreply') || ''; } catch (e) {}
+        return { from: m.getFrom(), draft: m.isDraft(), auto: isAutoReply_(h, m.getSubject()) };
+      });
+      const i = pickTheirs_(info, me_(), c.Email);
+      if (i >= 0) return msgs[i];
+    } catch (e) {}
+  }
+  return null;
 }
 
 /** Out-of-office / automatic replies (pure; tested with node). */
@@ -1722,4 +1778,4 @@ function api_newHelperLink(name) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, emailOrder_: emailOrder_, sourceLine_: sourceLine_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_, parseCommand_: parseCommand_, nameMatches_: nameMatches_ };
+if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, emailOrder_: emailOrder_, sourceLine_: sourceLine_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, sendBlock_: sendBlock_, pickTheirs_: pickTheirs_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_, parseCommand_: parseCommand_, nameMatches_: nameMatches_ };

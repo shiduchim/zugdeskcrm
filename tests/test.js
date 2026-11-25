@@ -266,3 +266,26 @@ console.log(n + ' checks passed');
   t({ Source: 'Book', ReferredBy: 'Rivka' }, 'Rivka suggested. ');
   console.log('sourceLine_ ok');
 }
+
+t('sendBlock_: Shabbat, Friday afternoon, SKIP_DATES', () => {
+  const s = { SKIP_DATES: '2026-12-25, 2027-03-23' };
+  assert.ok(A.sendBlock_(6, 10, '2026-11-28', s));          // Saturday
+  assert.ok(A.sendBlock_(5, 13, '2026-11-27', s));          // Friday 13:00
+  assert.strictEqual(A.sendBlock_(5, 10, '2026-11-27', s), ''); // Friday morning OK
+  assert.strictEqual(A.sendBlock_(7, 10, '2026-11-29', s), ''); // Sunday OK
+  assert.ok(A.sendBlock_(3, 10, '2026-12-25', s));          // skip date
+});
+t('pickTheirs_: skips bounces, auto-replies, drafts, own mail; prefers their address', () => {
+  const me = 'me@gmail.com';
+  const msgs = [
+    { from: 'Me <me@gmail.com>' },
+    { from: 'Rivka <rivka@x.com>' },
+    { from: 'Other <other@y.com>' },
+    { from: 'Mail Delivery <mailer-daemon@googlemail.com>' },
+    { from: 'Rivka <rivka@x.com>', auto: true },
+    { from: 'Me <me@gmail.com>', draft: true },
+  ];
+  assert.strictEqual(A.pickTheirs_(msgs, me, 'rivka@x.com'), 1);
+  assert.strictEqual(A.pickTheirs_(msgs, me, 'new@z.com'), 2);   // falls back to another real person
+  assert.strictEqual(A.pickTheirs_([{ from: 'me@gmail.com' }, { from: 'postmaster@x.com' }], me, 'a@b.c'), -1);
+});
