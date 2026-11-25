@@ -309,7 +309,7 @@ t('bounceInfo_: hard vs temporary bounces', () => {
   assert.strictEqual(nf.temp, false); assert.strictEqual(nf.reason, 'Address not found'); assert.strictEqual(nf.code, '5.1.1');
   assert.strictEqual(A.bounceInfo_('Delivery Status Notification (Delay)', 'There was a temporary problem delivering your message').temp, true);
   const full = A.bounceInfo_('Delivery Status Notification (Failure)', 'The recipient\'s inbox is full. 452 4.2.2 The email account that you tried to reach is over quota.');
-  assert.strictEqual(full.temp, true); assert.ok(/Mailbox full/.test(full.reason));
+  assert.strictEqual(full.temp, false); assert.ok(/Mailbox full/.test(full.reason));
   assert.strictEqual(A.bounceInfo_('Undeliverable: hello', '550 5.7.1 Message rejected as spam').temp, true);
   assert.strictEqual(A.bounceInfo_('Delivery Status Notification (Failure)', 'DNS Error: Domain name not found').reason, 'Domain not found');
   // words in our quoted original email must not change the verdict
@@ -332,7 +332,7 @@ t('pickTheirs_ never answers an old address; oldEmails_ reads Notes', () => {
 });
 t('bounceInfo_: real Gmail notices (Nov 2026)', () => {
   const full = "** Recipient inbox full **\n\nYour message couldn't be delivered to x@gmail.com. Their inbox is full, or it's getting too much mail right now.\n\n452 4.2.2 The recipient's inbox is out of storage space.\nAction: failed\nStatus: 4.2.2";
-  assert.deepStrictEqual([A.bounceInfo_('Delivery Status Notification (Failure)', full).temp, A.bounceInfo_('Delivery Status Notification (Failure)', full).code], [true, '4.2.2']);
+  assert.deepStrictEqual([A.bounceInfo_('Delivery Status Notification (Failure)', full).temp, A.bounceInfo_('Delivery Status Notification (Failure)', full).code], [false, '4.2.2']);
   const delay = "** Delivery incomplete **\n\nThere was a temporary problem delivering your message to x@gmail.com. Gmail will retry for 46 more hours.\n452 4.2.2 The recipient's inbox is out of storage space.";
   assert.strictEqual(A.bounceInfo_('Delivery Status Notification (Delay)', delay).temp, true);
   const nf = "** Address not found **\n\nYour message wasn't delivered to x@gmail.com because the address couldn't be found, or is unable to receive mail.\n550 5.1.1 The email account that you tried to reach does not exist.\nStatus: 5.1.1";

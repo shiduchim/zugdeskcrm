@@ -1495,7 +1495,7 @@ function isBounceFrom_(from) { return /^(mailer-daemon|postmaster|microsoftexcha
 function isBounceMsg_(from, subject) {
   return isBounceFrom_(from) || /^(undeliverable|undelivered|delivery status notification|delivery has failed|mail delivery (failed|failure|subsystem)|returned mail|failure notice|delivery failure|non.?delivery)/i.test(String(subject || '').trim());
 }
-/** What a bounce notice means. temp = the address is probably fine (delay, mailbox full, spam filter, any 4.x.x code),
+/** What a bounce notice means. temp = the address is probably fine (delay, spam filter, any other 4.x.x code; mailbox full is NOT temp — user choice),
  *  so the contact is NOT marked "didn't arrive". reason = one short line for the log / bounce view. Pure; tested with node. */
 function bounceInfo_(subject, body) {
   const sub = String(subject || '');
@@ -1506,7 +1506,7 @@ function bounceInfo_(subject, body) {
   if (/\(delay\)|delayed|delay notification|warning|will (retry|keep trying)|still trying/i.test(sub)) return r('Delayed — Gmail is still trying', true);
   if (/^5\.1\.[01]$/.test(code)) return r('Address not found', false);
   if (code === '5.1.2') return r('Domain not found', false);
-  if (/mailbox (is )?full|inbox (is )?full|over (the )?quota|quota exceeded|insufficient storage|out of storage/i.test(t) || /^[45]\.2\.2$/.test(code)) return r('Mailbox full (temporary — address is probably fine)', true);
+  if (/mailbox (is )?full|inbox (is )?full|over (the )?quota|quota exceeded|insufficient storage|out of storage/i.test(t) || /^[45]\.2\.2$/.test(code)) return r('Mailbox full — no more emails to this address', false);
   if (/spam|blocked|blacklist|blocklist|policy|reputation|rejected for policy|message rejected/i.test(t) || /^5\.7\./.test(code)) return r('Blocked by their spam filter (address is probably fine)', true);
   if (/domain (name )?not found|dns|no mx|host not found|unrouteable|^5\.1\.2$/i.test(t) || code === '5.1.2') return r('Domain not found', false);
   if (/does ?n.?t exist|does not exist|not found|no such user|user unknown|unknown user|invalid recipient|recipient not found|address couldn.?t be found|mailbox unavailable|account.*disabled|no longer/i.test(t) || /^5\.1\.[01]$/.test(code)) return r('Address not found', false);
