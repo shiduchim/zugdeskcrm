@@ -100,3 +100,4 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [x] No email sending on Shabbat (Fri 12:00 → Sat night) or SKIP_DATES, also for the Ask-by-email button (node: sendBlock_). Manual sends count in today's total.
 - [ ] Card → Details: "Email didn't arrive" → status shows "Didn't arrive", contact back to New, never emailed again (live).
 - [x] Changing the email (card Details or chat `set Email`) moves the old address to Notes and clears EmailStatus/SentAt/FollowupAt, so the new address can be emailed (node: emailChangePatch_); bad address refused.
+- [x] Bounces from mailer-daemon, postmaster and Outlook/Exchange (MicrosoftExchange329e…@domain) are all detected; inbox/read state doesn't matter (node: isBounceFrom_).

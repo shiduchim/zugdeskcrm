@@ -1451,7 +1451,7 @@ function pickTheirs_(msgs, me, email) {
   let exact = -1, other = -1;
   msgs.forEach((m, i) => {
     const f = addr_(m.from || '');
-    if (m.draft || m.auto || !f || f.indexOf(me) >= 0 || /mailer-daemon|postmaster/.test(f)) return;
+    if (m.draft || m.auto || !f || f.indexOf(me) >= 0 || isBounceFrom_(f)) return;
     if (email && f === email) exact = i; else other = i;
   });
   return exact >= 0 ? exact : other;
@@ -1478,6 +1478,9 @@ function isAutoReply_(headers, subject) {
   if (/auto-replied|auto-generated|^yes$/i.test(String(headers || '').trim())) return true;
   return /out of office|automatic reply|auto.?reply|autoreply|vacation|מענה אוטומטי|תשובה אוטומטית|אני לא נמצא|Автоответ|Автоматический ответ/i.test(String(subject || ''));
 }
+/** Bounce senders: Gmail/most servers (mailer-daemon, postmaster) and Outlook/Exchange (MicrosoftExchange329e…@domain). Pure; tested with node. */
+function isBounceFrom_(from) { return /^(mailer-daemon|postmaster|microsoftexchange[0-9a-f]+)@/.test(addr_(from)); }
+const BOUNCE_SEARCH = 'mailer-daemon OR postmaster OR MicrosoftExchange329e71ec88ae4615bbc36ab6ce41109e';
 function addr_(from) { const m = String(from).match(/<([^>]+)>/); return (m ? m[1] : String(from)).trim().toLowerCase(); }
 
 function scanReplies_() {
@@ -1518,7 +1521,7 @@ function scanReplies_() {
           const from = m.getFrom().toLowerCase();
           if (from.indexOf(me) >= 0) return;
           if (when > newest) newest = when;
-          if (/mailer-daemon|postmaster/.test(from)) { bounced = true; return; }
+          if (isBounceFrom_(from)) { bounced = true; return; }
           let h = ''; try { h = m.getHeader('Auto-Submitted') || m.getHeader('X-Autoreply') || ''; } catch (e) {}
           if (isAutoReply_(h, m.getSubject())) return;   // out-of-office is not a real answer
           gotReply = true;
@@ -1550,7 +1553,7 @@ function scanReplies_() {
 /** Bounce notices often arrive as separate messages; match them to contacts by address. */
 function scanBounces_(db) {
   const seen = GmailApp.getUserLabelByName(LABEL + '/bounce-seen') || GmailApp.createLabel(LABEL + '/bounce-seen');
-  const threads = GmailApp.search('from:(mailer-daemon OR postmaster) newer_than:5d -label:' + LABEL + '-bounce-seen', 0, 30);
+  const threads = GmailApp.search('from:(' + BOUNCE_SEARCH + ') newer_than:5d -label:' + LABEL + '-bounce-seen', 0, 30);
   threads.forEach(th => {
     if (th.getLabels().some(l => l.getName() === seen.getName())) return;
     const text = th.getMessages().map(m => m.getPlainBody()).join('\n').toLowerCase();
@@ -1811,4 +1814,4 @@ function api_newHelperLink(name) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, emailOrder_: emailOrder_, sourceLine_: sourceLine_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, sendBlock_: sendBlock_, emailChangePatch_: emailChangePatch_, pickTheirs_: pickTheirs_, addr_: addr_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_, parseCommand_: parseCommand_, nameMatches_: nameMatches_ };
+if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, emailOrder_: emailOrder_, sourceLine_: sourceLine_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, sendBlock_: sendBlock_, emailChangePatch_: emailChangePatch_, pickTheirs_: pickTheirs_, addr_: addr_, isBounceFrom_: isBounceFrom_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_, parseCommand_: parseCommand_, nameMatches_: nameMatches_ };

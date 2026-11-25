@@ -297,3 +297,10 @@ t('emailChangePatch_: new address resets status and keeps the old one in Notes',
   assert.deepStrictEqual(A.emailChangePatch_(c, 'OLD@x.com', 'd'), {});   // same address = no change
   assert.throws(() => A.emailChangePatch_(c, 'not an email', 'd'));
 });
+t('isBounceFrom_: mailer-daemon, postmaster, Exchange; not real people', () => {
+  assert.ok(A.isBounceFrom_('Mail Delivery Subsystem <mailer-daemon@googlemail.com>'));
+  assert.ok(A.isBounceFrom_('postmaster@outlook.com'));
+  assert.ok(A.isBounceFrom_('Microsoft Outlook <MicrosoftExchange329e71ec88ae4615bbc36ab6ce41109e@shul.org>'));
+  assert.ok(!A.isBounceFrom_('Rivka <rivka@x.com>'));
+  assert.ok(!A.isBounceFrom_('Ask the postmaster <rivka@x.com>'));
+});
