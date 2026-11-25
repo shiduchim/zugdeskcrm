@@ -810,7 +810,12 @@ function emailChangePatch_(c, email, date) {
   const old = String(c.Email || '').trim();
   if (email.toLowerCase() === old.toLowerCase()) return {};
   if (email && !validEmail_(email)) throw new Error('That email address doesn\'t look right: ' + email);
-  const p = { Email: email, EmailStatus: '', EmailSentAt: '', EmailFollowupAt: '' };
+  const p = { Email: email };
+  // start fresh only if they never answered by email (Replied/Asked stay, so their new replies are still noticed)
+  if (['', 'Sent', 'Followed up', 'Bounced', 'Error'].indexOf(String(c.EmailStatus || '')) >= 0) {
+    Object.assign(p, { EmailStatus: '', EmailSentAt: '', EmailFollowupAt: '' });
+    if (c.Status === 'Contacted' && c.LastChannel === 'Email') p.Status = 'New';   // so the new address gets the first email
+  }
   if (old) p.Notes = (c.Notes ? c.Notes + '\n' : '') + date + ': old email ' + old + (c.EmailStatus === 'Bounced' ? ' (did not arrive)' : '');
   return p;
 }
@@ -1336,6 +1341,9 @@ function replyInThread_(c, m, lang, s) {
 function sendBatch_() {
   const s = settings_();
   if (String(s.AUTO_EMAIL).toUpperCase() !== 'ON') return;
+  // paused (5 bounces, or a send the Sheet could not record): stays paused until turned on again in the app,
+  // even if writing AUTO_EMAIL=OFF to the Sheet failed
+  if (PropertiesService.getScriptProperties().getProperty('paused_reason')) return;
   const now = new Date();
   const day = Utilities.formatDate(now, TZ, 'EEE');          // Sun, Mon, ...
   const hour = parseInt(Utilities.formatDate(now, TZ, 'H'), 10);
@@ -1416,7 +1424,7 @@ function sendBatch_() {
       // sent, but the Sheet could not be updated: stop, so nobody gets the same email twice
       try { setSetting_('AUTO_EMAIL', 'OFF'); } catch (e2) {}
       props.setProperty('paused_reason', 'Paused on ' + now_() + ': the email to ' + c.Name + ' (' + c.ID + ') was sent, but the Sheet could not be updated (' +
-        String(e).slice(0, 120) + '). In the Sheet set EmailStatus = Sent for ' + c.ID + ', then turn the autopilot on again.');
+        String(e).slice(0, 120) + '). In the Sheet set EmailStatus = ' + (item.fu ? 'Followed up' : 'Sent') + ' for ' + c.ID + ', then turn the autopilot on again.');
       break;
     }
   }
@@ -1446,16 +1454,19 @@ function countSend_() {
 }
 /** Which message to answer: the newest real message from this person — never ours, a draft, a bounce notice or an auto-reply.
  *  Prefers their own address; else another real person in the thread. msgs = [{from, draft, auto}]. Pure; tested with node. */
-function pickTheirs_(msgs, me, email) {
+function pickTheirs_(msgs, me, email, oldEmails) {
   email = String(email || '').trim().toLowerCase();
+  const old = (oldEmails || []).map(x => String(x).toLowerCase());
   let exact = -1, other = -1;
   msgs.forEach((m, i) => {
     const f = addr_(m.from || '');
-    if (m.draft || m.auto || !f || f.indexOf(me) >= 0 || isBounceFrom_(f)) return;
+    if (m.draft || m.auto || !f || f.indexOf(me) >= 0 || isBounceMsg_(f, m.subject) || old.indexOf(f) >= 0) return;
     if (email && f === email) exact = i; else other = i;
   });
   return exact >= 0 ? exact : other;
 }
+/** Addresses this contact used before (kept in Notes as "old email x"). Pure. */
+function oldEmails_(c) { return (String(c.Notes || '').match(/old email (\S+@\S+)/gi) || []).map(x => x.replace(/^old email /i, '').replace(/[),.;]+$/, '')); }
 /** The Gmail message to reply to for this contact (newest thread first), or null. */
 function theirLastMessage_(c) {
   const tids = (c.EmailThreadIds || '').split(',').filter(Boolean).reverse();
@@ -1464,9 +1475,9 @@ function theirLastMessage_(c) {
       const msgs = GmailApp.getThreadById(tids[t]).getMessages();
       const info = msgs.map(m => {
         let h = ''; try { h = m.getHeader('Auto-Submitted') || m.getHeader('X-Autoreply') || ''; } catch (e) {}
-        return { from: m.getFrom(), draft: m.isDraft(), auto: isAutoReply_(h, m.getSubject()) };
+        return { from: m.getFrom(), subject: m.getSubject(), draft: m.isDraft(), auto: isAutoReply_(h, m.getSubject()) };
       });
-      const i = pickTheirs_(info, me_(), c.Email);
+      const i = pickTheirs_(info, me_(), c.Email, oldEmails_(c));
       if (i >= 0) return msgs[i];
     } catch (e) {}
   }
@@ -1479,7 +1490,29 @@ function isAutoReply_(headers, subject) {
   return /out of office|automatic reply|auto.?reply|autoreply|vacation|מענה אוטומטי|תשובה אוטומטית|אני לא נמצא|Автоответ|Автоматический ответ/i.test(String(subject || ''));
 }
 /** Bounce senders: Gmail/most servers (mailer-daemon, postmaster) and Outlook/Exchange (MicrosoftExchange329e…@domain). Pure; tested with node. */
-function isBounceFrom_(from) { return /^(mailer-daemon|postmaster|microsoftexchange[0-9a-f]+)@/.test(addr_(from)); }
+function isBounceFrom_(from) { return /^(mailer-daemon|postmaster|microsoftexchange[0-9a-f]+)(@|$)/.test(addr_(from)); }
+/** A bounce by sender OR by a typical bounce subject (catches gateways with other sender names). Pure; tested. */
+function isBounceMsg_(from, subject) {
+  return isBounceFrom_(from) || /^(undeliverable|undelivered|delivery status notification|delivery has failed|mail delivery (failed|failure|subsystem)|returned mail|failure notice|delivery failure|non.?delivery)/i.test(String(subject || '').trim());
+}
+/** What a bounce notice means. temp = the address is probably fine (delay, mailbox full, spam filter, any 4.x.x code),
+ *  so the contact is NOT marked "didn't arrive". reason = one short line for the log / bounce view. Pure; tested with node. */
+function bounceInfo_(subject, body) {
+  const sub = String(subject || '');
+  // only the notice itself, not our quoted original email under it
+  const t = (sub + '\n' + String(body || '').split(/-{2,}\s*(original message|forwarded message)|^\s*original message/im)[0]).slice(0, 4000);
+  const m = t.match(/\b([45])\.(\d{1,3})\.(\d{1,3})\b/), code = m ? m[0] : '';
+  const r = (reason, temp) => ({ reason: reason, temp: temp, code: code });
+  if (/\(delay\)|delayed|delay notification|warning|will (retry|keep trying)|still trying/i.test(sub)) return r('Delayed — Gmail is still trying', true);
+  if (/^5\.1\.[01]$/.test(code)) return r('Address not found', false);
+  if (code === '5.1.2') return r('Domain not found', false);
+  if (/mailbox (is )?full|inbox (is )?full|over (the )?quota|quota exceeded|insufficient storage|out of storage/i.test(t) || /^[45]\.2\.2$/.test(code)) return r('Mailbox full (temporary — address is probably fine)', true);
+  if (/spam|blocked|blacklist|blocklist|policy|reputation|rejected for policy|message rejected/i.test(t) || /^5\.7\./.test(code)) return r('Blocked by their spam filter (address is probably fine)', true);
+  if (/domain (name )?not found|dns|no mx|host not found|unrouteable|^5\.1\.2$/i.test(t) || code === '5.1.2') return r('Domain not found', false);
+  if (/does ?n.?t exist|does not exist|not found|no such user|user unknown|unknown user|invalid recipient|recipient not found|address couldn.?t be found|mailbox unavailable|account.*disabled|no longer/i.test(t) || /^5\.1\.[01]$/.test(code)) return r('Address not found', false);
+  if (/^4\./.test(code)) return r('Temporary delivery problem (address is probably fine)', true);
+  return r('Could not be delivered', false);
+}
 const BOUNCE_SEARCH = 'mailer-daemon OR postmaster OR MicrosoftExchange329e71ec88ae4615bbc36ab6ce41109e';
 function addr_(from) { const m = String(from).match(/<([^>]+)>/); return (m ? m[1] : String(from)).trim().toLowerCase(); }
 
@@ -1514,14 +1547,18 @@ function scanReplies_() {
       const folder = receivedFolder_(), recv = ss_().getSheetByName('Received');
       found.forEach((msgs, c) => {
         const lastSeen = c.EmailLastSeen || c.EmailSentAt || '';
-        let newest = lastSeen, gotReply = false, bounced = false, stopHint = false, preview = '';
+        let newest = lastSeen, gotReply = false, bounced = null, soft = null, stopHint = false, preview = '';
         msgs.forEach(m => {
           const when = Utilities.formatDate(m.getDate(), TZ, 'yyyy-MM-dd HH:mm');
           if (when <= lastSeen) return;
           const from = m.getFrom().toLowerCase();
           if (from.indexOf(me) >= 0) return;
           if (when > newest) newest = when;
-          if (isBounceFrom_(from)) { bounced = true; return; }
+          if (isBounceMsg_(from, m.getSubject())) {
+            const b = bounceInfo_(m.getSubject(), m.getPlainBody());
+            if (b.temp) soft = b; else bounced = b;
+            return;
+          }
           let h = ''; try { h = m.getHeader('Auto-Submitted') || m.getHeader('X-Autoreply') || ''; } catch (e) {}
           if (isAutoReply_(h, m.getSubject())) return;   // out-of-office is not a real answer
           gotReply = true;
@@ -1535,9 +1572,10 @@ function scanReplies_() {
           });
         });
         if (bounced && !gotReply) {
-          bumpBounce_();
-          patchContact_(db, c, { EmailStatus: 'Bounced', EmailLastSeen: newest, Status: c.Status === 'Contacted' ? 'New' : c.Status });
-          log_(c, 'Email', 'Email bounced', 'moved back to phone/WhatsApp list');
+          markBounced_(db, c, bounced, { EmailLastSeen: newest });
+        } else if (soft && !gotReply) {
+          patchContact_(db, c, { EmailLastSeen: newest });
+          log_(c, 'Email', 'Email delayed or held', bounceLine_(soft) + ' — no change, address kept');
         } else if (gotReply) {
           patchContact_(db, c, { EmailStatus: 'Replied', EmailLastSeen: newest, NeedsReply: 'YES', Status: 'Talking', NextDate: today_() });
           log_(c, 'Email', stopHint ? 'Wrote back – may be asking to stop' : 'Wrote back', preview);
@@ -1554,18 +1592,31 @@ function scanReplies_() {
 function scanBounces_(db) {
   const seen = GmailApp.getUserLabelByName(LABEL + '/bounce-seen') || GmailApp.createLabel(LABEL + '/bounce-seen');
   const threads = GmailApp.search('from:(' + BOUNCE_SEARCH + ') newer_than:5d -label:' + LABEL + '-bounce-seen', 0, 30);
+  const props = PropertiesService.getScriptProperties();
+  let done = []; try { done = JSON.parse(props.getProperty('bounce_ids') || '[]'); } catch (e) {}
   threads.forEach(th => {
-    if (th.getLabels().some(l => l.getName() === seen.getName())) return;
-    const text = th.getMessages().map(m => m.getPlainBody()).join('\n').toLowerCase();
-    db.rows.filter(c => validEmail_(c.Email) && ['Sent', 'Followed up'].indexOf(c.EmailStatus) >= 0 && text.indexOf(c.Email.toLowerCase()) >= 0)
-      .forEach(c => {
-        bumpBounce_();
-        patchContact_(db, c, { EmailStatus: 'Bounced', Status: c.Status === 'Contacted' ? 'New' : c.Status });
-        log_(c, 'Email', 'Email bounced', 'moved back to phone/WhatsApp list');
-      });
+    th.getMessages().forEach(m => {
+      if (done.indexOf(m.getId()) >= 0 || !isBounceMsg_(m.getFrom(), m.getSubject())) return;
+      done.push(m.getId());
+      const body = m.getPlainBody() || '', text = body.toLowerCase(), b = bounceInfo_(m.getSubject(), body);
+      db.rows.filter(c => validEmail_(c.Email) && ['Sent', 'Followed up'].indexOf(c.EmailStatus) >= 0 && text.indexOf(c.Email.trim().toLowerCase()) >= 0)
+        .forEach(c => {
+          if (b.temp) log_(c, 'Email', 'Email delayed or held', bounceLine_(b) + ' — no change, address kept');
+          else markBounced_(db, c, b, {});
+        });
+    });
     th.addLabel(seen);
   });
+  props.setProperty('bounce_ids', JSON.stringify(done.slice(-300)));
 }
+
+/** A real bounce: never email this address again; back to the phone/WhatsApp list. */
+function markBounced_(db, c, b, extra) {
+  bumpBounce_();
+  patchContact_(db, c, Object.assign({ EmailStatus: 'Bounced', Status: c.Status === 'Contacted' ? 'New' : c.Status }, extra));
+  log_(c, 'Email', 'Email bounced', bounceLine_(b) + ' — moved back to phone/WhatsApp list');
+}
+function bounceLine_(b) { return b.reason + (b.code ? ' (' + b.code + ')' : ''); }
 
 /* ------------------------------------------------------------------ */
 /* Helpers: friends/family call shadchanim with a personal link.       */
@@ -1814,4 +1865,4 @@ function api_newHelperLink(name) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, emailOrder_: emailOrder_, sourceLine_: sourceLine_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, sendBlock_: sendBlock_, emailChangePatch_: emailChangePatch_, pickTheirs_: pickTheirs_, addr_: addr_, isBounceFrom_: isBounceFrom_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_, parseCommand_: parseCommand_, nameMatches_: nameMatches_ };
+if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, emailOrder_: emailOrder_, sourceLine_: sourceLine_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, sendBlock_: sendBlock_, emailChangePatch_: emailChangePatch_, pickTheirs_: pickTheirs_, addr_: addr_, isBounceFrom_: isBounceFrom_, isBounceMsg_: isBounceMsg_, bounceInfo_: bounceInfo_, oldEmails_: oldEmails_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_, parseCommand_: parseCommand_, nameMatches_: nameMatches_ };

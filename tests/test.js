@@ -304,3 +304,37 @@ t('isBounceFrom_: mailer-daemon, postmaster, Exchange; not real people', () => {
   assert.ok(!A.isBounceFrom_('Rivka <rivka@x.com>'));
   assert.ok(!A.isBounceFrom_('Ask the postmaster <rivka@x.com>'));
 });
+t('bounceInfo_: hard vs temporary bounces', () => {
+  const nf = A.bounceInfo_('Delivery Status Notification (Failure)', "Address not found\nYour message wasn't delivered to a@b.com because the address couldn't be found.\n550 5.1.1 The email account that you tried to reach does not exist.");
+  assert.strictEqual(nf.temp, false); assert.strictEqual(nf.reason, 'Address not found'); assert.strictEqual(nf.code, '5.1.1');
+  assert.strictEqual(A.bounceInfo_('Delivery Status Notification (Delay)', 'There was a temporary problem delivering your message').temp, true);
+  const full = A.bounceInfo_('Delivery Status Notification (Failure)', 'The recipient\'s inbox is full. 452 4.2.2 The email account that you tried to reach is over quota.');
+  assert.strictEqual(full.temp, true); assert.ok(/Mailbox full/.test(full.reason));
+  assert.strictEqual(A.bounceInfo_('Undeliverable: hello', '550 5.7.1 Message rejected as spam').temp, true);
+  assert.strictEqual(A.bounceInfo_('Delivery Status Notification (Failure)', 'DNS Error: Domain name not found').reason, 'Domain not found');
+  // words in our quoted original email must not change the verdict
+  assert.strictEqual(A.bounceInfo_('Failure', "address couldn't be found 550 5.1.1\n----- Original message -----\nplease check spam folder").temp, false);
+});
+t('isBounceMsg_: bounce subjects from other senders; real replies are not bounces', () => {
+  assert.ok(A.isBounceMsg_('MAILER-DAEMON', 'x'));
+  assert.ok(A.isBounceMsg_('bounce@mx.example.org', 'Undeliverable: שלום'));
+  assert.ok(!A.isBounceMsg_('Rivka <rivka@x.com>', 'Re: שלום'));
+});
+t('emailChangePatch_: keeps Replied; Contacted by email goes back to New', () => {
+  assert.strictEqual(A.emailChangePatch_({ Email: 'a@x.com', EmailStatus: 'Replied' }, 'b@x.com', 'd').EmailStatus, undefined);
+  assert.strictEqual(A.emailChangePatch_({ Email: 'a@x.com', EmailStatus: 'Sent', Status: 'Contacted', LastChannel: 'Email' }, 'b@x.com', 'd').Status, 'New');
+  assert.strictEqual(A.emailChangePatch_({ Email: 'a@x.com', EmailStatus: 'Sent', Status: 'Talking', LastChannel: 'Email' }, 'b@x.com', 'd').Status, undefined);
+});
+t('pickTheirs_ never answers an old address; oldEmails_ reads Notes', () => {
+  const old = A.oldEmails_({ Notes: 'x\n2026-11-25: old email a@x.com (did not arrive)' });
+  assert.deepStrictEqual(old, ['a@x.com']);
+  assert.strictEqual(A.pickTheirs_([{ from: 'a@x.com' }], 'me@g.com', 'b@x.com', old), -1);
+});
+t('bounceInfo_: real Gmail notices (Nov 2026)', () => {
+  const full = "** Recipient inbox full **\n\nYour message couldn't be delivered to x@gmail.com. Their inbox is full, or it's getting too much mail right now.\n\n452 4.2.2 The recipient's inbox is out of storage space.\nAction: failed\nStatus: 4.2.2";
+  assert.deepStrictEqual([A.bounceInfo_('Delivery Status Notification (Failure)', full).temp, A.bounceInfo_('Delivery Status Notification (Failure)', full).code], [true, '4.2.2']);
+  const delay = "** Delivery incomplete **\n\nThere was a temporary problem delivering your message to x@gmail.com. Gmail will retry for 46 more hours.\n452 4.2.2 The recipient's inbox is out of storage space.";
+  assert.strictEqual(A.bounceInfo_('Delivery Status Notification (Delay)', delay).temp, true);
+  const nf = "** Address not found **\n\nYour message wasn't delivered to x@gmail.com because the address couldn't be found, or is unable to receive mail.\n550 5.1.1 The email account that you tried to reach does not exist.\nStatus: 5.1.1";
+  assert.strictEqual(A.bounceInfo_('Delivery Status Notification (Failure)', nf).reason, 'Address not found');
+});
