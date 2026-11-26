@@ -253,6 +253,24 @@ t('nameMatches_: same words any order, refuses other names', () => {
   assert.ok(!A.nameMatches_('Rivka', 'Larisa Ivanova'));
   assert.ok(!A.nameMatches_('', 'Larisa'));
 });
+t('resultDays_: hot shadchan gets a sooner check-in, others unchanged', () => {
+  const spoke = { days: 21 }, s = { HOT_CHECKIN_DAYS: '10' };
+  assert.strictEqual(A.resultDays_(spoke, { Hot: 'YES' }, s), 10);
+  assert.strictEqual(A.resultDays_(spoke, {}, s), 21);
+  assert.strictEqual(A.resultDays_({ days: 4 }, { Hot: 'YES' }, s), 4);
+  assert.strictEqual(A.resultDays_({}, { Hot: 'YES' }, s), undefined);
+});
+t('mineList_: Talking + hot shadchanim, hot first, no closed/connectors', () => {
+  const L = A.mineList_([
+    { ID: 'a', Type: 'Shadchan', Status: 'Talking', LastContact: '2026-11-20' },
+    { ID: 'b', Type: 'Shadchan', Status: 'Talking', LastContact: '2026-11-25' },
+    { ID: 'c', Type: 'Shadchan', Status: 'Contacted', Hot: 'YES', LastContact: '2026-10-01' },
+    { ID: 'd', Type: 'Shadchan', Status: 'Closed', Hot: 'YES' },
+    { ID: 'e', Type: 'Connector', Status: 'Talking' },
+    { ID: 'f', Type: 'Shadchan', Status: 'New' }]);
+  assert.deepStrictEqual(L.map(c => c.ID), ['c', 'b', 'a']);
+});
+
 console.log(n + ' checks passed');
 
 // source line: book contacts only (referral wins)

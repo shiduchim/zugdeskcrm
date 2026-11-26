@@ -56,6 +56,8 @@ h2{font-size:15px;font-weight:600;color:var(--muted);margin:22px 4px 8px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .chip{font-size:12.5px;padding:3px 9px;border-radius:999px;background:var(--blue-soft);color:var(--ink)}
 .chip.warn{background:var(--amber-soft)}
+.mine-btn{display:block;width:100%;text-align:start;font:inherit;color:var(--ink);cursor:pointer;min-height:56px}
+.mine-btn .name{margin:0}.hot{color:var(--amber)}
 .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .btn{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
 .btn.primary{background:var(--blue);border-color:var(--blue);color:var(--blue-ink);font-weight:500}
@@ -213,6 +215,7 @@ label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
   </section>
   <section id="v-received" hidden></section>
   <section id="v-email" hidden></section>
+  <section id="v-mine" hidden></section>
 </main>
 <nav>
   <button data-v="today" class="on">Today</button>
@@ -442,7 +445,8 @@ async function checkImport(commit){
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.v));
 function show(v){
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.v===v));
-  ['today','contacts','received','email'].forEach(x => $('#v-'+x).hidden = x!==v);
+  ['today','contacts','received','email','mine'].forEach(x => $('#v-'+x).hidden = x!==v);
+  if (v==='mine') renderMine();
   if (v==='today'){ if (!T || Date.now()-T.loadedAt > 10*60000 || T.date !== todayStr()) loadToday(); }
   if (v==='contacts') ensureDir();
   if (v==='received') loadReceived();
@@ -465,12 +469,18 @@ async function loadToday(rebuild){
 function renderToday(){
   const typed = {}; document.querySelectorAll('#v-today .notebox input').forEach(i=>{ if(i.value) typed[i.id]=i.value; });
   const y = window.scrollY;
-  [T.call,T.wa,T.replies,T.checkins,T.asks].forEach(l=>l.forEach(remember));
+  T.mine = T.mine || [];
+  [T.call,T.wa,T.replies,T.checkins,T.asks,T.mine].forEach(l=>l.forEach(remember));
   const items = [...T.call, ...T.wa];
   const done = items.filter(c=>c.doneToday).length;
   const pct = items.length ? Math.round(done/items.length*100) : 0;
   let h = `<div class="progress">${done} of ${items.length} done today<div class="bar"><i style="width:${pct}%"></i></div></div>`;
 
+  if (T.mine.length){
+    const hot = T.mine.filter(c=>c.hot).length;
+    h += `<button class="card mine-btn" onclick="show('mine')"><p class="name">My shadchanim</p>
+      <div class="meta">${T.mine.length} talking with you${hot?` · <span class="hot">⭐ ${hot} hot</span>`:''}</div></button>`;
+  }
   h += `<h2>Your call today</h2>`;
   h += T.call.length ? T.call.map(callCard).join('') : `<div class="empty">No call today — everyone with a phone number has been reached.</div>`;
 
@@ -503,6 +513,45 @@ function renderToday(){
   $('#v-today').innerHTML = h;
   Object.keys(typed).forEach(k=>{ const i=document.getElementById(k); if(i) i.value=typed[k]; });
   if (!$('#v-today').hidden) window.scrollTo(0, y);
+}
+
+/* ---------- My shadchanim: everyone who replied / you spoke with; hot ones on top ---------- */
+function daysAgo(d){
+  if (!d) return '';
+  const n = Math.round((new Date(todayStr()+'T12:00') - new Date(String(d).slice(0,10)+'T12:00')) / 864e5);
+  return n<=0 ? 'today' : n===1 ? 'yesterday' : n+' days ago';
+}
+function renderMine(){
+  const L = (T && T.mine) || [];
+  let h = `<div class="row" style="margin-top:0"><button class="btn" onclick="show('today')">Back to Today</button></div>
+    <h2>My shadchanim</h2>
+    <p class="meta" style="margin:-4px 4px 10px">People who wrote back or you spoke with. Tap ⭐ Hot for someone working on a suggestion for you — the app reminds you to check in sooner.</p>`;
+  h += L.length ? L.map(c=>{
+    const mob = c.phones.find(p=>p.mobile), tel = c.phones[0];
+    const when = [c.lastContact && 'Last talked '+daysAgo(c.lastContact), c.nextDate && 'next check-in '+c.nextDate].filter(Boolean).join(' · ');
+    return `<div class="card" id="mi-${c.id}">
+      <p class="name" dir="auto" onclick="openContact('${c.id}')">${c.hot?'<span class="hot">⭐</span> ':''}${esc(c.name)}</p>
+      <div class="meta" dir="auto">${metaLine(c)}</div>
+      ${when?`<div class="status">${esc(when)}</div>`:''}
+      <div class="row">
+        ${mob?`<a class="btn primary" href="${c.waUrl.split('&text=')[0]}" target="_blank">WhatsApp</a>`:''}
+        ${tel?`<a class="btn" href="${tel.tel}">Call</a>`:''}
+        <button class="btn${c.hot?' good':''}" onclick="setHot('${c.id}',${!c.hot})">${c.hot?'⭐ Hot':'☆ Mark as hot'}</button>
+        <button class="btn quiet" onclick="openContact('${c.id}')">Open</button>
+      </div></div>`;
+  }).join('') : `<div class="empty">When a shadchan writes back or you speak, they appear here.</div>`;
+  $('#v-mine').innerHTML = h;
+}
+async function setHot(id, on){
+  if (busy) return; busy=true;
+  try{
+    const c = remember(await run('api_setHot', id, !!on));
+    HIST[id] = c.history;
+    toast(on ? 'Marked as hot — you’ll check in sooner' : 'No longer hot');
+    updateTodayCard(c);
+    if (sheetId===id) renderSheet(c, true);
+  }catch(e){ fail(e); }
+  finally{ busy=false; }
 }
 
 function rebuild(){ if(confirm('Replace today’s call and message list with a fresh selection?')) loadToday(true); }
@@ -669,6 +718,10 @@ function updateTodayCard(c){
   T.replies = c.needsReply ? (T.replies.some(x=>x.id===c.id) ? swap(T.replies) : [c, ...T.replies]) : T.replies.filter(x=>x.id!==c.id);
   T.checkins = c.doneToday ? T.checkins.filter(x=>x.id!==c.id) : swap(T.checkins);
   T.asks = c.status==='Talking' && !c.asked && !c.needsReply ? swap(T.asks) : T.asks.filter(x=>x.id!==c.id);
+  const inMine = c.status!=='Closed' && (c.status==='Talking' || c.hot);
+  T.mine = inMine ? (T.mine.some(x=>x.id===c.id) ? swap(T.mine) : [c, ...T.mine]) : T.mine.filter(x=>x.id!==c.id);
+  T.mine.sort((a,b)=>(b.hot?1:0)-(a.hot?1:0) || String(b.lastContact||'').localeCompare(String(a.lastContact||'')));
+  if (!$('#v-mine').hidden) renderMine();
   renderToday();
 }
 function stop(id, channel){ if(confirm('Never contact this person again (phone, WhatsApp and email)?')) act(id,'stop',channel); }
@@ -733,7 +786,7 @@ function renderSheet(c, keepScroll){
     const y = $('#sheet').scrollTop;
     if (!keepScroll) sheetTab = 'basic';
     $('#sheetInner').innerHTML = `
-      <div class="top"><button class="btn" onclick="closeSheet()">Back</button><span class="status">${esc(c.status)}${c.closeReason?' — '+esc(c.closeReason):''}</span></div>
+      <div class="top"><button class="btn" onclick="closeSheet()">Back</button><span class="status">${esc(c.status)}${c.closeReason?' — '+esc(c.closeReason):''}</span>${c.status!=='Closed'?`<button class="btn${c.hot?' good':' quiet'}" onclick="setHot('${c.id}',${!c.hot})">${c.hot?'⭐ Hot':'☆ Mark as hot'}</button>`:''}</div>
       <p class="name" dir="auto" style="font-size:24px">${esc(c.name)}</p>
       <div class="meta" dir="auto">${metaLine(c)}</div>
       <div class="tabs" role="tablist"><button data-t="basic" onclick="setTab('basic')">Basic</button><button data-t="details" onclick="setTab('details')">Details</button></div>
@@ -1056,7 +1109,7 @@ function rowHtml(c){
   const bits = [c.city, st, c.lastContact && 'last '+String(c.lastContact).slice(0,10), c.nextDate && 'next '+c.nextDate].filter(Boolean).map(esc).join(' · ');
   const top = (c.why||[]).filter(w=>!/Age limit|Crossed|Only other/.test(w)).slice(0,2);
   return `<button class="crow${c.id===sheetId?' sel':''}" dir="${/^[^A-Za-zА-яЁё]*[\u0590-\u05FF]/.test(c.name)?'rtl':'ltr'}" onclick="openContact('${c.id}')" data-id="${c.id}">
-    <span class="nm" dir="auto">${esc(c.name)}</span>
+    <span class="nm" dir="auto">${c.hot?'<span class="hot">⭐</span> ':''}${esc(c.name)}</span>
     <span class="sub" dir="auto">${bits}</span>
     ${top.length?`<span class="tg">${top.map(w=>`<i dir="auto">${esc(w)}</i>`).join('')}</span>`:''}
   </button>`;

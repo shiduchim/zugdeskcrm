@@ -106,3 +106,8 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Autopilot stays paused while paused_reason is set (even if the Sheet write AUTO_EMAIL=OFF failed); turning it on in the app clears it.
 - [x] Email change keeps Replied/Asked (replies still noticed); Contacted-by-email goes back to New so the new address gets the first email (node). Ask-by-email never replies to an old address from Notes (node: pickTheirs_ + oldEmails_).
 - RULE: never trash or delete bounce emails (the app can't see Trash or Spam). Archiving / marking read is fine.
+
+## My shadchanim + Hot (2026-11-26)
+- [ ] Today shows a "My shadchanim" card (N talking · ⭐ K hot) when anyone is Talking; tap → list, Back to Today works.
+- [ ] Contact card: "☆ Mark as hot" → "⭐ Hot"; next check-in moves to ≤10 days (HOT_CHECKIN_DAYS); ⭐ shows in Contacts list.
+- [ ] Hot person + "Spoke" → next date 10 days, not 21. Unit: resultDays_, mineList_.

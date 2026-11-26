@@ -11,9 +11,9 @@ const LABEL = 'zugdeskcrm';
 const C_HEADERS = ['ID','Name','City','Sector','Specialty','Languages','Symbol','Hours','Phone1','Phone2','Email','Other',
   'Source','SourceRef','ReferredBy','Status','CloseReason','NextDate','Attempts','LastContact','LastChannel','NeedsReply',
   'EmailStatus','EmailSentAt','EmailFollowupAt','EmailThreadIds','EmailLastSeen','Lang','Boost','CrossedOut','InZugDesk','Notes',
-  'AskedReferralsAt','Type','Helpers','Country'];
+  'AskedReferralsAt','Type','Helpers','Country','Hot'];
 const S_HEADERS = ['When','FromID','FromName','Name','Phone','Phone2','Email','Text','Status','ContactID'];
-const SCHEMA = '7';
+const SCHEMA = '8';
 
 /** Adds new tabs/columns/settings to an older sheet without touching existing data. */
 function schema_() {
@@ -55,6 +55,8 @@ function schema_() {
   if (s.EMAILS_PER_DAY === '5') setSetting_('EMAILS_PER_DAY', '10');
   if (s.EMAILS_PER_DAY_MAX === undefined) st.appendRow(['EMAILS_PER_DAY_MAX', '40', 'Most emails per day once fully warmed up (Gmail allows scripts 100; stay well below).']);
   if (s.EMAIL_RAMP === undefined) st.appendRow(['EMAIL_RAMP', 'YES', 'YES = start at EMAILS_PER_DAY and add that many each week until EMAILS_PER_DAY_MAX. NO = always EMAILS_PER_DAY.']);
+  // v8: Hot = a shadchan who is actively working on a suggestion → checked in more often
+  if (s.HOT_CHECKIN_DAYS === undefined) st.appendRow(['HOT_CHECKIN_DAYS', '10', 'Hot shadchanim (⭐): check in again after at most this many days.']);
   p.setProperty('schema', SCHEMA);
 }
 
@@ -598,7 +600,7 @@ function card_(c, s, lean) {
     waUrl: mob && !lean ? 'https://api.whatsapp.com/send?phone=' + mob.intl + '&text=' + encodeURIComponent(waText_(c, s, lang)) : '',
     doneToday: (c.LastContact || '').slice(0, 10) === today_(),
     source: c.Source, sourceRef: c.SourceRef, closeReason: c.CloseReason, attempts: c.Attempts, rank: sc.score,
-    helpers: c.Helpers || '', country: c.Country || '', type: c.Type || ''
+    helpers: c.Helpers || '', country: c.Country || '', type: c.Type || '', hot: c.Hot === 'YES'
   };
 }
 
@@ -648,7 +650,7 @@ function api_today(rebuild) {
     .slice(0, num_(s, 'ASKS_PER_DAY', 3)).map(x => x.c);
   const sh = db.rows.filter(isShadchan_);
   const counts = { total: sh.length, fresh: sh.filter(c => (c.Status || 'New') === 'New').length,
-    talking: sh.filter(c => c.Status === 'Talking').length };
+    talking: sh.filter(c => c.Status === 'Talking').length, hot: sh.filter(c => c.Hot === 'YES' && c.Status !== 'Closed').length };
   return {
     date: t,
     call: plan.call.map(id => byId[id]).filter(Boolean).map(c => card_(c, s)),
@@ -656,6 +658,7 @@ function api_today(rebuild) {
     replies: replies.map(c => card_(c, s)),
     checkins: checkins.map(c => card_(c, s)),
     asks: asks.map(c => card_(c, s)),
+    mine: mineList_(db.rows).map(c => card_(c, s)),
     suggestions: api_suggestions(),
     aside: db.rows.filter(c => /^set aside/i.test(c.Helpers || '') && c.Status !== 'Closed').map(c => Object.assign(card_(c, s),
       { asideBy: String(c.Helpers).replace(/^set aside:\s*/i, ''), asideWhy: ((c.Notes || '').split('\n').reverse().find(l => /Not for us/.test(l)) || '').replace(/^.*Not for us:\s*/, '') })),
@@ -696,6 +699,35 @@ function api_result(id, action, channel, note, nextDate) {
   } finally { lock.releaseLock(); }
 }
 
+/** Days until the next check-in for a result. Hot shadchanim are never left longer than HOT_CHECKIN_DAYS. */
+function resultDays_(r, c, s) {
+  if (r.days === undefined) return undefined;
+  return c.Hot === 'YES' ? Math.min(r.days, num_(s, 'HOT_CHECKIN_DAYS', 10)) : r.days;
+}
+
+/** "My shadchanim": everyone you're talking with, plus hot ones. Hot first, then most recent contact. */
+function mineList_(rows) {
+  return rows.filter(c => isShadchan_(c) && c.Status !== 'Closed' && (c.Status === 'Talking' || c.Hot === 'YES'))
+    .sort((a, b) => (b.Hot === 'YES') - (a.Hot === 'YES') || String(b.LastContact || '').localeCompare(String(a.LastContact || '')));
+}
+
+/** Mark / unmark a shadchan as hot (working on a suggestion). Hot → next check-in within HOT_CHECKIN_DAYS. */
+function api_setHot(id, on) {
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const s = settings_(), db = loadContacts_();
+    const c = db.rows.find(r => r.ID === id);
+    if (!c) throw new Error('Contact not found: ' + id);
+    const patch = { Hot: on ? 'YES' : '' };
+    const soon = addDays_(num_(s, 'HOT_CHECKIN_DAYS', 10));
+    if (on && c.Status !== 'Closed' && (!c.NextDate || c.NextDate > soon)) patch.NextDate = soon;
+    patchContact_(db, c, patch);
+    log_(c, '', on ? 'Marked hot' : 'Not hot anymore', '');
+    const card = card_(c, s); card.history = api_history(id);
+    return card;
+  } finally { lock.releaseLock(); }
+}
+
 /** Saves one result on a contact (no lock: callers hold it). */
 function applyResult_(s, db, c, action, channel, note, nextDate) {
     const r = RESULTS[action]; if (!r) throw new Error('Unknown action ' + action);
@@ -709,7 +741,8 @@ function applyResult_(s, db, c, action, channel, note, nextDate) {
     if (r.close) patch.CloseReason = r.close;
     if (r.needsReply) patch.NeedsReply = 'YES';
     if (r.clearReply || r.close) patch.NeedsReply = '';
-    patch.NextDate = nextDate || (r.days !== undefined && patch.Status !== 'Closed' ? addDays_(r.days) : '');
+    const days = resultDays_(r, c, s);
+    patch.NextDate = nextDate || (days !== undefined && patch.Status !== 'Closed' ? addDays_(days) : '');
     if (note) patch.Notes = (c.Notes ? c.Notes + '\n' : '') + today_() + ': ' + note;
     patchContact_(db, c, patch);
     if (action === 'stop') {
@@ -1865,4 +1898,4 @@ function api_newHelperLink(name) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, emailOrder_: emailOrder_, sourceLine_: sourceLine_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, sendBlock_: sendBlock_, emailChangePatch_: emailChangePatch_, pickTheirs_: pickTheirs_, addr_: addr_, isBounceFrom_: isBounceFrom_, isBounceMsg_: isBounceMsg_, bounceInfo_: bounceInfo_, oldEmails_: oldEmails_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_, parseCommand_: parseCommand_, nameMatches_: nameMatches_ };
+if (typeof module !== 'undefined') module.exports = { resultDays_: resultDays_, mineList_: mineList_, settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, emailOrder_: emailOrder_, sourceLine_: sourceLine_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, sendBlock_: sendBlock_, emailChangePatch_: emailChangePatch_, pickTheirs_: pickTheirs_, addr_: addr_, isBounceFrom_: isBounceFrom_, isBounceMsg_: isBounceMsg_, bounceInfo_: bounceInfo_, oldEmails_: oldEmails_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_, parseCommand_: parseCommand_, nameMatches_: nameMatches_ };
