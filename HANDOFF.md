@@ -1,5 +1,18 @@
 # Handoff
-_Last updated: 2026-11-25_
+_Last updated: 2026-11-26_
+
+## Now (2026-11-25/26) — email + bounce work (from ClickCRM ideas)
+Done and live (commits up to a6f7ca6, deploy OK):
+- Safety fixes; Details tab: editable Email field + "Email didn't arrive" button (not yet checked on phone by the user).
+- Bounces: bounceInfo_ reads the reason. Delay / spam-filter block / other 4.x.x = address kept (log only). Address not found, domain not found, **mailbox full (user choice: don't retry)** = Bounced. Outlook/Exchange bounces detected. Fable review fixes all done.
+- Gmail: label "Bounces" (Label_3) created; the 6 inbox bounce threads labelled + archived. Never trash bounces.
+
+Bounce request, next steps (one at a time, wait for "done"; plain English; no "+" in button labels; no red):
+1. Label + archive the other ~33 bounce threads: `from:(mailer-daemon OR postmaster OR MicrosoftExchange329e71ec88ae4615bbc36ab6ce41109e) -label:Bounces` (add Bounces, remove INBOX; never trash). Report the count.
+2. Give the Gmail filter steps (same search; Skip Inbox, Mark as read, label Bounces, Never send to Spam, also apply to matching; NOT Delete).
+3. Short bounce view in the app: address + one-line reason, buttons on top, "Show the full bounce message" folded, "probably fine" note for temporary ones.
+
+Then the main plan (approved): 3 email trail on the card (read-only bubbles) → 4 reply box with "attach my photo" tick → 5 Send my photo (email attach; WhatsApp via navigator.share with file, else download; no public Drive link) → 6 polish (reply from Closed doesn't reopen; Spam search for replies; "address needed" list on Email screen).
 
 ## Latest (2026-11-19) — open items
 - Helper page swipe left/right between tabs: pushed, not yet tried on a phone.
