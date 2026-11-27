@@ -111,3 +111,9 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Today shows a "My shadchanim" card (N talking · ⭐ K hot) when anyone is Talking; tap → list, Back to Today works.
 - [ ] Contact card: "☆ Mark as hot" → "⭐ Hot"; next check-in moves to ≤10 days (HOT_CHECKIN_DAYS); ⭐ shows in Contacts list.
 - [ ] Hot person + "Spoke" → next date 10 days, not 21. Unit: resultDays_, mineList_.
+
+## Speed (2026-11-27)
+- [ ] Today opens fast even when the helpers' list is old (no helper translating from the app; hourly job translates, after the lock is free).
+- [ ] Tapping Sent/Spoke right after opening Today never gives a lock/timeout error.
+- [ ] Contact card history still shows all of that person's lines, newest first (TextFinder on Log column B).
+- [ ] After "Pick new people for today", today's people leave the helpers' list.

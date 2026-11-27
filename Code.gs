@@ -135,9 +135,11 @@ function dailyBackup() {
   });
 }
 
+let SS_MEMO_ = null, HSS_MEMO_;   // opened once per run (each open costs time)
 function ss_() {
+  if (SS_MEMO_) return SS_MEMO_;
   const id = PropertiesService.getScriptProperties().getProperty('SS_ID');
-  return id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet();
+  return (SS_MEMO_ = id ? SpreadsheetApp.openById(id) : SpreadsheetApp.getActiveSpreadsheet());
 }
 
 function receivedFolder_() {
@@ -627,11 +629,12 @@ function waText_(c, s, lang) {
 
 function api_today(rebuild) {
   schema_();
-  try { helperSync_(false); } catch (e) { console.error(e); }   // helpers' results first
-  const s = settings_(), db = loadContacts_(), dnc = dnc_();
   const newPlan = rebuild || !PropertiesService.getScriptProperties().getProperty('plan_' + today_());
+  let got = null;
+  try { got = helperSync_(false, { quick: true, noRebuild: newPlan }); } catch (e) { console.error(e); }   // helpers' results first
+  const s = (got && got.s) || settings_(), db = (got && got.db) || loadContacts_(), dnc = dnc_();
   const plan = getPlan_(db, s, dnc, rebuild);
-  if (newPlan) try { helperSync_(true); } catch (e) { console.error(e); }   // today's people leave the helpers' list
+  if (newPlan) try { helperRebuildQuick_(s, db); } catch (e) { console.error(e); }   // today's people leave the helpers' list
   const busy = helperBusy_();
   plan.call = plan.call.filter(id => !busy.has(id)); plan.wa = plan.wa.filter(id => !busy.has(id));
   const byId = {}; db.rows.forEach(c => (byId[c.ID] = c));
@@ -813,7 +816,12 @@ function api_contact(id) {
 
 /** History of one contact (newest first). Reads only the Log sheet, so a card opens fast. */
 function api_history(id) {
-  return ss_().getSheetByName('Log').getDataRange().getValues().slice(1)
+  const sh = ss_().getSheetByName('Log'), last = sh.getLastRow();
+  if (last < 2 || !id) return [];
+  const hit = sh.getRange(2, 2, last - 1, 1).createTextFinder(String(id)).matchEntireCell(true).findAll();
+  if (!hit.length) return [];
+  const rows = hit.map(r => r.getRow()), first = Math.min.apply(null, rows), end = Math.max.apply(null, rows);   // read only from their first to their last line
+  return sh.getRange(first, 1, end - first + 1, 6).getValues()
     .filter(r => String(r[1]) === id).map(r => ({ when: str_(r[0]), channel: str_(r[3]), action: str_(r[4]), details: str_(r[5]) })).reverse();
 }
 
@@ -1671,9 +1679,10 @@ const HELPER_ACTIONS = { spoke: 'spoke', noanswer: 'noreach', callback: 'callbac
 const HELPER_NEXT = { profile: 'wants Eliyahu\'s details', call: 'wants Eliyahu to call' };
 
 function helperSS_() {
+  if (HSS_MEMO_) return HSS_MEMO_;
   const id = PropertiesService.getScriptProperties().getProperty('HELPER_SS_ID');
   if (!id) return null;
-  try { return SpreadsheetApp.openById(id); } catch (e) { return null; }
+  try { return (HSS_MEMO_ = SpreadsheetApp.openById(id)); } catch (e) { return null; }
 }
 const HELPER_PAGE = 'https://shiduchim.github.io/zugdeskcrm.helper/';   // static page (works with several Google accounts); key after #
 function helperUrl_() { return settings_().HELPER_URL || HELPER_PAGE; }
@@ -1738,10 +1747,12 @@ function helperNames_() {
 }
 
 /** Brings helpers' results into Contacts; then (if asked or anything changed) rewrites the helpers' List. */
-function helperSync_(rebuildList) {
-  const hs = helperSS_(); if (!hs) return;
+function helperSync_(rebuildList, opt) {
+  opt = opt || {};   // quick (from the app): no translating, no 15-minute refresh (the hourly job does those)
+  const hs = helperSS_(); if (!hs) return null;
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(20000)) return;
+  if (!lock.tryLock(opt.quick ? 5000 : 20000)) return null;
+  let out = null, listRows = null;
   try {
     const props = PropertiesService.getScriptProperties();
     let done = parseInt(props.getProperty('helper_synced') || '0', 10);
@@ -1768,10 +1779,24 @@ function helperSync_(rebuildList) {
     }
     if (applied) CacheService.getScriptCache().remove('helper_busy');
     const last = props.getProperty('helper_built') || '';
-    if (rebuildList || applied || last < Utilities.formatDate(new Date(Date.now() - 15 * 60e3), TZ, 'yyyy-MM-dd HH:mm:ss')) helperRebuild_(hs, s, db);
+    const stale = !opt.quick && last < Utilities.formatDate(new Date(Date.now() - 15 * 60e3), TZ, 'yyyy-MM-dd HH:mm:ss');
+    if (!opt.noRebuild && (rebuildList || applied || stale)) listRows = helperRebuild_(hs, s, db);
+    out = { s: s, db: db };
   } finally { lock.releaseLock(); }
+  // translating can take a minute: hourly only, and after the lock is free so app taps never wait for it
+  if (!opt.quick && listRows) try { helperTranslate_(hs, listRows); } catch (e) { console.log('translate: ' + e); }
+  return out;
 }
 
+/** Rebuilds the helpers' list right away from already-loaded data (no translating). */
+function helperRebuildQuick_(s, db) {
+  const hs = helperSS_(); if (!hs) return;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return;   // the hourly job will do it
+  try { helperRebuild_(hs, s, db); } finally { lock.releaseLock(); }
+}
+
+/** Rewrites the helpers' List (no translating here). Returns the rows written. */
 function helperRebuild_(hs, s, db) {
   const dnc = dnc_();
   const plan = JSON.parse(PropertiesService.getScriptProperties().getProperty('plan_' + today_()) || '{"call":[],"wa":[]}');
@@ -1783,7 +1808,6 @@ function helperRebuild_(hs, s, db) {
   sh.getRange(1, 1, 1, w).setValues([H_TABS.List]);   // header can grow (new columns)
   if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, Math.max(w, sh.getLastColumn())).clearContent();
   if (rows.length) sh.getRange(2, 1, rows.length, w).setValues(rows);
-  try { helperTranslate_(hs, rows); } catch (e) { console.log('translate: ' + e); }   // never blocks the list
   const at = hTime_();
   const np = normPhone_(String(s.MY_PHONE || '').trim()), ph = np ? np.local : String(s.MY_PHONE || '').trim();   // Israeli number (calls)
   const prof = (lang, label) => (s['PROFILE_' + lang] || '') + (s['PROFILE_' + lang] && ph ? '\n\n' + label + ph : '');
@@ -1791,6 +1815,7 @@ function helperRebuild_(hs, s, db) {
   const noCall = db.rows.filter(c => blocked_(c, dnc) || (c.Status || '') === 'Closed').map(c => c.ID).join(',');   // History hides Call again for these
   hSet_(hs, { NoCall: noCall, BuiltAt: at, PROFILE_HE: prof('HE', 'טלפון של אליהו: '), PROFILE_RU: prof('RU', 'Телефон Элияху: '), PROFILE_EN: prof('EN', "Eliyahu's phone: ") });
   PropertiesService.getScriptProperties().setProperty('helper_built', at);
+  return rows;
 }
 
 /** Pure: the texts of List rows a helper may want translated (name, city, specialty, each why chip). */
