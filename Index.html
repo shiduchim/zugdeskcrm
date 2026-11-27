@@ -895,7 +895,13 @@ document.addEventListener('keydown', e=>{
 });
 async function saveContact(id){
   try{
-    const c = await run('api_saveContact', id, {NextDate:$('#f-next').value, Lang:$('#f-lang').value, Notes:$('#f-notes').value, Helpers:$('#f-helpers') ? $('#f-helpers').value : undefined, Country:$('#f-country') ? $('#f-country').value : undefined, Email:$('#f-email') ? $('#f-email').value : undefined});
+    // send only what changed on this card (so notes added meanwhile by a helper or the chat are never overwritten)
+    const was = CARDS[id] || {}, p = {}, val = sel => $(sel) ? $(sel).value : undefined;
+    const ch = (key, v, old) => { if (v !== undefined && String(v) !== String(old || '')) p[key] = v; };
+    ch('NextDate', val('#f-next'), was.nextDate); ch('Lang', val('#f-lang'), was.lang); ch('Helpers', val('#f-helpers'), was.helpers);
+    ch('Country', val('#f-country'), was.country); ch('Email', val('#f-email'), was.email);
+    ch('Notes', val('#f-notes'), was.notes); if (p.Notes !== undefined) p.oldNotes = was.notes || '';
+    const c = await run('api_saveContact', id, p);
     toast('Saved'); HIST[id] = c.history; remember(c); updateTodayCard(c);
     if (sheetId===id) renderSheet(c, true);
   }catch(e){ fail(e); }

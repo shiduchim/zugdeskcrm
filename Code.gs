@@ -288,6 +288,49 @@ function loadContacts_() {
   return { sh: sh, head: head, rows: rows };
 }
 
+/** Re-reads one contact's row from the Sheet (the app or a helper may have changed it since the snapshot).
+ *  Returns false if that row now holds someone else. */
+function refresh_(db, c) {
+  const v = db.sh.getRange(c._row, 1, 1, db.head.length).getValues()[0];
+  if (str_(v[db.head.indexOf('ID')]) !== c.ID) return false;
+  db.head.forEach((h, j) => (c[h] = str_(v[j])));
+  return true;
+}
+
+/** Pure: is this email still due? (re-checked right before sending, on fresh data) */
+function emailStillDue_(c, followup) {
+  if (followup) return c.EmailStatus === 'Sent' && c.Status === 'Contacted' && c.LastChannel === 'Email' && c.NeedsReply !== 'YES';
+  return (c.Status || 'New') === 'New' && !c.EmailStatus;
+}
+
+/** Pure: drop people whose address already got (or is about to get) an email — one email per inbox. */
+function oneEmailPerAddress_(list, rows) {
+  const norm = e => String(e || '').trim().toLowerCase();
+  const used = new Set(rows.filter(c => c.EmailStatus && c.EmailStatus !== 'Error').map(c => norm(c.Email)));
+  return list.filter(c => { const e = norm(c.Email); if (used.has(e)) return false; used.add(e); return true; });
+}
+
+/** Pure: the address appears in the text as a whole address (jordan@x.com does not contain dan@x.com). */
+function hasAddr_(text, addr) {
+  addr = String(addr || '').trim().toLowerCase(); if (!addr) return false;
+  const esc = addr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp('(^|[^\\w.+-])' + esc + '($|[^\\w.-]|\\.(?![\\w-]))').test(String(text || '').toLowerCase());
+}
+
+/** Pure: someone added lines to Notes while the card was open → keep them (edited = what the user saved). */
+function mergeNotes_(current, old, edited) {
+  current = String(current || ''); old = String(old || ''); edited = String(edited || '');
+  if (current === old) return edited;
+  const had = new Set(old.split('\n')), mine = new Set(edited.split('\n'));
+  const added = current.split('\n').filter(l => l && !had.has(l) && !mine.has(l));
+  return added.length ? (edited ? edited + '\n' : '') + added.join('\n') : edited;
+}
+
+/** Pure: does an email reply leave this person closed? (asked to stop, not a fit, or on Do-not-contact) */
+function replyKeepsClosed_(c, isBlocked) {
+  return c.Status === 'Closed' && (/Do not contact|Not a fit/.test(c.CloseReason || '') || !!isBlocked);
+}
+
 function patchContact_(db, c, patch) {
   Object.keys(patch).forEach(k => {
     const j = db.head.indexOf(k);
@@ -661,7 +704,7 @@ function api_today(rebuild) {
     replies: replies.map(c => card_(c, s)),
     checkins: checkins.map(c => card_(c, s)),
     asks: asks.map(c => card_(c, s)),
-    mine: mineList_(db.rows).map(c => card_(c, s)),
+    mine: mineList_(db.rows, c => blocked_(c, dnc)).map(c => card_(c, s)),
     suggestions: api_suggestions(),
     aside: db.rows.filter(c => /^set aside/i.test(c.Helpers || '') && c.Status !== 'Closed').map(c => Object.assign(card_(c, s),
       { asideBy: String(c.Helpers).replace(/^set aside:\s*/i, ''), asideWhy: ((c.Notes || '').split('\n').reverse().find(l => /Not for us/.test(l)) || '').replace(/^.*Not for us:\s*/, '') })),
@@ -709,8 +752,8 @@ function resultDays_(r, c, s) {
 }
 
 /** "My shadchanim": everyone you're talking with, plus hot ones. Hot first, then most recent contact. */
-function mineList_(rows) {
-  return rows.filter(c => isShadchan_(c) && c.Status !== 'Closed' && (c.Status === 'Talking' || c.Hot === 'YES'))
+function mineList_(rows, isBlocked) {
+  return rows.filter(c => isShadchan_(c) && c.Status !== 'Closed' && (c.Status === 'Talking' || c.Hot === 'YES') && !(isBlocked && isBlocked(c)))
     .sort((a, b) => (b.Hot === 'YES') - (a.Hot === 'YES') || String(b.LastContact || '').localeCompare(String(a.LastContact || '')));
 }
 
@@ -831,6 +874,7 @@ function api_saveContact(id, patch) {
     const db = loadContacts_(); const c = db.rows.find(r => r.ID === id);
     if (!c) throw new Error('Contact not found: ' + id);
     const allowed = {}; ['Notes', 'NextDate', 'Lang', 'Boost', 'Helpers', 'Country'].forEach(k => { if (patch[k] !== undefined) allowed[k] = patch[k]; });
+    if (allowed.Notes !== undefined && patch.oldNotes !== undefined) allowed.Notes = mergeNotes_(c.Notes, patch.oldNotes, allowed.Notes);   // keep notes added meanwhile
     if (patch.Email !== undefined) {   // a new address: old one goes to Notes, email status starts fresh
       const notes = allowed.Notes !== undefined ? allowed.Notes : c.Notes;   // keep notes typed in the same save
       const ep = emailChangePatch_(Object.assign({}, c, { Notes: notes }), patch.Email, today_());
@@ -867,7 +911,7 @@ function api_emailBad(id) {
   try {
     const db = loadContacts_(); const c = db.rows.find(r => r.ID === id);
     if (!c) throw new Error('Contact not found: ' + id);
-    patchContact_(db, c, { EmailStatus: 'Bounced', NeedsReply: '', Status: c.Status === 'Contacted' ? 'New' : c.Status });
+    patchContact_(db, c, { EmailStatus: 'Bounced', NeedsReply: '', Status: c.Status === 'Contacted' && c.LastChannel === 'Email' ? 'New' : c.Status });
     log_(c, 'Email', 'Email didn\'t arrive (marked by hand)', c.Email);
     PropertiesService.getScriptProperties().deleteProperty('plan_' + today_());
     return api_contact(id);
@@ -1427,12 +1471,18 @@ function sendBatch_() {
   // 2) new emails, best leads first
   const fresh = db.rows.filter(c => (c.Status || 'New') === 'New' && isShadchan_(c) && !c.EmailStatus && validEmail_(c.Email) && !blocked_(c, dnc) && !busy.has(c.ID)
     && !(String(s.SKIP_ZUGDESK).toUpperCase() === 'YES' && c.InZugDesk === 'YES'));
-  const fresh2 = emailOrder_(fresh, s); // book contacts first, then best leads
+  const fresh2 = oneEmailPerAddress_(emailOrder_(fresh, s), db.rows); // book contacts first, then best leads; one per inbox
 
   const queue = followups.map(c => ({ c: c, fu: true })).concat(fresh2.map(c => ({ c: c, fu: false })));
   for (const item of queue) {
     if (budget <= 0) break;
-    const c = item.c, lang = pickLang_(c, s);
+    const c = item.c;
+    // hold the lock for this one email only (a few seconds), so an app tap can't change the person mid-send
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(10000)) break;   // the app is busy: next hour
+    try {
+    if (!refresh_(db, c) || !emailStillDue_(c, item.fu) || blocked_(c, dnc)) continue;   // changed in the app meanwhile
+    const lang = pickLang_(c, s);
     let msg;
     try {
       const m = composeEmail_(c, s, lang, item.fu);
@@ -1468,6 +1518,7 @@ function sendBatch_() {
         String(e).slice(0, 120) + '). In the Sheet set EmailStatus = ' + (item.fu ? 'Followed up' : 'Sent') + ' for ' + c.ID + ', then turn the autopilot on again.');
       break;
     }
+    } finally { lock.releaseLock(); }
   }
 }
 
@@ -1558,7 +1609,7 @@ const BOUNCE_SEARCH = 'mailer-daemon OR postmaster OR MicrosoftExchange329e71ec8
 function addr_(from) { const m = String(from).match(/<([^>]+)>/); return (m ? m[1] : String(from)).trim().toLowerCase(); }
 
 function scanReplies_() {
-  const db = loadContacts_(), s = settings_();
+  const db = loadContacts_(), s = settings_(), dnc = dnc_();
   const me = me_();
   const watch = db.rows.filter(c => c.EmailThreadIds && ['Sent', 'Followed up', 'Replied', 'Asked'].indexOf(c.EmailStatus) >= 0);
   const byThread = {}, byEmail = {};
@@ -1618,8 +1669,15 @@ function scanReplies_() {
           patchContact_(db, c, { EmailLastSeen: newest });
           log_(c, 'Email', 'Email delayed or held', bounceLine_(soft) + ' — no change, address kept');
         } else if (gotReply) {
-          patchContact_(db, c, { EmailStatus: 'Replied', EmailLastSeen: newest, NeedsReply: 'YES', Status: 'Talking', NextDate: today_() });
-          log_(c, 'Email', stopHint ? 'Wrote back – may be asking to stop' : 'Wrote back', preview);
+          refresh_(db, c);
+          if (replyKeepsClosed_(c, blocked_(c, dnc))) {   // asked to stop / not a fit: note it, stay closed
+            patchContact_(db, c, { EmailStatus: 'Replied', EmailLastSeen: newest });
+            log_(c, 'Email', 'Wrote back (kept closed)', preview);
+          } else {
+            patchContact_(db, c, Object.assign({ EmailStatus: 'Replied', EmailLastSeen: newest, NeedsReply: 'YES', Status: 'Talking', NextDate: today_() },
+              c.Status === 'Closed' ? { CloseReason: '' } : {}));
+            log_(c, 'Email', stopHint ? 'Wrote back – may be asking to stop' : 'Wrote back', preview);
+          }
         } else if (newest > lastSeen) {
           patchContact_(db, c, { EmailLastSeen: newest });
         }
@@ -1640,7 +1698,7 @@ function scanBounces_(db) {
       if (done.indexOf(m.getId()) >= 0 || !isBounceMsg_(m.getFrom(), m.getSubject())) return;
       done.push(m.getId());
       const body = m.getPlainBody() || '', text = body.toLowerCase(), b = bounceInfo_(m.getSubject(), body);
-      db.rows.filter(c => validEmail_(c.Email) && ['Sent', 'Followed up'].indexOf(c.EmailStatus) >= 0 && text.indexOf(c.Email.trim().toLowerCase()) >= 0)
+      db.rows.filter(c => validEmail_(c.Email) && ['Sent', 'Followed up'].indexOf(c.EmailStatus) >= 0 && hasAddr_(text, c.Email))
         .forEach(c => {
           if (b.temp) log_(c, 'Email', 'Email delayed or held', bounceLine_(b) + ' — no change, address kept');
           else markBounced_(db, c, b, {});
@@ -1654,7 +1712,8 @@ function scanBounces_(db) {
 /** A real bounce: never email this address again; back to the phone/WhatsApp list. */
 function markBounced_(db, c, b, extra) {
   bumpBounce_();
-  patchContact_(db, c, Object.assign({ EmailStatus: 'Bounced', Status: c.Status === 'Contacted' ? 'New' : c.Status }, extra));
+  refresh_(db, c);   // fresh status: a WhatsApp or call may have happened since
+  patchContact_(db, c, Object.assign({ EmailStatus: 'Bounced', Status: c.Status === 'Contacted' && c.LastChannel === 'Email' ? 'New' : c.Status }, extra));
   log_(c, 'Email', 'Email bounced', bounceLine_(b) + ' — moved back to phone/WhatsApp list');
 }
 function bounceLine_(b) { return b.reason + (b.code ? ' (' + b.code + ')' : ''); }
@@ -1769,6 +1828,10 @@ function helperSync_(rebuildList, opt) {
       } else if (c && r.result === 'notfit') {   // a helper's "Not for us" is a suggestion: off the helpers' list, owner decides
         if (c.Status !== 'Closed') patchContact_(db, c, { Helpers: 'Set aside: ' + r.helper, Notes: (c.Notes ? c.Notes + '\n' : '') + today_() + ': [' + r.helper + '] Not for us: ' + (r.notes || '') });
         log_(c, 'Helper: ' + r.helper, 'Set aside', r.notes);
+      } else if (c && action && c.Status === 'Closed') {   // closed meanwhile (e.g. wrong number): keep closed, keep the note
+        patchContact_(db, c, { Notes: (c.Notes ? c.Notes + '\n' : '') + today_() + ': ' + helperNote_(r) });
+        log_(c, 'Helper: ' + r.helper, 'Result after closing (kept closed)', r.result + (r.notes ? ': ' + r.notes : ''));
+        if (r.names) saveSuggestions_(c, extractPeople(r.names, excludeFor_(c, s)), db);
       } else if (c && action) {
         applyResult_(s, db, c, action, 'Helper: ' + r.helper, helperNote_(r));
         if (action === 'spoke' && r.next) patchContact_(db, c, { NeedsReply: 'YES', NextDate: today_() });
@@ -1923,4 +1986,4 @@ function api_newHelperLink(name) {
 }
 
 /* for local testing with node */
-if (typeof module !== 'undefined') module.exports = { resultDays_: resultDays_, mineList_: mineList_, settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, emailOrder_: emailOrder_, sourceLine_: sourceLine_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, sendBlock_: sendBlock_, emailChangePatch_: emailChangePatch_, pickTheirs_: pickTheirs_, addr_: addr_, isBounceFrom_: isBounceFrom_, isBounceMsg_: isBounceMsg_, bounceInfo_: bounceInfo_, oldEmails_: oldEmails_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_, parseCommand_: parseCommand_, nameMatches_: nameMatches_ };
+if (typeof module !== 'undefined') module.exports = { emailStillDue_: emailStillDue_, oneEmailPerAddress_: oneEmailPerAddress_, hasAddr_: hasAddr_, mergeNotes_: mergeNotes_, replyKeepsClosed_: replyKeepsClosed_, resultDays_: resultDays_, mineList_: mineList_, settingsSections_: settingsSections_, settingsPatch_: settingsPatch_, toHtml_: toHtml_, emailCap_: emailCap_, mergePatch_: mergePatch_, isSeparate_: isSeparate_, helperPool_: helperPool_, helperNote_: helperNote_, helperTexts_: helperTexts_, srcGroup_: srcGroup_, emailOrder_: emailOrder_, sourceLine_: sourceLine_, HELPER_ACTIONS: HELPER_ACTIONS, scoreContact: scoreContact, normPhone_: normPhone_, extractPeople: extractPeople, isAutoReply_: isAutoReply_, sendBlock_: sendBlock_, emailChangePatch_: emailChangePatch_, pickTheirs_: pickTheirs_, addr_: addr_, isBounceFrom_: isBounceFrom_, isBounceMsg_: isBounceMsg_, bounceInfo_: bounceInfo_, oldEmails_: oldEmails_, ownText_: ownText_, planImport_: planImport_, csvRows_: csvRows_, parseCommand_: parseCommand_, nameMatches_: nameMatches_ };

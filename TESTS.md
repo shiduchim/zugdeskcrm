@@ -117,3 +117,10 @@ _Phone: multiple Google accounts → use Samsung Internet (or another browser) l
 - [ ] Tapping Sent/Spoke right after opening Today never gives a lock/timeout error.
 - [ ] Contact card history still shows all of that person's lines, newest first (TextFinder on Log column B).
 - [ ] After "Pick new people for today", today's people leave the helpers' list.
+
+## Bug fixes from the Opus review (2026-11-27)
+- [x] Notes added meanwhile (helper/chat/import) survive "Save date"/"Save changes"; Lang saved only if changed (node: mergeNotes_).
+- [ ] Helper result on a contact closed meanwhile → note only, stays Closed (log "Result after closing (kept closed)").
+- [x] Email reply: Do-not-contact / Not a fit stay Closed; Not reached / Wrong number reopen to Talking (node: replyKeepsClosed_). My shadchanim never shows Do-not-contact.
+- [x] Bounce matches whole address only (node: hasAddr_). Bounce / "Email didn't arrive" → New only if the last contact was by email.
+- [x] Autopilot: one email per address (node: oneEmailPerAddress_); each email re-checks the person under a short lock right before sending (node: emailStillDue_).

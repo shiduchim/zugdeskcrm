@@ -356,3 +356,40 @@ t('bounceInfo_: real Gmail notices (Nov 2026)', () => {
   const nf = "** Address not found **\n\nYour message wasn't delivered to x@gmail.com because the address couldn't be found, or is unable to receive mail.\n550 5.1.1 The email account that you tried to reach does not exist.\nStatus: 5.1.1";
   assert.strictEqual(A.bounceInfo_('Delivery Status Notification (Failure)', nf).reason, 'Address not found');
 });
+
+t('hasAddr_: whole address only', () => {
+  assert.strictEqual(A.hasAddr_('550 5.1.1 <jordan@gmail.com> not found', 'dan@gmail.com'), false);
+  assert.strictEqual(A.hasAddr_('550 5.1.1 <dan@gmail.com> not found', 'dan@gmail.com'), true);
+  assert.strictEqual(A.hasAddr_('to dan@gmail.com.', 'dan@gmail.com'), true);
+  assert.strictEqual(A.hasAddr_('dan@gmail.com.il', 'dan@gmail.com'), false);
+  assert.strictEqual(A.hasAddr_('x.dan@gmail.com', 'dan@gmail.com'), false);
+});
+t('mergeNotes_: keeps lines added while the card was open', () => {
+  assert.strictEqual(A.mergeNotes_('a', 'a', 'a\nb'), 'a\nb');
+  assert.strictEqual(A.mergeNotes_('a\nhelper note', 'a', 'a\nmine'), 'a\nmine\nhelper note');
+  assert.strictEqual(A.mergeNotes_('a\nhelper note', 'a', 'a fixed'), 'a fixed\nhelper note');
+  assert.strictEqual(A.mergeNotes_('a\nx', 'a', 'a\nx'), 'a\nx');
+});
+t('emailStillDue_: skips people changed in the app', () => {
+  assert.strictEqual(A.emailStillDue_({ Status: 'New', EmailStatus: '' }, false), true);
+  assert.strictEqual(A.emailStillDue_({ Status: 'Talking', EmailStatus: '' }, false), false);
+  assert.strictEqual(A.emailStillDue_({ Status: 'Contacted', EmailStatus: 'Sent', LastChannel: 'Email' }, true), true);
+  assert.strictEqual(A.emailStillDue_({ Status: 'Contacted', EmailStatus: 'Sent', LastChannel: 'WhatsApp' }, true), false);
+});
+t('oneEmailPerAddress_: one email per inbox', () => {
+  const L = [{ ID: 'a', Email: 'X@y.com' }, { ID: 'b', Email: 'x@y.com ' }, { ID: 'c', Email: 'z@y.com' }, { ID: 'd', Email: 'old@y.com' }];
+  const rows = L.concat([{ ID: 'e', Email: 'old@y.com', EmailStatus: 'Sent' }]);
+  assert.deepStrictEqual(A.oneEmailPerAddress_(L, rows).map(c => c.ID), ['a', 'c']);
+});
+t('replyKeepsClosed_: do-not-contact / not a fit stay closed; not reached reopens', () => {
+  assert.strictEqual(A.replyKeepsClosed_({ Status: 'Closed', CloseReason: 'Do not contact' }, false), true);
+  assert.strictEqual(A.replyKeepsClosed_({ Status: 'Closed', CloseReason: 'Not a fit' }, false), true);
+  assert.strictEqual(A.replyKeepsClosed_({ Status: 'Closed', CloseReason: 'Not reached' }, false), false);
+  assert.strictEqual(A.replyKeepsClosed_({ Status: 'Closed', CloseReason: 'Not reached' }, true), true);
+  assert.strictEqual(A.replyKeepsClosed_({ Status: 'Talking' }, true), false);
+});
+t('mineList_: leaves out Do-not-contact', () => {
+  const L = A.mineList_([{ ID: 'a', Type: 'Shadchan', Status: 'Talking' }, { ID: 'b', Type: 'Shadchan', Status: 'Talking' }], c => c.ID === 'b');
+  assert.deepStrictEqual(L.map(c => c.ID), ['a']);
+});
+console.log(n + ' checks passed');
